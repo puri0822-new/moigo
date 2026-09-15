@@ -27,8 +27,10 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 |------|------|------|
 | id | BIGINT PK | 사용자 ID |
 | email | VARCHAR(255) UNIQUE | 이메일 (로그인 ID) |
-| password_hash | VARCHAR(255) | 암호화된 비밀번호 |
+| password_hash | VARCHAR(255) NULL | 암호화된 비밀번호 (LOCAL만, 구글 로그인은 NULL) |
 | nickname | VARCHAR(50) | 닉네임 |
+| login_type | VARCHAR(20) | 로그인 방식 (LOCAL / GOOGLE) |
+| social_id | VARCHAR(255) NULL | 구글 고유 ID (GOOGLE만, LOCAL은 NULL) |
 | created_at | TIMESTAMP | 가입일시 |
 | updated_at | TIMESTAMP | 수정일시 |
 
@@ -147,3 +149,4 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 3. **Order.ai_analysis_id** 는 nullable → AI 분석 없이도 주문 가능, 있으면 복기 기능 연결
 4. **AiAnalysis** 는 Gemini/Claude 결과를 한 행에 저장 → 비교 쿼리 단순화
 5. **News.collected_at** 과 **published_at** 분리 → 수집 시점과 발행 시점 구분 가능
+6. **User.login_type** 으로 로그인 방식 구분 → LOCAL이면 password_hash 필수, GOOGLE이면 social_id 필수
