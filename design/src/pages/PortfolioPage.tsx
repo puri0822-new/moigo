@@ -1,5 +1,6 @@
 import { useTheme } from '../context/ThemeContext';
 import { stocks, holdings } from '../data/mockData';
+import StockLogo from '../components/StockLogo';
 
 const tradeHistory = [
   { date: '2026-09-15', type: '매수', name: '삼성전자', qty: 3, price: '78,200원', total: '234,600원', profit: null },
@@ -77,9 +78,12 @@ export default function PortfolioPage() {
                 padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
                 fontSize: 13, alignItems: 'center',
               }}>
-                <div>
-                  <div style={{ fontWeight: 700 }}>{h.name}</div>
-                  <div style={{ fontSize: 11, color: theme.textMuted }}>{stock.code}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <StockLogo name={h.name} size={28} />
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{h.name}</div>
+                    <div style={{ fontSize: 11, color: theme.textMuted }}>{stock.code}</div>
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.qty}</div>
                 <div style={{ textAlign: 'right', fontWeight: 600 }}>{stock.price}</div>
@@ -124,7 +128,10 @@ export default function PortfolioPage() {
               }}>
                 {t.type}
               </span>
-              <span style={{ fontWeight: 600 }}>{t.name}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <StockLogo name={t.name} size={22} />
+                <span style={{ fontWeight: 600 }}>{t.name}</span>
+              </div>
               <span style={{ textAlign: 'right' }}>{t.qty}주</span>
               <span style={{ textAlign: 'right' }}>{t.price}</span>
               <span style={{ textAlign: 'right', fontWeight: 600 }}>{t.total}</span>

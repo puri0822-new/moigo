@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { stocks, holdings } from '../../data/mockData';
+import StockLogo from '../StockLogo';
 
 export default function Sidebar() {
   const { theme } = useTheme();
@@ -62,9 +63,12 @@ export default function Sidebar() {
                 cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600 }}>
-                <span>{h.name}</span>
-                <span style={{ color: theme.textMuted, fontWeight: 500 }}>{h.qty}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <StockLogo name={h.name} size={28} />
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600 }}>
+                  <span>{h.name}</span>
+                  <span style={{ color: theme.textMuted, fontWeight: 500 }}>{h.qty}</span>
+                </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12 }}>
                 <span style={{ fontWeight: 600, color: changeColor }}>{changeLabel} ({changeAmount})</span>

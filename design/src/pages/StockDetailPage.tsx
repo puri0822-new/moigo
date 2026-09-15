@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { stocks, orderbook } from '../data/mockData';
+import StockLogo from '../components/StockLogo';
 
 const periods = ['1일', '1주', '1개월', '1년'];
 
@@ -45,9 +46,12 @@ export default function StockDetailPage() {
           ← 랭킹으로
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</div>
-          <div style={{ fontSize: 13, color: theme.textMuted }}>{stock.code}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <StockLogo name={stock.name} size={48} />
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</div>
+            <div style={{ fontSize: 13, color: theme.textMuted }}>{stock.code}</div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>

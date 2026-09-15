@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { stocks, aiRecs } from '../data/mockData';
+import StockLogo from '../components/StockLogo';
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -38,6 +39,7 @@ export default function DashboardPage() {
                 <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
                   {s.rank}
                 </div>
+                <StockLogo name={s.name} size={36} />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
