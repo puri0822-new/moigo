@@ -23,108 +23,106 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 ## 테이블 정의
 
 ### User (사용자)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGINT PK | 사용자 ID |
-| email | VARCHAR(255) UNIQUE | 이메일 (로그인 ID) |
-| password_hash | VARCHAR(255) NULL | 암호화된 비밀번호 (LOCAL만, 구글 로그인은 NULL) |
-| nickname | VARCHAR(50) | 닉네임 |
-| login_type | VARCHAR(20) | 로그인 방식 (LOCAL / GOOGLE) |
-| social_id | VARCHAR(255) NULL | 구글 고유 ID (GOOGLE만, LOCAL은 NULL) |
-| created_at | TIMESTAMP | 가입일시 |
-| updated_at | TIMESTAMP | 수정일시 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 사용자 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
+| 이메일 | email | UNIQUE | VARCHAR(255) | NOT NULL | - |
+| 비밀번호 | password_hash | - | VARCHAR(255) | NULL | NULL |
+| 닉네임 | nickname | - | VARCHAR(50) | NOT NULL | - |
+| 로그인 방식 | login_type | - | VARCHAR(20) | NOT NULL | 'LOCAL' |
+| 소셜 ID | social_id | - | VARCHAR(255) | NULL | NULL |
+| 가입일시 | created_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 수정일시 | updated_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
 ### Account (가상계좌) — User와 1:1
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGINT PK | 계좌 ID |
-| user_id | BIGINT FK(User) UNIQUE | 사용자 ID |
-| balance | BIGINT | 가용 잔고 (원 단위) |
-| initial_balance | BIGINT | 초기 지급 자본금 (기본 10,000,000) |
-| created_at | TIMESTAMP | 계좌 생성일시 |
-| updated_at | TIMESTAMP | 수정일시 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 계좌 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
+| 사용자 ID | user_id | FK(User) UNIQUE | BIGINT | NOT NULL | - |
+| 가용 잔고 | balance | - | BIGINT | NOT NULL | 10000000 |
+| 초기 자본금 | initial_balance | - | BIGINT | NOT NULL | 10000000 |
+| 계좌 생성일시 | created_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 수정일시 | updated_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
 ### Stock (종목)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGINT PK | 종목 ID |
-| code | VARCHAR(20) UNIQUE | 종목 코드 (ex. 005930) |
-| name | VARCHAR(100) | 종목명 (ex. 삼성전자) |
-| market | VARCHAR(20) | 시장 구분 (KOSPI / KOSDAQ) |
-| sector | VARCHAR(100) | 업종 |
-| created_at | TIMESTAMP | 등록일시 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 종목 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
+| 종목 코드 | code | UNIQUE | VARCHAR(20) | NOT NULL | - |
+| 종목명 | name | - | VARCHAR(100) | NOT NULL | - |
+| 시장 구분 | market | - | VARCHAR(20) | NOT NULL | 'KOSPI' |
+| 업종 | sector | - | VARCHAR(100) | NULL | NULL |
+| 등록일시 | created_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
 ### News (뉴스)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGINT PK | 뉴스 ID |
-| stock_id | BIGINT FK(Stock) | 관련 종목 ID |
-| title | VARCHAR(500) | 뉴스 제목 |
-| summary | TEXT | 뉴스 요약 |
-| url | VARCHAR(1000) | 원문 URL |
-| source | VARCHAR(100) | 출처 매체 (ex. 연합뉴스) |
-| published_at | TIMESTAMP | 뉴스 발행일시 |
-| collected_at | TIMESTAMP | 수집일시 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 뉴스 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
+| 종목 ID | stock_id | FK(Stock) | BIGINT | NOT NULL | - |
+| 뉴스 제목 | title | - | VARCHAR(500) | NOT NULL | - |
+| 뉴스 요약 | summary | - | TEXT | NULL | NULL |
+| 원문 URL | url | - | VARCHAR(1000) | NOT NULL | - |
+| 출처 매체 | source | - | VARCHAR(100) | NOT NULL | - |
+| 뉴스 발행일시 | published_at | - | TIMESTAMP | NOT NULL | - |
+| 수집일시 | collected_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
 ### AiAnalysis (AI 분석 결과)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGINT PK | 분석 ID |
-| stock_id | BIGINT FK(Stock) | 분석 대상 종목 ID |
-| gemini_result | TEXT | Gemini 분석 내용 |
-| claude_result | TEXT | Claude 분석 내용 |
-| gemini_recommendation | VARCHAR(20) | Gemini 추천 (BUY / HOLD / SELL) |
-| claude_recommendation | VARCHAR(20) | Claude 추천 (BUY / HOLD / SELL) |
-| is_matched | BOOLEAN | 두 AI 결과 일치 여부 |
-| sentiment | VARCHAR(20) | 투자심리 (POSITIVE / NEUTRAL / NEGATIVE) |
-| price_at_analysis | BIGINT | 분석 시점 주가 |
-| analyzed_at | TIMESTAMP | 분석 실행일시 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 분석 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
+| 종목 ID | stock_id | FK(Stock) | BIGINT | NOT NULL | - |
+| Gemini 분석 내용 | gemini_result | - | TEXT | NULL | NULL |
+| Claude 분석 내용 | claude_result | - | TEXT | NULL | NULL |
+| Gemini 추천 | gemini_recommendation | - | VARCHAR(20) | NULL | NULL |
+| Claude 추천 | claude_recommendation | - | VARCHAR(20) | NULL | NULL |
+| AI 결과 일치 여부 | is_matched | - | BOOLEAN | NULL | NULL |
+| 투자심리 | sentiment | - | VARCHAR(20) | NULL | NULL |
+| 분석 시점 주가 | price_at_analysis | - | BIGINT | NULL | NULL |
+| 분석 실행일시 | analyzed_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
 ### AiAnalysisNews (AI분석-뉴스 중간 테이블)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| ai_analysis_id | BIGINT FK(AiAnalysis) | 분석 ID |
-| news_id | BIGINT FK(News) | 뉴스 ID |
-| PRIMARY KEY | (ai_analysis_id, news_id) | 복합키 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 분석 ID | ai_analysis_id | PK, FK(AiAnalysis) | BIGINT | NOT NULL | - |
+| 뉴스 ID | news_id | PK, FK(News) | BIGINT | NOT NULL | - |
 
 ---
 
 ### Order (주문 내역)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGINT PK | 주문 ID |
-| user_id | BIGINT FK(User) | 사용자 ID |
-| account_id | BIGINT FK(Account) | 계좌 ID |
-| stock_id | BIGINT FK(Stock) | 종목 ID |
-| ai_analysis_id | BIGINT FK(AiAnalysis) NULL | 매매 당시 AI 분석 ID (복기용) |
-| order_type | VARCHAR(10) | 주문 유형 (BUY / SELL) |
-| quantity | INT | 주문 수량 |
-| price | BIGINT | 체결 가격 (원 단위) |
-| total_amount | BIGINT | 총 거래금액 (quantity * price) |
-| ordered_at | TIMESTAMP | 주문 체결일시 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 주문 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
+| 사용자 ID | user_id | FK(User) | BIGINT | NOT NULL | - |
+| 계좌 ID | account_id | FK(Account) | BIGINT | NOT NULL | - |
+| 종목 ID | stock_id | FK(Stock) | BIGINT | NOT NULL | - |
+| AI 분석 ID | ai_analysis_id | FK(AiAnalysis) | BIGINT | NULL | NULL |
+| 주문 유형 | order_type | - | VARCHAR(10) | NOT NULL | - |
+| 주문 수량 | quantity | - | INT | NOT NULL | - |
+| 체결 가격 | price | - | BIGINT | NOT NULL | - |
+| 총 거래금액 | total_amount | - | BIGINT | NOT NULL | - |
+| 주문 체결일시 | ordered_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
 ### Holding (보유 종목)
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| id | BIGINT PK | 보유 ID |
-| user_id | BIGINT FK(User) | 사용자 ID |
-| stock_id | BIGINT FK(Stock) | 종목 ID |
-| quantity | INT | 보유 수량 |
-| avg_price | BIGINT | 평균 매수가 |
-| updated_at | TIMESTAMP | 최근 수정일시 |
-| UNIQUE | (user_id, stock_id) | 사용자당 종목 1행 유지 |
+| Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
+|--------------|-------------|--------|------|-----------|---------------|
+| 보유 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
+| 사용자 ID | user_id | FK(User) UNIQUE | BIGINT | NOT NULL | - |
+| 종목 ID | stock_id | FK(Stock) UNIQUE | BIGINT | NOT NULL | - |
+| 보유 수량 | quantity | - | INT | NOT NULL | - |
+| 평균 매수가 | avg_price | - | BIGINT | NOT NULL | - |
+| 수정일시 | updated_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
