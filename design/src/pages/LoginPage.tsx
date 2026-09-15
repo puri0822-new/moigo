@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const { theme, mode, toggle } = useTheme();
+  const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const handleGoogleLogin = async () => {
+    await loginWithGoogle();
+    navigate('/');
+  };
 
   return (
     <div style={{
@@ -101,13 +108,13 @@ export default function LoginPage() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
-              { label: '카카오로 로그인', bg: '#FEE500', color: '#000' },
-              { label: '네이버로 로그인', bg: '#03C75A', color: '#fff' },
-              { label: 'Google로 로그인', bg: theme.panel2, color: theme.text },
-            ].map(({ label, bg, color }) => (
+              { label: '카카오로 로그인', bg: '#FEE500', color: '#000', onClick: () => navigate('/') },
+              { label: '네이버로 로그인', bg: '#03C75A', color: '#fff', onClick: () => navigate('/') },
+              { label: 'Google로 로그인', bg: theme.panel2, color: theme.text, onClick: handleGoogleLogin },
+            ].map(({ label, bg, color, onClick }) => (
               <button
                 key={label}
-                onClick={() => navigate('/')}
+                onClick={onClick}
                 style={{
                   padding: '11px 0', borderRadius: 10, background: bg, color,
                   fontSize: 14, fontWeight: 600, border: `1px solid ${theme.border}`,
