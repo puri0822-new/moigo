@@ -106,25 +106,17 @@ export default function LoginPage() {
             <div style={{ flex: 1, height: 1, background: theme.border }} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { label: '카카오로 로그인', bg: '#FEE500', color: '#000', onClick: () => navigate('/') },
-              { label: '네이버로 로그인', bg: '#03C75A', color: '#fff', onClick: () => navigate('/') },
-              { label: 'Google로 로그인', bg: theme.panel2, color: theme.text, onClick: handleGoogleLogin },
-            ].map(({ label, bg, color, onClick }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                style={{
-                  padding: '11px 0', borderRadius: 10, background: bg, color,
-                  fontSize: 14, fontWeight: 600, border: `1px solid ${theme.border}`,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={handleGoogleLogin}
+            style={{
+              padding: '11px 0', borderRadius: 10,
+              background: theme.panel2, color: theme.text,
+              fontSize: 14, fontWeight: 600, border: `1px solid ${theme.border}`,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Google로 로그인
+          </button>
         </div>
 
         <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: theme.textMuted }}>
