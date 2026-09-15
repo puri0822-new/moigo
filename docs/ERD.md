@@ -148,3 +148,8 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 4. **AiAnalysis** 는 Gemini/Claude 결과를 한 행에 저장 → 비교 쿼리 단순화
 5. **News.collected_at** 과 **published_at** 분리 → 수집 시점과 발행 시점 구분 가능
 6. **User.login_type** 으로 로그인 방식 구분 → LOCAL이면 password_hash 필수, GOOGLE이면 social_id 필수
+   - password_hash는 GOOGLE 로그인 사용자에 한해 NULL 허용 (의도된 설계)
+   - 테이블 분리(users / user_local / user_social) 방식도 있으나 아래 이유로 단일 테이블 채택
+     - 로그인할 때마다 JOIN 쿼리 필요 → 코드 복잡도 증가
+     - 관리할 테이블이 1개 → 3개로 늘어남
+     - 로그인 방식이 2가지뿐인 현재 규모에서는 과한 설계
