@@ -4,3 +4,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Firebase Admin SDK 서비스 계정 키 등 민감한 자격증명
+secrets/
