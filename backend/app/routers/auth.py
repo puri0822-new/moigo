@@ -43,7 +43,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     token = create_access_token({"sub": str(user.id)})
     return {
         "success": True,
-        "data": {"access_token": token, "token_type": "bearer"},
+        "data": {"access_token": token, "token_type": "bearer", "nickname": user.nickname},
         "message": "로그인 성공"
     }
 
