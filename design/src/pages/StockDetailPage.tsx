@@ -3,10 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { orderbook } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
-import { fetchStocks, fetchStockNews, type ApiStock, type ApiNewsItem } from '../lib/api';
+import { fetchStocks, fetchStockNews, fetchStockCandles, type ApiStock, type ApiNewsItem } from '../lib/api';
 import { timeAgo } from '../lib/time';
+import CandleChart from '../components/CandleChart';
+import type { UTCTimestamp } from 'lightweight-charts';
 
-const periods = ['1일', '1주', '1개월', '1년'];
+const periods = ['1일', '1주', '1개월', '1년'] as const;
+
+const PERIOD_PARAMS: Record<(typeof periods)[number], { interval: '1m' | '1d'; count: number }> = {
+  '1일': { interval: '1m', count: 200 },
+  '1주': { interval: '1d', count: 5 },
+  '1개월': { interval: '1d', count: 22 },
+  '1년': { interval: '1d', count: 200 }, // 토스 API 최대 200봉 제한으로 실제로는 약 9~10개월치까지만 표시됨
+};
 
 export default function StockDetailPage() {
   const { theme } = useTheme();
@@ -15,10 +24,11 @@ export default function StockDetailPage() {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [qty, setQty] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
-  const [period, setPeriod] = useState('1일');
+  const [period, setPeriod] = useState<(typeof periods)[number]>('1일');
 
   const [stock, setStock] = useState<ApiStock | null>(null);
   const [news, setNews] = useState<ApiNewsItem[]>([]);
+  const [candles, setCandles] = useState<{ time: UTCTimestamp | string; open: number; high: number; low: number; close: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -41,6 +51,26 @@ export default function StockDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [code]);
+
+  useEffect(() => {
+    if (!stock) return;
+    const { interval, count } = PERIOD_PARAMS[period];
+    fetchStockCandles(stock.id, interval, count)
+      .then(raw => {
+        setCandles(
+          raw.map(c => ({
+            time: interval === '1d'
+              ? c.timestamp.slice(0, 10)
+              : (Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }))
+        );
+      })
+      .catch(() => setCandles([]));
+  }, [stock, period]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -124,12 +154,17 @@ export default function StockDetailPage() {
               </div>
             ))}
           </div>
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: theme.textMuted, fontSize: 13,
-            background: `repeating-linear-gradient(45deg, ${theme.panel2} 0 10px, transparent 10px 20px)`,
-          }}>
-            캔들 차트 영역
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {candles.length > 0 ? (
+              <CandleChart data={candles} theme={theme} />
+            ) : (
+              <div style={{
+                height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: theme.textMuted, fontSize: 13,
+              }}>
+                차트 데이터를 불러오는 중...
+              </div>
+            )}
           </div>
         </div>
 

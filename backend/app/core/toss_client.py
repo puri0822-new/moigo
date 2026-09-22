@@ -7,11 +7,13 @@ from app.core.config import settings
 
 BASE_URL = "https://openapi.tossinvest.com"
 PRICE_CACHE_TTL_SECONDS = 60
+CANDLE_CACHE_TTL_SECONDS = 60
 
 _token_lock = asyncio.Lock()
 _token_cache: dict[str, str | float] = {"access_token": "", "expires_at": 0.0}
 
 _price_cache: dict[str, tuple[dict, float]] = {}
+_candle_cache: dict[tuple[str, str, int], tuple[list[dict], float]] = {}
 
 
 async def _get_access_token() -> str:
@@ -77,3 +79,27 @@ async def get_prices(symbols: list[str]) -> dict[str, dict]:
         result[item["symbol"]] = item
 
     return result
+
+
+async def get_candles(symbol: str, interval: str, count: int) -> list[dict]:
+    """종목의 캔들(OHLCV) 데이터를 조회. 오래된 봉부터 오름차순으로 반환. 60초간 캐시."""
+    cache_key = (symbol, interval, count)
+    now = time.monotonic()
+    cached = _candle_cache.get(cache_key)
+    if cached and now - cached[1] < CANDLE_CACHE_TTL_SECONDS:
+        return cached[0]
+
+    token = await _get_access_token()
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(
+            f"{BASE_URL}/api/v1/candles",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"symbol": symbol, "interval": interval, "count": count},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    # 토스는 최신순(내림차순)으로 반환하므로, 차트 라이브러리가 기대하는 오름차순으로 뒤집는다
+    candles = list(reversed(data["result"]["candles"]))
+    _candle_cache[cache_key] = (candles, now)
+    return candles

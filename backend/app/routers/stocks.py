@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import toss_client
 from app.core.database import get_db
 from app.models import Stock
+from app.schemas.candle import Candle
 from app.schemas.common import ApiResponse
 from app.schemas.stock import StockDetail, StockListItem
 
@@ -51,3 +52,38 @@ async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
         detail.current_price = int(float(price["lastPrice"]))
 
     return ApiResponse(success=True, data=detail, message="요청 성공")
+
+
+@router.get("/{stock_id}/candles", response_model=ApiResponse[list[Candle]])
+async def get_stock_candles(
+    stock_id: int,
+    interval: str = "1d",
+    count: int = 100,
+    db: AsyncSession = Depends(get_db),
+):
+    if interval not in ("1m", "1d"):
+        raise HTTPException(status_code=400, detail="interval은 1m 또는 1d만 지원합니다")
+    if not 1 <= count <= 200:
+        raise HTTPException(status_code=400, detail="count는 1~200 사이여야 합니다")
+
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        raw_candles = await toss_client.get_candles(stock.code, interval, count)
+    except httpx.HTTPError:
+        raw_candles = []
+
+    data = [
+        Candle(
+            timestamp=c["timestamp"],
+            open=float(c["openPrice"]),
+            high=float(c["highPrice"]),
+            low=float(c["lowPrice"]),
+            close=float(c["closePrice"]),
+            volume=float(c["volume"]),
+        )
+        for c in raw_candles
+    ]
+    return ApiResponse(success=True, data=data, message="요청 성공")
