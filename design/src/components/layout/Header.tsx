@@ -1,13 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { stocks } from '../../data/mockData';
 
 export default function Header() {
   const { theme, mode, toggle } = useTheme();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    setProfileOpen(false);
+    await logout();
+    navigate('/login');
+  };
 
   const results = stocks
     .filter(s => query && (s.name.includes(query) || s.code.includes(query)))
@@ -116,15 +125,49 @@ export default function Header() {
           <span>{mode === 'dark' ? '다크' : '라이트'}</span>
         </div>
         <div style={{ fontSize: 19, cursor: 'pointer' }}>🔔</div>
-        <div
-          onClick={() => navigate('/portfolio')}
-          style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: theme.panel2, border: `1px solid ${theme.border}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, cursor: 'pointer',
-          }}
-        >👤</div>
+        <div style={{ position: 'relative' }}>
+          <div
+            onClick={() => setProfileOpen(o => !o)}
+            style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: theme.panel2, border: `1px solid ${theme.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, cursor: 'pointer',
+            }}
+          >👤</div>
+
+          {profileOpen && (
+            <div
+              onClick={() => setProfileOpen(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 15 }}
+            />
+          )}
+
+          {profileOpen && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 150,
+              background: theme.panel, border: `1px solid ${theme.border}`,
+              borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+              overflow: 'hidden', zIndex: 20,
+            }}>
+              <div
+                onClick={() => { setProfileOpen(false); navigate('/portfolio'); }}
+                style={{ padding: '11px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                📊 포트폴리오
+              </div>
+              <div
+                onClick={handleLogout}
+                style={{
+                  padding: '11px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  color: theme.down, borderTop: `1px solid ${theme.border}`,
+                }}
+              >
+                🚪 로그아웃
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
