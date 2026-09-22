@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createChart, CandlestickSeries, type IChartApi, type CandlestickData, type UTCTimestamp } from 'lightweight-charts';
 import type { Theme } from '../types';
+import { toRgb } from '../lib/color';
 
 interface Props {
   data: CandlestickData<UTCTimestamp | string>[];
@@ -15,25 +16,31 @@ export default function CandleChart({ data, theme }: Props) {
     const el = containerRef.current;
     if (!el) return;
 
+    // lightweight-charts는 oklch() 등 최신 CSS 색상 함수를 파싱하지 못하므로 rgb()로 변환해서 전달
+    const textMuted = toRgb(theme.textMuted);
+    const border = toRgb(theme.border);
+    const up = toRgb(theme.up);
+    const down = toRgb(theme.down);
+
     const chart = createChart(el, {
       width: el.clientWidth,
       height: el.clientHeight,
-      layout: { background: { color: 'transparent' }, textColor: theme.textMuted },
+      layout: { background: { color: 'transparent' }, textColor: textMuted },
       grid: {
-        vertLines: { color: theme.border },
-        horzLines: { color: theme.border },
+        vertLines: { color: border },
+        horzLines: { color: border },
       },
-      timeScale: { borderColor: theme.border },
-      rightPriceScale: { borderColor: theme.border },
+      timeScale: { borderColor: border },
+      rightPriceScale: { borderColor: border },
     });
     chartRef.current = chart;
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: theme.up,
-      downColor: theme.down,
+      upColor: up,
+      downColor: down,
       borderVisible: false,
-      wickUpColor: theme.up,
-      wickDownColor: theme.down,
+      wickUpColor: up,
+      wickDownColor: down,
     });
     series.setData(data);
     chart.timeScale().fitContent();
