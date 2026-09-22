@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, orderbook } from '../data/mockData';
+import { orderbook } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
+import { fetchStocks, fetchStockNews, type ApiStock, type ApiNewsItem } from '../lib/api';
+import { timeAgo } from '../lib/time';
 
 const periods = ['1일', '1주', '1개월', '1년'];
 
@@ -15,16 +17,56 @@ export default function StockDetailPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [period, setPeriod] = useState('1일');
 
-  const stock = stocks.find(s => s.code === code) || stocks[0];
-  const changeColor = stock.changePct >= 0 ? theme.up : theme.down;
-  const changeLabel = (stock.changePct >= 0 ? '▲' : '▼') + Math.abs(stock.changePct).toFixed(1) + '%';
-  const priceNum = parseInt(stock.price.replace(/[^0-9]/g, ''), 10);
-  const total = priceNum * qty;
+  const [stock, setStock] = useState<ApiStock | null>(null);
+  const [news, setNews] = useState<ApiNewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setNotFound(false);
+    fetchStocks()
+      .then(async apiStocks => {
+        const found = apiStocks.find(s => s.code === code);
+        if (!found) {
+          setNotFound(true);
+          return;
+        }
+        setStock(found);
+        try {
+          setNews(await fetchStockNews(found.id));
+        } catch {
+          setNews([]);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [code]);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2600);
   };
+
+  if (loading) {
+    return <div style={{ padding: 24, color: theme.textMuted }}>불러오는 중...</div>;
+  }
+
+  if (notFound || !stock) {
+    return (
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ color: theme.down }}>종목 정보를 찾을 수 없습니다.</div>
+        <button onClick={() => navigate('/')} style={{ alignSelf: 'flex-start', color: theme.ai, background: 'none', border: 'none', cursor: 'pointer' }}>
+          ← 랭킹으로
+        </button>
+      </div>
+    );
+  }
+
+  const changePct = stock.change_rate != null ? stock.change_rate * 100 : 0;
+  const changeColor = changePct >= 0 ? theme.up : theme.down;
+  const changeLabel = (changePct >= 0 ? '▲' : '▼') + Math.abs(changePct).toFixed(1) + '%';
+  const priceLabel = stock.current_price != null ? `${stock.current_price.toLocaleString()}원` : '-';
+  const total = (stock.current_price ?? 0) * qty;
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
@@ -55,9 +97,9 @@ export default function StockDetailPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{stock.price}</div>
+          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{priceLabel}</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: changeColor }}>{changeLabel}</div>
-          <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 {stock.volume}</div>
+          <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 -</div>
         </div>
 
         {/* 차트 */}
@@ -179,14 +221,24 @@ export default function StockDetailPage() {
           display: 'flex', flexDirection: 'column', gap: 10,
         }}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>최근 뉴스</div>
-          {stock.news.map((n, i) => (
-            <div key={i} style={{
-              display: 'flex', flexDirection: 'column', gap: 2,
-              padding: '10px 0', borderBottom: `1px solid ${theme.border}`,
-            }}>
+          {news.length === 0 && (
+            <div style={{ fontSize: 12, color: theme.textMuted, padding: '8px 0' }}>관련 뉴스가 없습니다.</div>
+          )}
+          {news.map(n => (
+            <a
+              key={n.id}
+              href={n.url}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 2,
+                padding: '10px 0', borderBottom: `1px solid ${theme.border}`,
+                color: 'inherit', textDecoration: 'none',
+              }}
+            >
               <div style={{ fontSize: 13, fontWeight: 500 }}>{n.title}</div>
-              <div style={{ fontSize: 11, color: theme.textMuted }}>{n.source} · {n.time}</div>
-            </div>
+              <div style={{ fontSize: 11, color: theme.textMuted }}>{n.source ?? '출처 미상'} · {timeAgo(n.published_at)}</div>
+            </a>
           ))}
         </div>
       </div>
@@ -210,30 +262,10 @@ export default function StockDetailPage() {
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>뉴스 기반 등락 이유</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>{stock.aiReason}</div>
-        </div>
-
-        <div style={{
-          background: theme.panel2, border: `1px solid ${theme.border}`,
-          borderRadius: 10, padding: 14,
-          display: 'flex', flexDirection: 'column', gap: 8,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>참고 코멘트</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>{stock.aiComment}</div>
-          <div style={{ fontSize: 10.5, color: theme.textMuted, lineHeight: 1.5 }}>
-            ※ 투자 참고용 정보이며 투자 조언이 아닙니다.
+          <div style={{ fontSize: 13, lineHeight: 1.6, color: theme.textMuted }}>
+            AI 분석 기능은 아직 준비 중입니다.
           </div>
         </div>
-
-        <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>유사 종목</div>
-        {stock.similar.map(s => (
-          <div key={s} style={{
-            padding: '8px 10px', background: theme.panel2, border: `1px solid ${theme.border}`,
-            borderRadius: 8, fontSize: 12, fontWeight: 600,
-          }}>
-            {s}
-          </div>
-        ))}
       </div>
 
       {toast && (

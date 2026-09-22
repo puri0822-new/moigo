@@ -24,3 +24,17 @@ export async function fetchStocks(): Promise<ApiStock[]> {
   const res = await api.get<ApiResponse<ApiStock[]>>('/stocks');
   return res.data.data;
 }
+
+export interface ApiNewsItem {
+  id: number;
+  title: string;
+  summary: string | null;
+  url: string;
+  source: string | null;
+  published_at: string;
+}
+
+export async function fetchStockNews(stockId: number, limit = 10): Promise<ApiNewsItem[]> {
+  const res = await api.get<ApiResponse<ApiNewsItem[]>>(`/stocks/${stockId}/news`, { params: { limit } });
+  return res.data.data;
+}
