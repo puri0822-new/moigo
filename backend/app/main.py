@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.routers import auth
-from app.routers import orders, portfolio, account
+from app.routers import orders, portfolio, account, stocks
 import app.models.stock
 import app.models.order
 import app.models.holding
@@ -24,6 +24,7 @@ app.include_router(auth.router, prefix="/v1")
 app.include_router(orders.router, prefix="/v1")
 app.include_router(portfolio.router, prefix="/v1")
 app.include_router(account.router, prefix="/v1")
+app.include_router(stocks.router, prefix="/v1")
 
 @app.get("/")
 def root():

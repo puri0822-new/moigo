@@ -1,19 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { stocks, orderbook } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
+import { createOrder, getStocks, getAccount, type StockInfo, type AccountInfo } from '../lib/api';
 
 const periods = ['1일', '1주', '1개월', '1년'];
 
 export default function StockDetailPage() {
   const { theme } = useTheme();
+  const { isAuthenticated } = useAuth();
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [qty, setQty] = useState(1);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [period, setPeriod] = useState('1일');
+  const [loading, setLoading] = useState(false);
+  const [stockInfo, setStockInfo] = useState<StockInfo | null>(null);
+  const [account, setAccount] = useState<AccountInfo | null>(null);
 
   const stock = stocks.find(s => s.code === code) || stocks[0];
   const changeColor = stock.changePct >= 0 ? theme.up : theme.down;
@@ -21,9 +27,50 @@ export default function StockDetailPage() {
   const priceNum = parseInt(stock.price.replace(/[^0-9]/g, ''), 10);
   const total = priceNum * qty;
 
-  const showToast = (msg: string) => {
-    setToast(msg);
+  useEffect(() => {
+    getStocks().then(res => {
+      const found = res.data.find(s => s.code === code);
+      setStockInfo(found ?? null);
+    }).catch(() => {});
+
+    if (isAuthenticated) {
+      getAccount().then(res => setAccount(res.data)).catch(() => {});
+    }
+  }, [code, isAuthenticated]);
+
+  const showToast = (msg: string, ok: boolean) => {
+    setToast({ msg, ok });
     setTimeout(() => setToast(null), 2600);
+  };
+
+  const handleOrder = async () => {
+    if (!isAuthenticated) {
+      showToast('로그인이 필요합니다', false);
+      return;
+    }
+    if (!stockInfo) {
+      showToast('종목 정보를 불러오는 중입니다', false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await createOrder({
+        stock_id: stockInfo.id,
+        order_type: side === 'buy' ? 'BUY' : 'SELL',
+        quantity: qty,
+        price: priceNum,
+      });
+      showToast(
+        `${side === 'buy' ? '매수' : '매도'} 체결: ${res.data.stock_name} ${qty}주 · ${total.toLocaleString()}원`,
+        true,
+      );
+      getAccount().then(r => setAccount(r.data)).catch(() => {});
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '주문 실패', false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,7 +145,14 @@ export default function StockDetailPage() {
             borderRadius: 12, padding: 16,
             display: 'flex', flexDirection: 'column', gap: 10,
           }}>
-            <div style={{ fontSize: 13, fontWeight: 700 }}>모의 매수 / 매도</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>모의 매수 / 매도</div>
+              {account && (
+                <div style={{ fontSize: 11, color: theme.textMuted }}>
+                  잔고 <span style={{ color: theme.text, fontWeight: 600 }}>{account.balance.toLocaleString()}원</span>
+                </div>
+              )}
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {(['buy', 'sell'] as const).map(s => (
                 <div
@@ -143,14 +197,16 @@ export default function StockDetailPage() {
               <span style={{ color: theme.text, fontWeight: 600 }}>{total.toLocaleString()}원</span>
             </div>
             <div
-              onClick={() => showToast(`${side === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${qty}주 · ${total.toLocaleString()}원 (모의)`)}
+              onClick={!loading ? handleOrder : undefined}
               style={{
                 textAlign: 'center', padding: '10px 0', borderRadius: 8,
-                background: side === 'buy' ? theme.up : theme.down,
-                color: theme.bg, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                background: loading ? theme.border : (side === 'buy' ? theme.up : theme.down),
+                color: theme.bg, fontWeight: 700, fontSize: 13,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
               }}
             >
-              {side === 'buy' ? '매수' : '매도'} 주문 실행
+              {loading ? '처리 중...' : `${side === 'buy' ? '매수' : '매도'} 주문 실행`}
             </div>
           </div>
 
@@ -239,11 +295,13 @@ export default function StockDetailPage() {
       {toast && (
         <div style={{
           position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
-          background: theme.panel2, border: `1px solid ${theme.border}`,
+          background: toast.ok ? theme.up : theme.down,
           borderRadius: 10, padding: '12px 20px', fontSize: 13, fontWeight: 600,
+          color: theme.bg,
           boxShadow: '0 8px 24px rgba(0,0,0,.3)', zIndex: 50,
+          whiteSpace: 'nowrap',
         }}>
-          {toast}
+          {toast.msg}
         </div>
       )}
     </div>
