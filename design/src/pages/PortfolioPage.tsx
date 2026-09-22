@@ -1,22 +1,64 @@
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, holdings } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
+import { apiGet } from '../lib/api';
 
-const tradeHistory = [
-  { date: '2026-09-15', type: '매수', name: '삼성전자', qty: 3, price: '78,200원', total: '234,600원', profit: null },
-  { date: '2026-09-14', type: '매도', name: 'SK하이닉스', qty: 2, price: '210,000원', total: '420,000원', profit: '+8,500원' },
-  { date: '2026-09-13', type: '매수', name: 'NAVER', qty: 2, price: '190,000원', total: '380,000원', profit: null },
-  { date: '2026-09-12', type: '매도', name: '카카오', qty: 3, price: '43,000원', total: '129,000원', profit: '-3,200원' },
-  { date: '2026-09-11', type: '매수', name: 'LG에너지솔루션', qty: 1, price: '405,000원', total: '405,000원', profit: null },
-] as const;
+interface HoldingItem {
+  stock_id: number;
+  stock_name: string;
+  stock_code: string;
+  quantity: number;
+  avg_price: number;
+  current_price: number;
+  eval_amount: number;
+  profit_loss: number;
+  profit_loss_rate: number;
+}
+
+interface PortfolioData {
+  balance: number;
+  total_eval_amount: number;
+  total_profit_loss: number;
+  total_profit_loss_rate: number;
+  holdings: HoldingItem[];
+}
+
+interface HistoryItem {
+  id: number;
+  stock_name: string;
+  stock_code: string;
+  order_type: string;
+  quantity: number;
+  price: number;
+  total_amount: number;
+  ordered_at: string;
+}
 
 export default function PortfolioPage() {
   const { theme } = useTheme();
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalAsset = 12458300;
-  const totalCost = 9330000;
-  const totalProfit = totalAsset - totalCost;
-  const profitPct = ((totalProfit / totalCost) * 100).toFixed(2);
+  useEffect(() => {
+    Promise.all([
+      apiGet<PortfolioData>('/portfolio'),
+      apiGet<HistoryItem[]>('/portfolio/history'),
+    ]).then(([pRes, hRes]) => {
+      setPortfolio(pRes.data);
+      setHistory(hRes.data);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, color: '#888', fontSize: 14 }}>불러오는 중...</div>
+    );
+  }
+
+  const totalAsset = (portfolio?.balance ?? 0) + (portfolio?.total_eval_amount ?? 0);
+  const totalProfit = portfolio?.total_profit_loss ?? 0;
+  const profitPct = portfolio?.total_profit_loss_rate ?? 0;
   const profitColor = totalProfit >= 0 ? theme.up : theme.down;
 
   return (
@@ -27,9 +69,13 @@ export default function PortfolioPage() {
       <div style={{ display: 'flex', gap: 12 }}>
         {[
           { label: '총 평가자산', value: totalAsset.toLocaleString() + '원', color: undefined },
-          { label: '총 수익', value: (totalProfit >= 0 ? '+' : '') + totalProfit.toLocaleString() + '원 (' + profitPct + '%)', color: profitColor },
-          { label: '가상현금', value: '3,120,000원', color: undefined },
-          { label: '투자원금', value: totalCost.toLocaleString() + '원', color: undefined },
+          {
+            label: '총 수익',
+            value: (totalProfit >= 0 ? '+' : '') + totalProfit.toLocaleString() + '원 (' + profitPct.toFixed(2) + '%)',
+            color: profitColor,
+          },
+          { label: '가상현금', value: (portfolio?.balance ?? 0).toLocaleString() + '원', color: undefined },
+          { label: '평가금액', value: (portfolio?.total_eval_amount ?? 0).toLocaleString() + '원', color: undefined },
         ].map(card => (
           <div key={card.label} style={{
             flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
@@ -61,33 +107,34 @@ export default function PortfolioPage() {
           }}>
             <span>종목명</span>
             <span style={{ textAlign: 'right' }}>보유수량</span>
-            <span style={{ textAlign: 'right' }}>현재가</span>
+            <span style={{ textAlign: 'right' }}>평균단가</span>
             <span style={{ textAlign: 'right' }}>평가금액</span>
             <span style={{ textAlign: 'right' }}>수익률</span>
           </div>
-          {holdings.map(h => {
-            const stock = stocks.find(s => s.name === h.name) || stocks[0];
-            const priceNum = parseInt(stock.price.replace(/[^0-9]/g, ''), 10);
-            const qtyNum = parseInt(h.qty.replace(/[^0-9]/g, ''), 10);
-            const evaluated = priceNum * qtyNum;
-            const changeColor = h.changePct >= 0 ? theme.up : theme.down;
-            const changeLabel = (h.changePct >= 0 ? '▲' : '▼') + Math.abs(h.changePct).toFixed(1) + '%';
+          {portfolio?.holdings.length === 0 && (
+            <div style={{ padding: '20px 16px', fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
+              보유 종목이 없습니다
+            </div>
+          )}
+          {portfolio?.holdings.map(h => {
+            const changeColor = h.profit_loss_rate >= 0 ? theme.up : theme.down;
+            const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(2) + '%';
             return (
-              <div key={h.name} style={{
+              <div key={h.stock_id} style={{
                 display: 'grid', gridTemplateColumns: '1fr 80px 110px 110px 90px',
                 padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
                 fontSize: 13, alignItems: 'center',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <StockLogo name={h.name} size={28} />
+                  <StockLogo name={h.stock_name} size={28} />
                   <div>
-                    <div style={{ fontWeight: 700 }}>{h.name}</div>
-                    <div style={{ fontSize: 11, color: theme.textMuted }}>{stock.code}</div>
+                    <div style={{ fontWeight: 700 }}>{h.stock_name}</div>
+                    <div style={{ fontSize: 11, color: theme.textMuted }}>{h.stock_code}</div>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.qty}</div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>{stock.price}</div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>{evaluated.toLocaleString()}원</div>
+                <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.quantity}주</div>
+                <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.avg_price.toLocaleString()}원</div>
+                <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.eval_amount.toLocaleString()}원</div>
                 <div style={{ textAlign: 'right', fontWeight: 700, color: changeColor }}>{changeLabel}</div>
               </div>
             );
@@ -103,7 +150,7 @@ export default function PortfolioPage() {
           borderRadius: 12, overflow: 'hidden',
         }}>
           <div style={{
-            display: 'grid', gridTemplateColumns: '100px 50px 1fr 60px 90px 110px 100px',
+            display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px',
             padding: '10px 16px', borderBottom: `1px solid ${theme.border}`,
             fontSize: 12, fontWeight: 700, color: theme.textMuted,
           }}>
@@ -113,38 +160,37 @@ export default function PortfolioPage() {
             <span style={{ textAlign: 'right' }}>수량</span>
             <span style={{ textAlign: 'right' }}>단가</span>
             <span style={{ textAlign: 'right' }}>거래금액</span>
-            <span style={{ textAlign: 'right' }}>실현손익</span>
           </div>
-          {tradeHistory.map((t, i) => (
-            <div key={i} style={{
-              display: 'grid', gridTemplateColumns: '100px 50px 1fr 60px 90px 110px 100px',
-              padding: '11px 16px', borderBottom: `1px solid ${theme.border}`,
-              fontSize: 13, alignItems: 'center',
-            }}>
-              <span style={{ color: theme.textMuted, fontSize: 12 }}>{t.date}</span>
-              <span style={{
-                fontWeight: 700, fontSize: 12,
-                color: t.type === '매수' ? theme.up : theme.down,
-              }}>
-                {t.type}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <StockLogo name={t.name} size={22} />
-                <span style={{ fontWeight: 600 }}>{t.name}</span>
-              </div>
-              <span style={{ textAlign: 'right' }}>{t.qty}주</span>
-              <span style={{ textAlign: 'right' }}>{t.price}</span>
-              <span style={{ textAlign: 'right', fontWeight: 600 }}>{t.total}</span>
-              <span style={{
-                textAlign: 'right', fontWeight: 700,
-                color: t.profit
-                  ? t.profit.startsWith('+') ? theme.up : theme.down
-                  : theme.textMuted,
-              }}>
-                {t.profit ?? '-'}
-              </span>
+          {history.length === 0 && (
+            <div style={{ padding: '20px 16px', fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
+              거래 내역이 없습니다
             </div>
-          ))}
+          )}
+          {history.map(t => {
+            const date = new Date(t.ordered_at).toLocaleDateString('ko-KR', {
+              year: '2-digit', month: '2-digit', day: '2-digit',
+            });
+            const isBuy = t.order_type === 'BUY';
+            return (
+              <div key={t.id} style={{
+                display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px',
+                padding: '11px 16px', borderBottom: `1px solid ${theme.border}`,
+                fontSize: 13, alignItems: 'center',
+              }}>
+                <span style={{ color: theme.textMuted, fontSize: 12 }}>{date}</span>
+                <span style={{ fontWeight: 700, fontSize: 12, color: isBuy ? theme.up : theme.down }}>
+                  {isBuy ? '매수' : '매도'}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <StockLogo name={t.stock_name} size={22} />
+                  <span style={{ fontWeight: 600 }}>{t.stock_name}</span>
+                </div>
+                <span style={{ textAlign: 'right' }}>{t.quantity}주</span>
+                <span style={{ textAlign: 'right' }}>{t.price.toLocaleString()}원</span>
+                <span style={{ textAlign: 'right', fontWeight: 600 }}>{t.total_amount.toLocaleString()}원</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
