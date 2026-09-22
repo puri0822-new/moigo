@@ -1,6 +1,15 @@
 -- 모이고 DB 스키마
 -- PostgreSQL 기준
 
+-- updated_at 자동 갱신 트리거 함수
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 1. users (사용자)
 CREATE TABLE users (
     id              BIGSERIAL       PRIMARY KEY,
@@ -9,8 +18,8 @@ CREATE TABLE users (
     nickname        VARCHAR(50)     NOT NULL,
     login_type      VARCHAR(20)     NOT NULL DEFAULT 'LOCAL',
     social_id       VARCHAR(255)    NULL,
-    created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_login_type CHECK (login_type IN ('LOCAL', 'GOOGLE')),
     CONSTRAINT chk_local_password CHECK (
@@ -19,15 +28,25 @@ CREATE TABLE users (
     )
 );
 
+CREATE TRIGGER trg_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- 2. accounts (가상계좌) — users와 1:1
 CREATE TABLE accounts (
     id              BIGSERIAL       PRIMARY KEY,
     user_id         BIGINT          NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     balance         BIGINT          NOT NULL DEFAULT 10000000,
     initial_balance BIGINT          NOT NULL DEFAULT 10000000,
-    created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_balance_non_negative CHECK (balance >= 0)
 );
+
+CREATE TRIGGER trg_accounts_updated_at
+    BEFORE UPDATE ON accounts
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- 3. stocks (종목)
 CREATE TABLE stocks (
@@ -36,7 +55,7 @@ CREATE TABLE stocks (
     name        VARCHAR(100)    NOT NULL,
     market      VARCHAR(20)     NOT NULL DEFAULT 'KOSPI',
     sector      VARCHAR(100)    NULL,
-    created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at  TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_market CHECK (market IN ('KOSPI', 'KOSDAQ'))
 );
@@ -48,9 +67,9 @@ CREATE TABLE news (
     title           VARCHAR(500)    NOT NULL,
     summary         TEXT            NULL,
     url             VARCHAR(1000)   NOT NULL,
-    source          VARCHAR(100)    NOT NULL,
-    published_at    TIMESTAMP       NOT NULL,
-    collected_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP
+    source          VARCHAR(100)    NULL,  -- 네이버 뉴스 API 응답에 언론사 필드가 없어 NULL 허용
+    published_at    TIMESTAMPTZ     NOT NULL,
+    collected_at    TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 5. ai_analyses (AI 분석 결과)
@@ -64,7 +83,7 @@ CREATE TABLE ai_analyses (
     is_matched              BOOLEAN         NULL,
     sentiment               VARCHAR(20)     NULL,
     price_at_analysis       BIGINT          NULL,
-    analyzed_at             TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    analyzed_at             TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_gemini_recommendation CHECK (gemini_recommendation IN ('BUY', 'HOLD', 'SELL')),
     CONSTRAINT chk_claude_recommendation CHECK (claude_recommendation IN ('BUY', 'HOLD', 'SELL')),
@@ -90,9 +109,10 @@ CREATE TABLE orders (
     quantity        INT             NOT NULL CHECK (quantity > 0),
     price           BIGINT          NOT NULL CHECK (price > 0),
     total_amount    BIGINT          NOT NULL CHECK (total_amount > 0),
-    ordered_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ordered_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_order_type CHECK (order_type IN ('BUY', 'SELL'))
+    CONSTRAINT chk_order_type CHECK (order_type IN ('BUY', 'SELL')),
+    CONSTRAINT chk_total_amount CHECK (total_amount = price * quantity)
 );
 
 -- 8. holdings (보유 종목)
@@ -102,10 +122,14 @@ CREATE TABLE holdings (
     stock_id    BIGINT      NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
     quantity    INT         NOT NULL CHECK (quantity > 0),
     avg_price   BIGINT      NOT NULL CHECK (avg_price > 0),
-    updated_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     UNIQUE (user_id, stock_id)
 );
+
+CREATE TRIGGER trg_holdings_updated_at
+    BEFORE UPDATE ON holdings
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- 인덱스
 CREATE INDEX idx_news_stock_id ON news(stock_id);

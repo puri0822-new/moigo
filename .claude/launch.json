@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "design"],
       "port": 5173
+    },
+    {
+      "name": "moigo-backend",
+      "runtimeExecutable": "backend/venv/Scripts/uvicorn.exe",
+      "runtimeArgs": ["app.main:app", "--reload", "--app-dir", "backend", "--port", "8000"],
+      "port": 8000
     }
   ]
 }

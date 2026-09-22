@@ -31,8 +31,8 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | 닉네임 | nickname | - | VARCHAR(50) | NOT NULL | - |
 | 로그인 방식 | login_type | - | VARCHAR(20) | NOT NULL | 'LOCAL' |
 | 소셜 ID | social_id | - | VARCHAR(255) | NULL | NULL |
-| 가입일시 | created_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
-| 수정일시 | updated_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 가입일시 | created_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
+| 수정일시 (자동 갱신 트리거) | updated_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
@@ -41,10 +41,10 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 |--------------|-------------|--------|------|-----------|---------------|
 | 계좌 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
 | 사용자 ID | user_id | FK(User) UNIQUE | BIGINT | NOT NULL | - |
-| 가용 잔고 | balance | - | BIGINT | NOT NULL | 10000000 |
+| 가용 잔고 | balance | CHECK (balance >= 0) | BIGINT | NOT NULL | 10000000 |
 | 초기 자본금 | initial_balance | - | BIGINT | NOT NULL | 10000000 |
-| 계좌 생성일시 | created_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
-| 수정일시 | updated_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 계좌 생성일시 | created_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
+| 수정일시 (자동 갱신 트리거) | updated_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
@@ -56,7 +56,7 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | 종목명 | name | - | VARCHAR(100) | NOT NULL | - |
 | 시장 구분 | market | - | VARCHAR(20) | NOT NULL | 'KOSPI' |
 | 업종 | sector | - | VARCHAR(100) | NULL | NULL |
-| 등록일시 | created_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 등록일시 | created_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
@@ -68,9 +68,9 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | 뉴스 제목 | title | - | VARCHAR(500) | NOT NULL | - |
 | 뉴스 요약 | summary | - | TEXT | NULL | NULL |
 | 원문 URL | url | - | VARCHAR(1000) | NOT NULL | - |
-| 출처 매체 | source | - | VARCHAR(100) | NOT NULL | - |
-| 뉴스 발행일시 | published_at | - | TIMESTAMP | NOT NULL | - |
-| 수집일시 | collected_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 출처 매체 | source | - | VARCHAR(100) | NULL | NULL |
+| 뉴스 발행일시 | published_at | - | TIMESTAMPTZ | NOT NULL | - |
+| 수집일시 | collected_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
@@ -86,7 +86,7 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | AI 결과 일치 여부 | is_matched | - | BOOLEAN | NULL | NULL |
 | 투자심리 | sentiment | - | VARCHAR(20) | NULL | NULL |
 | 분석 시점 주가 | price_at_analysis | - | BIGINT | NULL | NULL |
-| 분석 실행일시 | analyzed_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 분석 실행일시 | analyzed_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
@@ -109,8 +109,8 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | 주문 유형 | order_type | - | VARCHAR(10) | NOT NULL | - |
 | 주문 수량 | quantity | - | INT | NOT NULL | - |
 | 체결 가격 | price | - | BIGINT | NOT NULL | - |
-| 총 거래금액 | total_amount | - | BIGINT | NOT NULL | - |
-| 주문 체결일시 | ordered_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 총 거래금액 | total_amount | CHECK (total_amount = price * quantity) | BIGINT | NOT NULL | - |
+| 주문 체결일시 | ordered_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
@@ -118,11 +118,11 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | Field (한국어) | Field2 (영문) | Domain | Type | Null 여부 | Default Value |
 |--------------|-------------|--------|------|-----------|---------------|
 | 보유 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
-| 사용자 ID | user_id | FK(User) UNIQUE | BIGINT | NOT NULL | - |
-| 종목 ID | stock_id | FK(Stock) UNIQUE | BIGINT | NOT NULL | - |
+| 사용자 ID | user_id | FK(User), 복합 UNIQUE(user_id, stock_id) | BIGINT | NOT NULL | - |
+| 종목 ID | stock_id | FK(Stock), 복합 UNIQUE(user_id, stock_id) | BIGINT | NOT NULL | - |
 | 보유 수량 | quantity | - | INT | NOT NULL | - |
 | 평균 매수가 | avg_price | - | BIGINT | NOT NULL | - |
-| 수정일시 | updated_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
+| 수정일시 (자동 갱신 트리거) | updated_at | - | TIMESTAMPTZ | NOT NULL | CURRENT_TIMESTAMP |
 
 ---
 
@@ -153,3 +153,8 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
      - 로그인할 때마다 JOIN 쿼리 필요 → 코드 복잡도 증가
      - 관리할 테이블이 1개 → 3개로 늘어남
      - 로그인 방식이 2가지뿐인 현재 규모에서는 과한 설계
+7. **모든 타임스탬프 컬럼은 TIMESTAMPTZ** 사용 → 수집 데이터(네이버 뉴스 pubDate, 토스 API timestamp)가 전부 타임존 정보를 포함하므로, 저장 시 타임존 유실/혼동 방지
+8. **News.source는 NULL 허용** → 네이버 뉴스 검색 API 응답에 언론사명 필드가 없어, 수집 시점에 값이 없을 수 있음 (추후 `originallink` 기반 추정 로직 도입 시 채워질 수 있음)
+9. **Account.balance는 CHECK (balance >= 0)** 로 음수 잔고 방지 → 동시 주문 등으로 인한 자금 무결성 훼손을 DB 레벨에서도 방어
+10. **Order.total_amount는 CHECK (total_amount = price * quantity)** 로 애플리케이션 계산 버그를 DB 레벨에서 차단
+11. **users/accounts/holdings의 updated_at은 `BEFORE UPDATE` 트리거로 자동 갱신** → 애플리케이션에서 매번 명시적으로 갱신하지 않아도 정확한 수정일시 유지
