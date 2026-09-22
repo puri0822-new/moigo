@@ -4,6 +4,7 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     nickname: str
+    marketing_agreed: bool = False
 
 class LoginRequest(BaseModel):
     email: EmailStr

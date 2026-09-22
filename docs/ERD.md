@@ -31,6 +31,7 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | 닉네임 | nickname | - | VARCHAR(50) | NOT NULL | - |
 | 로그인 방식 | login_type | - | VARCHAR(20) | NOT NULL | 'LOCAL' |
 | 소셜 ID | social_id | - | VARCHAR(255) | NULL | NULL |
+| 마케팅 수신 동의 | marketing_agreed | - | BOOLEAN | NOT NULL | FALSE |
 | 가입일시 | created_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 | 수정일시 | updated_at | - | TIMESTAMP | NOT NULL | CURRENT_TIMESTAMP |
 

@@ -121,7 +121,10 @@ export default function LoginPage() {
 
         <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: theme.textMuted }}>
           계정이 없으신가요?{' '}
-          <span style={{ color: theme.ai, fontWeight: 600, cursor: 'pointer' }}>회원가입</span>
+          <span
+            onClick={() => navigate('/signup')}
+            style={{ color: theme.ai, fontWeight: 600, cursor: 'pointer' }}
+          >회원가입</span>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, String, DateTime, func
+from sqlalchemy import BigInteger, String, DateTime, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -11,5 +11,6 @@ class User(Base):
     nickname: Mapped[str] = mapped_column(String(50), nullable=False)
     login_type: Mapped[str] = mapped_column(String(20), nullable=False, default="LOCAL")
     social_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    marketing_agreed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

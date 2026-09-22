@@ -18,6 +18,7 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         password_hash=hash_password(body.password),
         nickname=body.nickname,
         login_type="LOCAL",
+        marketing_agreed=body.marketing_agreed,
     )
     db.add(user)
     db.flush()
