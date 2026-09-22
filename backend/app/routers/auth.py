@@ -8,7 +8,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/signup", response_model=UserResponse, status_code=201)
+@router.post("/signup", status_code=201)
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다")
@@ -23,22 +23,29 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.flush()
 
-    # 회원가입 시 가상계좌 자동 생성
     account = Account(user_id=user.id)
     db.add(account)
     db.commit()
     db.refresh(user)
 
-    return UserResponse(user_id=user.id, email=user.email, nickname=user.nickname)
+    return {
+        "success": True,
+        "data": {"user_id": user.id, "email": user.email, "nickname": user.nickname},
+        "message": "회원가입 성공"
+    }
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
 
     token = create_access_token({"sub": str(user.id)})
-    return TokenResponse(access_token=token)
+    return {
+        "success": True,
+        "data": {"access_token": token, "token_type": "bearer"},
+        "message": "로그인 성공"
+    }
 
 @router.post("/logout")
 def logout():
