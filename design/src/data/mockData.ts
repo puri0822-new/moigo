@@ -1,4 +1,9 @@
-import type { Stock, Holding, AIRec, OrderbookEntry } from '../types';
+import type { Stock, Holding, AIRec, OrderbookEntry, MarketIndex } from '../types';
+
+export const marketIndices: MarketIndex[] = [
+  { name: '코스피', value: '2,634.87', changePct: 0.82, changePoint: '+21.45' },
+  { name: '코스닥', value: '842.13', changePct: -0.35, changePoint: '-2.96' },
+];
 
 export const stocks: Stock[] = [
   {

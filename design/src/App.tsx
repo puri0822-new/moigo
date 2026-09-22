@@ -9,9 +9,8 @@ import PortfolioPage from './pages/PortfolioPage';
 import AppLayout from './components/layout/AppLayout';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  return user ? <>{children}</> : <Navigate to="/login" replace />;
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 export default function App() {
@@ -20,10 +19,10 @@ export default function App() {
     <div style={{ background: theme.bg, color: theme.text, minHeight: '100vh' }}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route element={<PrivateRoute><AppLayout /></PrivateRoute>}>
+        <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/stock/:code" element={<StockDetailPage />} />
-          <Route path="/portfolio" element={<PortfolioPage />} />
+          <Route path="/portfolio" element={<PrivateRoute><PortfolioPage /></PrivateRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
