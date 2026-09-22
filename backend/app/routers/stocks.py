@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -12,12 +14,14 @@ from app.schemas.stock import StockDetail, StockListItem
 
 router = APIRouter(prefix="/stocks", tags=["Stocks"])
 
+EXTERNAL_API_TIMEOUT_SECONDS = 6
+
 
 async def _fetch_prices_safe(codes: list[str]) -> dict[str, dict]:
     try:
-        return await toss_client.get_prices(codes)
-    except httpx.HTTPError:
-        # 토스 API 장애 시에도 종목 목록 자체는 내려주고, 시세만 null로 둔다
+        return await asyncio.wait_for(toss_client.get_prices(codes), EXTERNAL_API_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        # 토스 API 장애/무응답 시에도 종목 목록 자체는 내려주고, 시세만 null로 둔다
         return {}
 
 
@@ -61,9 +65,11 @@ async def get_stock_news(stock_id: int, limit: int = 10, db: AsyncSession = Depe
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
     try:
-        items = await naver_client.search_news(stock.name, display=limit)
-    except httpx.HTTPError:
-        # 네이버 API 장애 시 빈 목록으로 응답 (종목 상세 자체는 막지 않음)
+        items = await asyncio.wait_for(
+            naver_client.search_news(stock.name, display=limit), EXTERNAL_API_TIMEOUT_SECONDS
+        )
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        # 네이버 API 장애/무응답 시 빈 목록으로 응답 (종목 상세 자체는 막지 않음)
         items = []
 
     data = [NewsItem(id=i + 1, **item) for i, item in enumerate(items)]
