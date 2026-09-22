@@ -5,14 +5,34 @@ import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const { theme, mode, toggle } = useTheme();
-  const { loginWithGoogle } = useAuth();
+  const { loginWithEmail, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleEmailLogin = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      await loginWithEmail(email, password);
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
-    await loginWithGoogle();
-    navigate('/');
+    setError('');
+    try {
+      await loginWithGoogle();
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다');
+    }
   };
 
   return (
@@ -88,16 +108,22 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {error && (
+            <div style={{ fontSize: 12, color: theme.down, textAlign: 'center' }}>{error}</div>
+          )}
+
           <button
-            onClick={() => navigate('/')}
+            onClick={handleEmailLogin}
+            disabled={submitting}
             style={{
               padding: '12px 0', borderRadius: 10,
               background: theme.ai, color: theme.bg,
               fontSize: 15, fontWeight: 700, border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit', marginTop: 4,
+              cursor: submitting ? 'default' : 'pointer', fontFamily: 'inherit', marginTop: 4,
+              opacity: submitting ? 0.7 : 1,
             }}
           >
-            로그인
+            {submitting ? '로그인 중...' : '로그인'}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

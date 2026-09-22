@@ -17,6 +17,13 @@ export interface Stock {
   news: NewsItem[];
 }
 
+export interface MarketIndex {
+  name: string;
+  value: string;
+  changePct: number;
+  changePoint: string;
+}
+
 export interface Holding {
   name: string;
   qty: string;

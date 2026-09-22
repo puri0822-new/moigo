@@ -10,9 +10,8 @@ import PortfolioPage from './pages/PortfolioPage';
 import AppLayout from './components/layout/AppLayout';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  return user ? <>{children}</> : <Navigate to="/login" replace />;
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 export default function App() {
