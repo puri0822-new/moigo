@@ -3,10 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import toss_client
+from app.core import naver_client, toss_client
 from app.core.database import get_db
 from app.models import Stock
 from app.schemas.common import ApiResponse
+from app.schemas.news import NewsItem
 from app.schemas.stock import StockDetail, StockListItem
 
 router = APIRouter(prefix="/stocks", tags=["Stocks"])
@@ -51,3 +52,19 @@ async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
         detail.current_price = int(float(price["lastPrice"]))
 
     return ApiResponse(success=True, data=detail, message="요청 성공")
+
+
+@router.get("/{stock_id}/news", response_model=ApiResponse[list[NewsItem]])
+async def get_stock_news(stock_id: int, limit: int = 10, db: AsyncSession = Depends(get_db)):
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        items = await naver_client.search_news(stock.name, display=limit)
+    except httpx.HTTPError:
+        # 네이버 API 장애 시 빈 목록으로 응답 (종목 상세 자체는 막지 않음)
+        items = []
+
+    data = [NewsItem(id=i + 1, **item) for i, item in enumerate(items)]
+    return ApiResponse(success=True, data=data, message="요청 성공")
