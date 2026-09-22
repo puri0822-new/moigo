@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -21,12 +23,35 @@ async def _fetch_prices_safe(codes: list[str]) -> dict[str, dict]:
         return {}
 
 
+async def _fetch_prev_closes_safe(codes: list[str]) -> dict[str, float]:
+    """등락률 계산용 전일 종가. 일봉 2개(전일/당일)를 조회해 앞쪽(전일)의 종가를 사용."""
+
+    async def fetch_one(code: str) -> tuple[str, float | None]:
+        try:
+            candles = await toss_client.get_candles(code, "1d", 2)
+        except httpx.HTTPError:
+            return code, None
+        if len(candles) < 2:
+            return code, None
+        return code, float(candles[-2]["closePrice"])
+
+    results = await asyncio.gather(*[fetch_one(c) for c in codes])
+    return {code: close for code, close in results if close is not None}
+
+
+def _apply_change_rate(item: StockListItem, prev_close: float | None) -> None:
+    if item.current_price is not None and prev_close:
+        item.change_rate = (item.current_price - prev_close) / prev_close
+
+
 @router.get("", response_model=ApiResponse[list[StockListItem]])
 async def list_stocks(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Stock).order_by(Stock.id))
     stocks = result.scalars().all()
+    codes = [s.code for s in stocks]
 
-    prices = await _fetch_prices_safe([s.code for s in stocks])
+    prices = await _fetch_prices_safe(codes)
+    prev_closes = await _fetch_prev_closes_safe(codes)
 
     data = []
     for s in stocks:
@@ -34,6 +59,7 @@ async def list_stocks(db: AsyncSession = Depends(get_db)):
         price = prices.get(s.code)
         if price:
             item.current_price = int(float(price["lastPrice"]))
+        _apply_change_rate(item, prev_closes.get(s.code))
         data.append(item)
 
     return ApiResponse(success=True, data=data, message="요청 성공")
@@ -50,6 +76,9 @@ async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
     price = prices.get(stock.code)
     if price:
         detail.current_price = int(float(price["lastPrice"]))
+
+    prev_closes = await _fetch_prev_closes_safe([stock.code])
+    _apply_change_rate(detail, prev_closes.get(stock.code))
 
     return ApiResponse(success=True, data=detail, message="요청 성공")
 
