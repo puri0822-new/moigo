@@ -16,5 +16,8 @@ class Settings(BaseSettings):
     TOSS_CLIENT_ID: str
     TOSS_CLIENT_SECRET: str
 
+    NAVER_CLIENT_ID: str
+    NAVER_CLIENT_SECRET: str
+
 
 settings = Settings()
