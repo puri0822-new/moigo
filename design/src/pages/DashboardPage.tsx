@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, aiRecs } from '../data/mockData';
+import { stocks, aiRecs, marketIndices } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 
 export default function DashboardPage() {
@@ -14,6 +14,31 @@ export default function DashboardPage() {
         flex: 1, minWidth: 0, padding: 24,
         display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto',
       }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          {marketIndices.map(idx => {
+            const changeColor = idx.changePct >= 0 ? theme.up : theme.down;
+            const changeLabel = (idx.changePct >= 0 ? '▲' : '▼') + Math.abs(idx.changePct).toFixed(2) + '%';
+            return (
+              <div
+                key={idx.name}
+                style={{
+                  flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
+                  borderRadius: 12, padding: '14px 18px',
+                  display: 'flex', flexDirection: 'column', gap: 4,
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>{idx.name}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontSize: 20, fontWeight: 800 }}>{idx.value}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: changeColor }}>
+                    {idx.changePoint} ({changeLabel})
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ fontSize: 16, fontWeight: 800 }}>🔥 실시간 거래량 랭킹</div>
           <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 기준 · 실시간</div>
