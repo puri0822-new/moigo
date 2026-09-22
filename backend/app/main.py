@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import Base, engine
 from app.routers import auth
+from app.routers import orders, portfolio, account
+import app.models.stock
+import app.models.order
+import app.models.holding
 
 # 테이블 자동 생성
 Base.metadata.create_all(bind=engine)
@@ -17,6 +21,9 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/v1")
+app.include_router(orders.router, prefix="/v1")
+app.include_router(portfolio.router, prefix="/v1")
+app.include_router(account.router, prefix="/v1")
 
 @app.get("/")
 def root():
