@@ -17,6 +17,34 @@ export interface Stock {
   news: NewsItem[];
 }
 
+export interface ApiStock {
+  id: number;
+  code: string;
+  name: string;
+  market: string;
+  sector: string | null;
+  current_price: number | null;
+  change_rate: number | null;
+}
+
+export interface ApiNewsItem {
+  id: number;
+  title: string;
+  summary: string | null;
+  url: string;
+  source: string | null;
+  published_at: string;
+}
+
+export interface ApiCandle {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 export interface MarketIndex {
   name: string;
   value: string;

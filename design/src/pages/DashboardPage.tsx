@@ -1,11 +1,39 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, aiRecs, marketIndices } from '../data/mockData';
+import { aiRecs, marketIndices } from '../data/mockData';
+import { apiGet } from '../lib/api';
+import type { ApiStock, Stock } from '../types';
 import StockLogo from '../components/StockLogo';
 
 export default function DashboardPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [stocksLoading, setStocksLoading] = useState(true);
+  const [stocksError, setStocksError] = useState('');
+
+  useEffect(() => {
+    apiGet<ApiStock[]>('/stocks')
+      .then(res => {
+        setStocks(
+          res.data.map((s, i) => ({
+            rank: i + 1,
+            name: s.name,
+            code: s.code,
+            price: s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-',
+            volume: '-',
+            changePct: s.change_rate != null ? s.change_rate * 100 : 0,
+            aiReason: '',
+            aiComment: '',
+            similar: [],
+            news: [],
+          }))
+        );
+      })
+      .catch(err => setStocksError(err instanceof Error ? err.message : '종목 정보를 불러오지 못했습니다'))
+      .finally(() => setStocksLoading(false));
+  }, []);
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
@@ -44,43 +72,52 @@ export default function DashboardPage() {
           <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 기준 · 실시간</div>
         </div>
 
-        <div style={{
-          display: 'flex', flexDirection: 'column', gap: 1,
-          background: theme.border, border: `1px solid ${theme.border}`,
-          borderRadius: 12, overflow: 'hidden',
-        }}>
-          {stocks.map(s => {
-            const changeColor = s.changePct >= 0 ? theme.up : theme.down;
-            const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
-            return (
-              <div
-                key={s.code}
-                onClick={() => navigate(`/stock/${s.code}`)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '13px 18px', background: theme.panel, cursor: 'pointer',
-                }}
-              >
-                <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
-                  {s.rank}
-                </div>
-                <StockLogo name={s.name} size={36} />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {s.name}
-                    </span>
-                    <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.price}</span>
+        {stocksLoading && (
+          <div style={{ padding: '20px 0', color: theme.textMuted, fontSize: 13 }}>불러오는 중...</div>
+        )}
+        {!stocksLoading && stocksError && (
+          <div style={{ padding: '20px 0', color: theme.down, fontSize: 13 }}>{stocksError}</div>
+        )}
+
+        {!stocksLoading && !stocksError && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 1,
+            background: theme.border, border: `1px solid ${theme.border}`,
+            borderRadius: 12, overflow: 'hidden',
+          }}>
+            {stocks.map(s => {
+              const changeColor = s.changePct >= 0 ? theme.up : theme.down;
+              const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
+              return (
+                <div
+                  key={s.code}
+                  onClick={() => navigate(`/stock/${s.code}`)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '13px 18px', background: theme.panel, cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
+                    {s.rank}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: 11 }}>
-                    <span style={{ color: theme.textMuted }}>거래량 {s.volume}</span>
-                    <span style={{ fontWeight: 700, color: changeColor, flexShrink: 0 }}>{changeLabel}</span>
+                  <StockLogo name={s.name} size={36} />
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.name}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.price}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: 11 }}>
+                      <span style={{ color: theme.textMuted }}>거래량 {s.volume}</span>
+                      <span style={{ fontWeight: 700, color: changeColor, flexShrink: 0 }}>{changeLabel}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* AI 추천 패널 */}
@@ -96,7 +133,7 @@ export default function DashboardPage() {
           <span>✨</span><span>AI 추천 &amp; 등락 이유</span>
         </div>
 
-        {aiRecs.map((a, i) => {
+        {stocks.length > 0 && aiRecs.map((a, i) => {
           const stock = stocks.find(s => s.name === a.stockName) || stocks[0];
           const changeColor = stock.changePct >= 0 ? theme.up : theme.down;
           const changeLabel = (stock.changePct >= 0 ? '▲' : '▼') + Math.abs(stock.changePct).toFixed(1) + '%';
