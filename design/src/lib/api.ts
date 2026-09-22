@@ -1,0 +1,26 @@
+import axios from 'axios';
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/v1',
+});
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message: string;
+}
+
+export interface ApiStock {
+  id: number;
+  code: string;
+  name: string;
+  market: string;
+  sector: string | null;
+  current_price: number | null;
+  change_rate: number | null;
+}
+
+export async function fetchStocks(): Promise<ApiStock[]> {
+  const res = await api.get<ApiResponse<ApiStock[]>>('/stocks');
+  return res.data.data;
+}

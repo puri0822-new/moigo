@@ -1,11 +1,47 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, aiRecs } from '../data/mockData';
+import { aiRecs } from '../data/mockData';
+import type { Stock } from '../types';
 import StockLogo from '../components/StockLogo';
+import { fetchStocks } from '../lib/api';
 
 export default function DashboardPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetchStocks()
+      .then(apiStocks => {
+        setStocks(
+          apiStocks.map((s, i) => ({
+            rank: i + 1,
+            name: s.name,
+            code: s.code,
+            price: s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-',
+            volume: '-', // TODO: 백엔드에 거래량 데이터 연동 후 채우기
+            changePct: s.change_rate != null ? s.change_rate * 100 : 0,
+            aiReason: '',
+            aiComment: '',
+            similar: [],
+            news: [],
+          }))
+        );
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div style={{ padding: 24, color: theme.textMuted }}>불러오는 중...</div>;
+  }
+
+  if (error) {
+    return <div style={{ padding: 24, color: theme.down }}>종목 정보를 불러오지 못했습니다. 백엔드 서버가 켜져 있는지 확인해주세요.</div>;
+  }
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
