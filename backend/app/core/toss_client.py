@@ -8,12 +8,14 @@ from app.core.config import settings
 BASE_URL = "https://openapi.tossinvest.com"
 PRICE_CACHE_TTL_SECONDS = 60
 CANDLE_CACHE_TTL_SECONDS = 60
+RANKING_CACHE_TTL_SECONDS = 30
 
 _token_lock = asyncio.Lock()
 _token_cache: dict[str, str | float] = {"access_token": "", "expires_at": 0.0}
 
 _price_cache: dict[str, tuple[dict, float]] = {}
 _candle_cache: dict[tuple[str, str, int], tuple[list[dict], float]] = {}
+_ranking_cache: dict[tuple[str, str, str], tuple[dict[str, dict], float]] = {}
 
 
 async def _get_access_token() -> str:
@@ -103,3 +105,34 @@ async def get_candles(symbol: str, interval: str, count: int) -> list[dict]:
     candles = list(reversed(data["result"]["candles"]))
     _candle_cache[cache_key] = (candles, now)
     return candles
+
+
+async def get_rankings(type_: str, market_country: str, duration: str, count: int = 100) -> dict[str, dict]:
+    """랭킹 API로 다건 종목의 현재가·등락률·거래량을 한 번에 조회.
+    종목별로 캔들/현재가 API를 따로 호출하면 초당 레이트리밋(캔들 API 기준 20건/초)에
+    쉽게 걸리므로, 목록 화면처럼 여러 종목을 한꺼번에 봐야 할 때는 이 함수를 우선 사용한다.
+    반환값은 symbol을 키로 하는 dict."""
+    cache_key = (type_, market_country, duration)
+    now = time.monotonic()
+    cached = _ranking_cache.get(cache_key)
+    if cached and now - cached[1] < RANKING_CACHE_TTL_SECONDS:
+        return cached[0]
+
+    token = await _get_access_token()
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(
+            f"{BASE_URL}/api/v1/rankings",
+            headers={"Authorization": f"Bearer {token}"},
+            params={
+                "type": type_,
+                "marketCountry": market_country,
+                "duration": duration,
+                "count": count,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    by_symbol = {item["symbol"]: item for item in data["result"]["rankings"]}
+    _ranking_cache[cache_key] = (by_symbol, now)
+    return by_symbol

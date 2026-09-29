@@ -4,7 +4,7 @@ import { useTheme } from '../context/ThemeContext';
 import { aiRecs } from '../data/mockData';
 import type { Stock } from '../types';
 import StockLogo from '../components/StockLogo';
-import { fetchStocks } from '../lib/api';
+import { fetchStockRankings } from '../lib/api';
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -14,15 +14,20 @@ export default function DashboardPage() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetchStocks()
+    fetchStockRankings()
       .then(apiStocks => {
         setStocks(
+          // 서버가 랭킹에 든 종목을 실제 순위대로 앞에 두고, 랭킹 밖 종목을 뒤에 붙여서 주므로
+          // 화면에 매기는 번호(1~30)는 그 순서를 그대로 따르는 위치 번호다 (전체 시장 순위 아님).
           apiStocks.map((s, i) => ({
             rank: i + 1,
             name: s.name,
             code: s.code,
             price: s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-',
-            volume: '-', // TODO: 백엔드에 거래량 데이터 연동 후 채우기
+            volume:
+              s.trading_volume == null ? '-'
+              : s.trading_volume >= 10_000 ? `${(s.trading_volume / 10_000).toFixed(1)}만`
+              : s.trading_volume.toLocaleString(),
             changePct: s.change_rate != null ? s.change_rate * 100 : 0,
             aiReason: '',
             aiComment: '',
@@ -45,14 +50,14 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
-      {/* 거래량 랭킹 */}
+      {/* 거래대금 랭킹 */}
       <div style={{
         flex: 1, minWidth: 0, padding: 24,
         display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>🔥 실시간 거래량 랭킹</div>
-          <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 기준 · 실시간</div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>🔥 실시간 거래대금 랭킹</div>
+          <div style={{ fontSize: 12, color: theme.textMuted }}>거래대금 기준 · 실시간</div>
         </div>
 
         <div style={{

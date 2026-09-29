@@ -131,6 +131,25 @@ CREATE TRIGGER trg_holdings_updated_at
     BEFORE UPDATE ON holdings
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- 9. stock_price_cache (종목별 최신 시세 캐시) — 종목당 1행, 매 조회 시 덮어씀
+-- 과거 이력은 저장하지 않음: 캔들 API로 언제든 재조회 가능해 중복 저장 실익이 없음
+-- (market_rank만 예외지만, 지금 단계에선 히스토리로 남길 필요성이 낮아 함께 생략)
+CREATE TABLE stock_price_cache (
+    id              BIGSERIAL       PRIMARY KEY,
+    stock_id        BIGINT          NOT NULL UNIQUE REFERENCES stocks(id) ON DELETE CASCADE,
+    current_price   BIGINT          NOT NULL CHECK (current_price > 0),
+    change_rate     NUMERIC(10, 6)  NULL,
+    trading_volume  BIGINT          NULL,
+    trading_amount  BIGINT          NULL,
+    market_rank     INT             NULL,
+    fetched_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER trg_stock_price_cache_updated_at
+    BEFORE UPDATE ON stock_price_cache
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- 인덱스
 CREATE INDEX idx_news_stock_id ON news(stock_id);
 CREATE INDEX idx_news_published_at ON news(published_at);

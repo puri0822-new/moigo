@@ -2,6 +2,7 @@ import axios from 'axios';
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/v1',
+  timeout: 10_000,
 });
 
 interface ApiResponse<T> {
@@ -33,6 +34,24 @@ export async function fetchStockByCode(code: string): Promise<ApiStock | null> {
     if (axios.isAxiosError(e) && e.response?.status === 404) return null;
     throw e;
   }
+}
+
+export interface ApiStockRanking {
+  rank: number | null;
+  id: number;
+  code: string;
+  name: string;
+  market: string;
+  sector: string | null;
+  current_price: number | null;
+  change_rate: number | null;
+  trading_volume: number | null;
+  trading_amount: number | null;
+}
+
+export async function fetchStockRankings(): Promise<ApiStockRanking[]> {
+  const res = await api.get<ApiResponse<ApiStockRanking[]>>('/stocks/rankings');
+  return res.data.data;
 }
 
 export interface ApiNewsItem {
