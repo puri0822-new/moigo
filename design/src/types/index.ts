@@ -32,6 +32,7 @@ export interface Holding {
 
 export interface AIRec {
   bot: string;
+  icon: string;
   stockName: string;
   reason: string;
 }
