@@ -1,8 +1,10 @@
 import type { Stock, Holding, AIRec, OrderbookEntry, MarketIndex } from '../types';
 
 export const marketIndices: MarketIndex[] = [
-  { name: '코스피', value: '2,634.87', changePct: 0.82, changePoint: '+21.45' },
-  { name: '코스닥', value: '842.13', changePct: -0.35, changePoint: '-2.96' },
+  { name: '코스피', value: '2,634.87', changePct: 0.82, changePoint: '+21.45',
+    spark: [2580, 2591, 2574, 2603, 2598, 2611, 2605, 2619, 2613, 2628, 2622, 2635] },
+  { name: '코스닥', value: '842.13', changePct: -0.35, changePoint: '-2.96',
+    spark: [848, 852, 845, 850, 847, 843, 849, 844, 846, 841, 845, 842] },
 ];
 
 export const stocks: Stock[] = [

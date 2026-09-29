@@ -41,19 +41,39 @@ export default function DashboardPage() {
           {marketIndices.map(idx => {
             const changeColor = idx.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (idx.changePct >= 0 ? '▲' : '▼') + Math.abs(idx.changePct).toFixed(2) + '%';
+            const W = 80, H = 36;
+            const min = Math.min(...idx.spark);
+            const max = Math.max(...idx.spark);
+            const pts = idx.spark.map((v, i) => {
+              const x = (i / (idx.spark.length - 1)) * W;
+              const y = H - ((v - min) / (max - min)) * H;
+              return `${x},${y}`;
+            }).join(' ');
             return (
               <div key={idx.name} style={{
                 flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
                 borderRadius: 12, padding: '14px 18px',
-                display: 'flex', flexDirection: 'column', gap: 4,
+                display: 'flex', alignItems: 'center', gap: 12,
               }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>{idx.name}</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 20, fontWeight: 800 }}>{idx.value}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: changeColor }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>{idx.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontSize: 20, fontWeight: 800 }}>{idx.value}</span>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: changeColor }}>
                     {idx.changePoint} ({changeLabel})
                   </span>
                 </div>
+                <svg width={W} height={H} style={{ flexShrink: 0 }}>
+                  <polyline
+                    points={pts}
+                    fill="none"
+                    stroke={changeColor}
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </svg>
               </div>
             );
           })}

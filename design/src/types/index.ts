@@ -22,6 +22,7 @@ export interface MarketIndex {
   value: string;
   changePct: number;
   changePoint: string;
+  spark: number[];
 }
 
 export interface Holding {
