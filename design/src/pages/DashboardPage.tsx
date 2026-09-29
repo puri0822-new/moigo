@@ -214,7 +214,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <StockLogo name={recStock.name} code={recStock.code} size={20} />
               <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#86efac' : '#fca5a5' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#fca5a5' : '#93c5fd' }}>
                 {recChangeLabel}
               </span>
             </div>
