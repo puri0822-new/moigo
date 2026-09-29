@@ -224,7 +224,7 @@ export default function DashboardPage() {
           }} />
 
           {/* 헤더 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div key={`rec-header-${activeRec}`} className="ai-rec-slide" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               width: 28, height: 28, borderRadius: 8, flexShrink: 0,
               background: 'rgba(255,255,255,0.15)',
@@ -254,7 +254,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 종목 정보 */}
-          <div>
+          <div key={`rec-body-${activeRec}`} className="ai-rec-slide">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <StockLogo name={recStock.name} code={recStock.code} size={20} />
               <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
