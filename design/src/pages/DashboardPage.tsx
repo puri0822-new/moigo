@@ -38,6 +38,24 @@ export default function DashboardPage() {
   const [stocks, setStocks] = useState<RankedStock[]>([]);
   const [portfolio, setPortfolio] = useState<ApiPortfolio | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStockRecIndices(prev => {
+        const next = { ...prev };
+        stocks.forEach(s => {
+          const recs = aiRecs.filter(r => r.stockName === s.name);
+          if (recs.length > 1) {
+            next[s.name] = ((prev[s.name] ?? 0) + 1) % recs.length;
+          }
+        });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+    // stocks는 API에서 비동기로 채워지므로, 목록이 갱신될 때마다 인터벌 클로저도 최신 목록을 보게 재생성한다.
+  }, [stocks]);
 
   useEffect(() => {
     Promise.all([fetchStockRankings(), fetchPortfolio()])
@@ -154,10 +172,11 @@ export default function DashboardPage() {
               activeTab === '급하락' ? a.changePct - b.changePct :
               a.rank - b.rank
             )
-            .map(s => {
+            .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
-            const aiRec = aiRecs.find(r => r.stockName === s.name);
+            const stockRecs = aiRecs.filter(r => r.stockName === s.name);
+            const aiRec = stockRecs[(stockRecIndices[s.name] ?? 0) % stockRecs.length];
             const signalColor = aiRec?.signal === '매수' ? theme.up : aiRec?.signal === '매도' ? theme.down : theme.textMuted;
             return (
               <div
@@ -169,7 +188,7 @@ export default function DashboardPage() {
                 }}
               >
                 <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
-                  {s.rank}
+                  {i + 1}
                 </div>
                 <StockLogo name={s.name} code={s.code} size={36} />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -177,7 +196,11 @@ export default function DashboardPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.name}</span>
                       {aiRec && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                        <div
+                          key={`${s.name}-${aiRec.bot}-${aiRec.signal}`}
+                          className="ai-rec-slide"
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}
+                        >
                           <img src={aiRec.icon} alt={aiRec.bot} width={12} height={12} style={{ borderRadius: 3, flexShrink: 0 }} />
                           <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, flexShrink: 0 }}>{aiRec.bot}</span>
                           <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {aiRec.reason}</span>
@@ -237,7 +260,7 @@ export default function DashboardPage() {
           }} />
 
           {/* 헤더 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div key={`rec-header-${activeRec}`} className="ai-rec-slide" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               width: 28, height: 28, borderRadius: 8, flexShrink: 0,
               background: 'rgba(255,255,255,0.15)',
@@ -267,7 +290,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 종목 정보 */}
-          <div>
+          <div key={`rec-body-${activeRec}`} className="ai-rec-slide">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
               <StockLogo name={recStock.name} code={recStock.code} size={20} />
               <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
