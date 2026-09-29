@@ -87,9 +87,7 @@ export default function StockDetailPage() {
               </div>
             ))}
           </div>
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <StockChart basePrice={priceNum} period={period} />
-          </div>
+          <StockChart basePrice={priceNum} period={period} height={210} />
         </div>
 
         {/* 주문 + 호가 */}
