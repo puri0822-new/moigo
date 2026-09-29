@@ -8,6 +8,7 @@ export interface Stock {
   rank: number;
   name: string;
   code: string;
+  sector: string;
   price: string;
   volume: string;
   changePct: number;

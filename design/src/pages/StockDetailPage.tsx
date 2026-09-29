@@ -50,9 +50,19 @@ export default function StockDetailPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <StockLogo name={stock.name} code={stock.code} size={48} />
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</div>
-            <div style={{ fontSize: 13, color: theme.textMuted }}>{stock.code}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</span>
+              <span style={{ fontSize: 13, color: theme.textMuted, fontWeight: 500 }}>{stock.code}</span>
+            </div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center',
+              fontSize: 12, fontWeight: 600, color: theme.ai,
+              background: theme.aiSoft, border: `1px solid ${theme.ai}`,
+              borderRadius: 6, padding: '2px 8px', alignSelf: 'flex-start',
+            }}>
+              {stock.sector}
+            </div>
           </div>
         </div>
 
