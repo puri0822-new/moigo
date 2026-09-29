@@ -7,8 +7,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core import toss_client
-from app.core.database import SessionLocal
 from app.core.price_fetch import fetch_candle_info_safe, fetch_prices_safe
+from app.database import SessionLocal
 from app.models import Stock, StockPriceCache
 
 logger = logging.getLogger(__name__)
@@ -28,9 +28,11 @@ async def _fetch_rankings_safe(type_: str) -> dict[str, dict]:
 
 
 async def sync_price_cache_once() -> None:
-    """토스 랭킹 API(+랭킹 밖 종목은 개별 조회)로 30종목 시세를 모두 채워 캐시 테이블에 저장."""
-    async with SessionLocal() as db:
-        result = await db.execute(select(Stock).order_by(Stock.id))
+    """토스 랭킹 API(+랭킹 밖 종목은 개별 조회)로 30종목 시세를 모두 채워 캐시 테이블에 저장.
+    DB 세션은 동기(Session)라 커밋/조회 자체는 블로킹이지만, 30초에 한 번만 도는
+    백그라운드 작업이라 이벤트 루프에 미치는 영향은 무시할 수 있는 수준이다."""
+    with SessionLocal() as db:
+        result = db.execute(select(Stock).order_by(Stock.id))
         stocks = result.scalars().all()
         codes = [s.code for s in stocks]
 
@@ -89,11 +91,11 @@ async def sync_price_cache_once() -> None:
             },
         )
         try:
-            await db.execute(stmt)
-            await db.commit()
+            db.execute(stmt)
+            db.commit()
         except SQLAlchemyError:
             # 캐시 테이블이 아직 없는 등 DB 문제가 있어도 다음 주기에 다시 시도한다.
-            await db.rollback()
+            db.rollback()
             logger.exception("stock_price_cache 저장 실패")
 
 

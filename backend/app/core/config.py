@@ -13,8 +13,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440
 
-    TOSS_CLIENT_ID: str
-    TOSS_CLIENT_SECRET: str
+    TOSS_CLIENT_ID: str = ""
+    TOSS_CLIENT_SECRET: str = ""
+
+    FIREBASE_SERVICE_ACCOUNT_PATH: str = ""
 
 
 settings = Settings()

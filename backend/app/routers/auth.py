@@ -1,49 +1,106 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from app.database import get_db
+from app.models.user import User
+from app.models.account import Account
+from app.schemas.auth import SignupRequest, LoginRequest, TokenResponseData, SignupResponseData
+from app.core.security import hash_password, verify_password, create_access_token
+from app.core.firebase import verify_google_token
 
-from app.core.database import get_db
-from app.core.security import create_access_token, hash_password, verify_password
-from app.models import Account, User
-from app.schemas.auth import LoginRequest, SignupRequest, SignupResponseData, TokenResponseData
-from app.schemas.common import ApiResponse
-
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/signup", response_model=ApiResponse[SignupResponseData], status_code=status.HTTP_201_CREATED)
-async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
+@router.post("/signup", status_code=201)
+def signup(body: SignupRequest, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == body.email).first():
+        raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다")
+
     user = User(
         email=body.email,
         password_hash=hash_password(body.password),
         nickname=body.nickname,
         login_type="LOCAL",
+        marketing_agreed=body.marketing_agreed,
     )
     db.add(user)
-    try:
-        await db.flush()
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다")
+    db.flush()
 
-    db.add(Account(user_id=user.id))
-    await db.commit()
+    account = Account(user_id=user.id)
+    db.add(account)
+    db.commit()
+    db.refresh(user)
 
-    return ApiResponse(
-        success=True,
-        data=SignupResponseData(user_id=user.id, email=user.email, nickname=user.nickname),
-        message="회원가입 성공",
-    )
+    return {
+        "success": True,
+        "data": {"user_id": user.id, "email": user.email, "nickname": user.nickname},
+        "message": "회원가입 성공"
+    }
 
 
-@router.post("/login", response_model=ApiResponse[TokenResponseData])
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
-
-    if not user or not user.password_hash or not verify_password(body.password, user.password_hash):
+@router.post("/login")
+def login(body: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
 
-    token = create_access_token(subject=str(user.id))
-    return ApiResponse(success=True, data=TokenResponseData(access_token=token), message="로그인 성공")
+    token = create_access_token(str(user.id))
+    return {
+        "success": True,
+        "data": {"access_token": token, "token_type": "bearer", "nickname": user.nickname},
+        "message": "로그인 성공"
+    }
+
+
+@router.post("/logout")
+def logout():
+    return {"success": True, "data": None, "message": "로그아웃 성공"}
+
+
+class GoogleLoginRequest(BaseModel):
+    google_token: str
+
+
+@router.post("/google")
+def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
+    try:
+        decoded = verify_google_token(body.google_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="유효하지 않은 Google 토큰입니다")
+
+    social_id = decoded["uid"]
+    email = decoded.get("email", "")
+    name = decoded.get("name", "") or email.split("@")[0]
+
+    user = db.query(User).filter(User.social_id == social_id).first()
+
+    if not user:
+        # 같은 이메일로 LOCAL 계정이 있으면 연결
+        user = db.query(User).filter(User.email == email, User.login_type == "LOCAL").first()
+
+    if not user:
+        user = User(
+            email=email,
+            nickname=name,
+            login_type="GOOGLE",
+            social_id=social_id,
+            password_hash=None,
+            marketing_agreed=False,
+        )
+        db.add(user)
+        db.flush()
+        account = Account(user_id=user.id)
+        db.add(account)
+        db.commit()
+        db.refresh(user)
+    else:
+        if not user.social_id:
+            user.social_id = social_id
+            db.commit()
+
+    token = create_access_token(str(user.id))
+    return {
+        "success": True,
+        "data": {"access_token": token, "token_type": "bearer", "nickname": user.nickname},
+        "message": "로그인 성공"
+    }

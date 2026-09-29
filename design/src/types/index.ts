@@ -17,6 +17,14 @@ export interface Stock {
   news: NewsItem[];
 }
 
+export interface MarketIndex {
+  name: string;
+  value: string;
+  changePct: number;
+  changePoint: string;
+  spark: number[];
+}
+
 export interface Holding {
   name: string;
   qty: string;
@@ -25,8 +33,10 @@ export interface Holding {
 
 export interface AIRec {
   bot: string;
+  icon: string;
   stockName: string;
   reason: string;
+  signal: '매수' | '매도' | '중립';
 }
 
 export interface OrderbookEntry {
@@ -45,4 +55,6 @@ export interface Theme {
   up: string;
   down: string;
   ai: string;
+  aiSoft: string;
+  aiText: string;
 }

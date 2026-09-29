@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { stocks } from '../../data/mockData';
 
 export default function Header() {
   const { theme, mode, toggle } = useTheme();
+  const { logout, nickname } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const results = stocks
     .filter(s => query && (s.name.includes(query) || s.code.includes(query)))
@@ -30,10 +34,36 @@ export default function Header() {
         <div style={{
           width: 26, height: 26, borderRadius: 7, background: theme.ai,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, color: theme.bg,
+          fontSize: 13, color: theme.aiText,
         }}>AI</div>
-        <span>모의투자</span>
+        <span>모이고</span>
       </div>
+
+      {/* 네비게이션 */}
+      <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {[
+          { label: '홈', path: '/' },
+          { label: '랭킹', path: '/ranking' },
+          { label: '피드', path: '/feed' },
+          { label: '내 계좌', path: '/portfolio' },
+        ].map(({ label, path }) => {
+          const active = location.pathname === path;
+          return (
+            <div
+              key={label}
+              onClick={() => navigate(path)}
+              style={{
+                padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                fontSize: 14, fontWeight: active ? 700 : 500,
+                color: active ? theme.ai : theme.textMuted,
+                background: active ? theme.aiSoft : 'transparent',
+              }}
+            >
+              {label}
+            </div>
+          );
+        })}
+      </nav>
 
       <div style={{ flex: 1, maxWidth: 420, position: 'relative' }}>
         <div style={{
@@ -116,15 +146,89 @@ export default function Header() {
           <span>{mode === 'dark' ? '다크' : '라이트'}</span>
         </div>
         <div style={{ fontSize: 19, cursor: 'pointer' }}>🔔</div>
-        <div
-          onClick={() => navigate('/portfolio')}
-          style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: theme.panel2, border: `1px solid ${theme.border}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, cursor: 'pointer',
-          }}
-        >👤</div>
+        <div style={{ position: 'relative' }}>
+          <div
+            onClick={() => setProfileOpen(prev => !prev)}
+            style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: theme.ai, border: `2px solid ${theme.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, color: theme.aiText, fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            {nickname ? nickname[0].toUpperCase() : '👤'}
+          </div>
+
+          {profileOpen && (
+            <>
+              <div
+                onClick={() => setProfileOpen(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 15 }}
+              />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                background: theme.panel, border: `1px solid ${theme.border}`,
+                borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+                overflow: 'hidden', zIndex: 20, minWidth: 200,
+              }}>
+                {/* 사용자 정보 */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '16px', borderBottom: `1px solid ${theme.border}`,
+                }}>
+                  <div style={{
+                    width: 42, height: 42, borderRadius: '50%',
+                    background: theme.ai, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18, color: theme.aiText, fontWeight: 700,
+                  }}>
+                    {nickname ? nickname[0].toUpperCase() : '?'}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700 }}>
+                      {nickname || '사용자'}님
+                    </div>
+                    <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 2 }}>
+                      어서오세요!
+                    </div>
+                  </div>
+                </div>
+
+                {/* 메뉴 항목 */}
+                <div
+                  onClick={() => { navigate('/portfolio'); setProfileOpen(false); }}
+                  style={{
+                    padding: '12px 16px', cursor: 'pointer', fontSize: 13,
+                    borderBottom: `1px solid ${theme.border}`,
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}
+                >
+                  <span>📊</span> 내 포트폴리오 보기
+                </div>
+                <div
+                  onClick={() => { navigate('/settings'); setProfileOpen(false); }}
+                  style={{
+                    padding: '12px 16px', cursor: 'pointer', fontSize: 13,
+                    borderBottom: `1px solid ${theme.border}`,
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}
+                >
+                  <span>⚙️</span> 회원 설정
+                </div>
+                <div
+                  onClick={async () => { await logout(); setProfileOpen(false); }}
+                  style={{
+                    padding: '12px 16px', cursor: 'pointer', fontSize: 13,
+                    color: '#ef4444',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                  }}
+                >
+                  <span>🚪</span> 로그아웃
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

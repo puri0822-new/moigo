@@ -16,10 +16,11 @@ CREATE TABLE users (
     email           VARCHAR(255)    NOT NULL UNIQUE,
     password_hash   VARCHAR(255)    NULL,
     nickname        VARCHAR(50)     NOT NULL,
-    login_type      VARCHAR(20)     NOT NULL DEFAULT 'LOCAL',
-    social_id       VARCHAR(255)    NULL,
-    created_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    login_type          VARCHAR(20)     NOT NULL DEFAULT 'LOCAL',
+    social_id           VARCHAR(255)    NULL,
+    marketing_agreed    BOOLEAN         NOT NULL DEFAULT FALSE,
+    created_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_login_type CHECK (login_type IN ('LOCAL', 'GOOGLE')),
     CONSTRAINT chk_local_password CHECK (

@@ -2,11 +2,11 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.core import toss_client
-from app.core.database import get_db
 from app.core.price_fetch import fetch_candle_info_safe, fetch_prices_safe
+from app.database import get_db
 from app.models import Stock, StockPriceCache
 from app.schemas.candle import Candle
 from app.schemas.common import ApiResponse
@@ -29,8 +29,8 @@ def _apply_change_rate(item: StockListItem, candle_info: dict | None) -> None:
 
 
 @router.get("", response_model=ApiResponse[list[StockListItem]])
-async def list_stocks(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Stock).order_by(Stock.id))
+async def list_stocks(db: Session = Depends(get_db)):
+    result = db.execute(select(Stock).order_by(Stock.id))
     stocks = result.scalars().all()
     codes = [s.code for s in stocks]
 
@@ -59,14 +59,14 @@ async def list_stocks(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/rankings", response_model=ApiResponse[list[StockRankingItem]])
-async def get_stock_rankings(db: AsyncSession = Depends(get_db)):
+async def get_stock_rankings(db: Session = Depends(get_db)):
     """실시간 거래대금 랭킹. 토스를 매 요청마다 호출하지 않고, 백그라운드에서 주기적으로
     갱신되는 stock_price_cache 테이블만 읽어서 반환한다 (주기는 app.core.price_sync 참고).
     캐시가 아직 없는 종목(서버 기동 직후 등)은 시세 없이 null로 내려간다.
     (주의: 반드시 /{stock_id}보다 먼저 등록되어야 "rankings"가 stock_id로 잘못 파싱되지 않음)
     """
     try:
-        result = await db.execute(
+        result = db.execute(
             select(Stock, StockPriceCache)
             .outerjoin(StockPriceCache, StockPriceCache.stock_id == Stock.id)
             .order_by(StockPriceCache.market_rank.is_(None), StockPriceCache.market_rank, Stock.id)
@@ -74,8 +74,8 @@ async def get_stock_rankings(db: AsyncSession = Depends(get_db)):
         rows = result.all()
     except SQLAlchemyError:
         # stock_price_cache 테이블이 아직 없는 등 DB 문제가 있어도 종목 목록 자체는 내려준다.
-        await db.rollback()
-        result = await db.execute(select(Stock).order_by(Stock.id))
+        db.rollback()
+        result = db.execute(select(Stock).order_by(Stock.id))
         rows = [(s, None) for s in result.scalars().all()]
 
     data = [
@@ -114,10 +114,10 @@ async def _build_stock_detail(stock: Stock) -> StockDetail:
 
 
 @router.get("/by-code/{code}", response_model=ApiResponse[StockDetail])
-async def get_stock_by_code(code: str, db: AsyncSession = Depends(get_db)):
+async def get_stock_by_code(code: str, db: Session = Depends(get_db)):
     """종목 코드로 단건 조회. 상세페이지에서 종목 하나만 필요할 때 30종목 전체를 도는
     GET /stocks를 호출하지 않도록 별도로 둔다 (그러면 시세+등락률 계산 때문에 훨씬 느려짐)."""
-    result = await db.execute(select(Stock).where(Stock.code == code))
+    result = db.execute(select(Stock).where(Stock.code == code))
     stock = result.scalar_one_or_none()
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
@@ -126,8 +126,8 @@ async def get_stock_by_code(code: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{stock_id}", response_model=ApiResponse[StockDetail])
-async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
-    stock = await db.get(Stock, stock_id)
+async def get_stock(stock_id: int, db: Session = Depends(get_db)):
+    stock = db.get(Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
@@ -139,14 +139,14 @@ async def get_stock_candles(
     stock_id: int,
     interval: str = "1d",
     count: int = 100,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     if interval not in ("1m", "1d"):
         raise HTTPException(status_code=400, detail="interval은 1m 또는 1d만 지원합니다")
     if not 1 <= count <= 200:
         raise HTTPException(status_code=400, detail="count는 1~200 사이여야 합니다")
 
-    stock = await db.get(Stock, stock_id)
+    stock = db.get(Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 

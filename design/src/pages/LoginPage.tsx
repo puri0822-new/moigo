@@ -5,14 +5,34 @@ import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
   const { theme, mode, toggle } = useTheme();
-  const { loginWithGoogle } = useAuth();
+  const { loginWithEmail, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleEmailLogin = async () => {
+    setError('');
+    setSubmitting(true);
+    try {
+      await loginWithEmail(email, password);
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
-    await loginWithGoogle();
-    navigate('/');
+    setError('');
+    try {
+      await loginWithGoogle();
+      navigate('/');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인에 실패했습니다');
+    }
   };
 
   return (
@@ -39,10 +59,10 @@ export default function LoginPage() {
           <div style={{
             width: 52, height: 52, borderRadius: 14, background: theme.ai,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, color: theme.bg, fontWeight: 800,
+            fontSize: 20, color: theme.aiText, fontWeight: 800,
             margin: '0 auto 16px',
           }}>AI</div>
-          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>모의투자</div>
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>모이고</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginTop: 6 }}>
             AI가 함께하는 스마트 모의매매
           </div>
@@ -88,16 +108,22 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {error && (
+            <div style={{ fontSize: 12, color: theme.down, textAlign: 'center' }}>{error}</div>
+          )}
+
           <button
-            onClick={() => navigate('/')}
+            onClick={handleEmailLogin}
+            disabled={submitting}
             style={{
               padding: '12px 0', borderRadius: 10,
-              background: theme.ai, color: theme.bg,
+              background: theme.ai, color: theme.aiText,
               fontSize: 15, fontWeight: 700, border: 'none',
-              cursor: 'pointer', fontFamily: 'inherit', marginTop: 4,
+              cursor: submitting ? 'default' : 'pointer', fontFamily: 'inherit', marginTop: 4,
+              opacity: submitting ? 0.7 : 1,
             }}
           >
-            로그인
+            {submitting ? '로그인 중...' : '로그인'}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -121,7 +147,10 @@ export default function LoginPage() {
 
         <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: theme.textMuted }}>
           계정이 없으신가요?{' '}
-          <span style={{ color: theme.ai, fontWeight: 600, cursor: 'pointer' }}>회원가입</span>
+          <span
+            onClick={() => navigate('/signup')}
+            style={{ color: theme.ai, fontWeight: 600, cursor: 'pointer' }}
+          >회원가입</span>
         </div>
       </div>
     </div>

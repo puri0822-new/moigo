@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.price_sync import price_sync_loop
-from app.routers import auth, stocks
+from app.routers import account, auth, orders, portfolio, stocks
 
 
 @asynccontextmanager
@@ -16,11 +16,12 @@ async def lifespan(app: FastAPI):
     sync_task.cancel()
 
 
-app = FastAPI(title="모이고 API", lifespan=lifespan)
+app = FastAPI(title="모이고 API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -39,5 +40,13 @@ async def health():
     return {"success": True, "data": None, "message": "ok"}
 
 
+@app.get("/")
+def root():
+    return {"message": "모이고 API 서버"}
+
+
 app.include_router(auth.router, prefix="/v1")
+app.include_router(orders.router, prefix="/v1")
+app.include_router(portfolio.router, prefix="/v1")
+app.include_router(account.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")
