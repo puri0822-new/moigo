@@ -1,10 +1,24 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.core import http
+from app.core.price_sync import price_sync_loop
 from app.routers import auth, orders, portfolio, account, stocks
 
-app = FastAPI(title="모이고 API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    sync_task = asyncio.create_task(price_sync_loop())
+    yield
+    sync_task.cancel()
+    await http.close()
+
+
+app = FastAPI(title="모이고 API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
