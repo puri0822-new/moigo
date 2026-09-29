@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
+import type { UTCTimestamp } from 'lightweight-charts';
 import { useTheme } from '../context/ThemeContext';
 
 type Period = '1일' | '1주' | '1개월' | '1년';
@@ -17,7 +18,7 @@ function generateCandles(basePrice: number, count: number, intervalMinutes: numb
     const close = Math.round(price + change);
     const high = Math.round(Math.max(open, close) + Math.random() * price * 0.005);
     const low = Math.round(Math.min(open, close) - Math.random() * price * 0.005);
-    candles.push({ time: time as number, open, high, low, close });
+    candles.push({ time: time as UTCTimestamp, open, high, low, close });
     price = close;
   }
   return candles;
