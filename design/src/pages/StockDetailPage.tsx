@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, orderbook, aiRecs, holdings } from '../data/mockData';
+import { stocks, orderbook, aiRecs, holdings, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 
 const periods = ['1일', '1주', '1개월', '1년'] as const;
@@ -224,26 +224,42 @@ export default function StockDetailPage() {
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* AI 인사이트 탭 */}
           {rightTab === 'insight' && <>
-            <div style={{
-              fontSize: 13, fontWeight: 700, color: theme.aiText,
-              background: theme.ai, borderRadius: 8, padding: '7px 12px',
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}>✦ AI 인사이트</div>
-
+            {/* 등락 이유 */}
             <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>등락 이유</div>
               <div style={{ fontSize: 13, lineHeight: 1.6 }}>{stock.aiReason}</div>
             </div>
 
-            <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>AI 코멘트</div>
-              <div style={{ fontSize: 13, lineHeight: 1.6 }}>{stock.aiComment}</div>
-            </div>
+            {/* AI별 추천 코멘트 */}
+            {(() => {
+              const insights = stockAiInsights.filter(i => i.stockName === stock.name);
+              if (insights.length === 0) return null;
+              return <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>AI별 코멘트</div>
+                {insights.map((ins, idx) => {
+                  const signalColor = ins.signal === '매수' ? theme.up : ins.signal === '매도' ? theme.down : theme.textMuted;
+                  return (
+                    <div key={idx} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 6, background: theme.aiSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                          <img src={ins.icon} alt={ins.bot} width={16} height={16} style={{ objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>{ins.bot}</span>
+                        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>{ins.signal}</span>
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.6, color: theme.text }}>{ins.comment}</div>
+                    </div>
+                  );
+                })}
+              </>;
+            })()}
 
-            <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>유사 종목</div>
+            {/* 유사 종목 */}
+            <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>유사 종목</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {stock.similar.map(name => (
-                <div key={name} style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted }}>
+                <div key={name} style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted, cursor: 'pointer' }}
+                  onClick={() => { const s = stocks.find(s => s.name === name); if (s) navigate(`/stock/${s.code}`); }}>
                   {name}
                 </div>
               ))}

@@ -1,4 +1,4 @@
-import type { Stock, Holding, AIRec, OrderbookEntry, MarketIndex } from '../types';
+import type { Stock, Holding, AIRec, AIInsight, OrderbookEntry, MarketIndex } from '../types';
 
 export const marketIndices: MarketIndex[] = [
   { name: '코스피', value: '2,634.87', changePct: 0.82, changePoint: '+21.45',
@@ -214,6 +214,31 @@ export const aiRecs: AIRec[] = [
   { bot: 'Gemini', icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: '포스코퓨처엠', reason: '2차전지 섹터 전반 조정 국면, 단기 관망 권고', signal: '매도' },
   { bot: 'Claude', icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64', stockName: '한미약품', reason: '임상 3상 긍정 결과로 글로벌 기술이전 기대감 상승', signal: '매수' },
   { bot: 'ChatGPT', icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64', stockName: 'NAVER', reason: 'AI 검색 경쟁 심화로 점유율 방어 여부 불확실', signal: '중립' },
+];
+
+export const stockAiInsights: AIInsight[] = [
+  // 삼성전자
+  { bot: 'Claude',     icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64',    stockName: '삼성전자',    comment: '3분기 실적 서프라이즈와 파운드리 신규 수주가 맞물려 단기 모멘텀이 강합니다. 다만 이미 상당폭 상승했으므로 추가 매수 시 분할 접근을 권장합니다.', signal: '매수' },
+  { bot: 'Gemini',     icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: '삼성전자',    comment: '반도체 업황 개선 기대감이 리서치 리포트 전반에서 동시에 언급되고 있습니다. 외국인 순매수 흐름이 지속될 가능성이 높습니다.', signal: '매수' },
+  { bot: 'ChatGPT',    icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64',        stockName: '삼성전자',    comment: '단기 급등에 따른 차익 실현 매물이 출회될 수 있습니다. 실적 발표 이후 방향성을 확인한 뒤 진입하는 것을 추천합니다.', signal: '중립' },
+  { bot: 'Perplexity', icon: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64',     stockName: '삼성전자',    comment: '글로벌 AI 수요 증가로 HBM 및 파운드리 수주 모두 긍정적입니다. 중장기 관점에서 비중 확대를 고려할 만합니다.', signal: '매수' },
+  // SK하이닉스
+  { bot: 'Claude',     icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64',    stockName: 'SK하이닉스',  comment: 'HBM 대형 계약 소식이 실적 서프라이즈와 겹쳐 단기 상승 모멘텀이 매우 강합니다. 단기 트레이딩 관점에서 긍정적입니다.', signal: '매수' },
+  { bot: 'Gemini',     icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: 'SK하이닉스',  comment: '외국인 순매수가 지속되고 있으며 AI 메모리 수요 증가로 중장기 실적 개선이 기대됩니다.', signal: '매수' },
+  { bot: 'ChatGPT',    icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64',        stockName: 'SK하이닉스',  comment: '급등 이후 단기 변동성이 커질 수 있습니다. 보유 중이라면 일부 차익 실현도 고려해보세요.', signal: '중립' },
+  // 카카오
+  { bot: 'ChatGPT',    icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64',        stockName: '카카오',      comment: '규제 확정 전까지 변동성이 지속될 가능성이 높습니다. 단기 매매보다는 규제 방향성 확인 후 진입을 권장합니다.', signal: '중립' },
+  { bot: 'Claude',     icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64',    stockName: '카카오',      comment: '과거 유사 규제 이슈 때 저점 매수가 유효했습니다. 규제 확정 시 오히려 불확실성 해소로 반등 가능성이 있습니다.', signal: '중립' },
+  { bot: 'Perplexity', icon: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64',     stockName: '카카오',      comment: '플랫폼 규제 강화가 수익 모델에 직접적인 영향을 줄 수 있습니다. 단기 하방 리스크에 주의하세요.', signal: '매도' },
+  // NAVER
+  { bot: 'ChatGPT',    icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64',        stockName: 'NAVER',       comment: 'AI 검색 경쟁 심화로 점유율 방어 여부가 불확실합니다. 자체 AI 모델 성과가 확인될 때까지 관망하는 것이 좋겠습니다.', signal: '중립' },
+  { bot: 'Gemini',     icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: 'NAVER',       comment: '국내 검색 점유율은 여전히 안정적이나 글로벌 AI 경쟁에서 뒤처질 수 있다는 우려가 있습니다.', signal: '중립' },
+  // 포스코퓨처엠
+  { bot: 'Perplexity', icon: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64',     stockName: '포스코퓨처엠', comment: '양극재 가격 하락과 고객사 재고 조정이 겹쳐 단기 실적 압박이 예상됩니다. 섹터 전반의 하락 압력이 감지됩니다.', signal: '매도' },
+  { bot: 'Claude',     icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64',    stockName: '포스코퓨처엠', comment: '소재 가격 반등 시그널이 나오기 전까지 보수적인 접근을 권장합니다. 장기 전기차 성장 테마는 유효합니다.', signal: '중립' },
+  // 한미약품
+  { bot: 'Claude',     icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64',    stockName: '한미약품',    comment: '비만 치료제 임상 3상 중간 결과가 긍정적으로 나오면서 글로벌 기술이전 가능성이 높아졌습니다. 바이오 섹터 내 최선호 종목입니다.', signal: '매수' },
+  { bot: 'Gemini',     icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: '한미약품',    comment: '임상 성공 시 글로벌 파트너십 체결로 대규모 마일스톤 수령이 기대됩니다. 리스크 대비 기대 수익이 높습니다.', signal: '매수' },
 ];
 
 export const orderbook: OrderbookEntry[] = [
