@@ -211,7 +211,8 @@ export default function DashboardPage() {
 
           {/* 종목 정보 */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <StockLogo name={recStock.name} code={recStock.code} size={28} />
               <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#86efac' : '#fca5a5' }}>
                 {recChangeLabel}
