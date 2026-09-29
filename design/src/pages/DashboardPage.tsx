@@ -156,9 +156,6 @@ export default function DashboardPage() {
 
           {/* 종목 정보 */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
-              {rec.bot}
-            </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#86efac' : '#fca5a5' }}>
