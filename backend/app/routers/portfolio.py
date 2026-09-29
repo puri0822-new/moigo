@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.price_cache import get_current_prices
 from app.models.user import User
 from app.models.account import Account
 from app.models.stock import Stock
@@ -18,6 +19,7 @@ def get_portfolio(
 ):
     account = db.query(Account).filter(Account.user_id == current_user.id).first()
     holdings = db.query(Holding).filter(Holding.user_id == current_user.id).all()
+    current_prices = get_current_prices(db, [h.stock_id for h in holdings])
 
     holding_data = []
     total_eval_amount = 0
@@ -25,7 +27,9 @@ def get_portfolio(
 
     for h in holdings:
         stock = db.query(Stock).filter(Stock.id == h.stock_id).first()
-        eval_amount = h.avg_price * h.quantity  # 추후 현재가로 대체
+        # 시세 캐시에 아직 값이 없으면(서버 기동 직후 등) 평단가로 평가한다
+        current_price = current_prices.get(h.stock_id, h.avg_price)
+        eval_amount = current_price * h.quantity
         buy_amount = h.avg_price * h.quantity
         profit_loss = eval_amount - buy_amount
         profit_loss_rate = (profit_loss / buy_amount * 100) if buy_amount > 0 else 0.0
@@ -39,7 +43,7 @@ def get_portfolio(
             "stock_code": stock.code if stock else "",
             "quantity": h.quantity,
             "avg_price": h.avg_price,
-            "current_price": h.avg_price,   # 추후 증권 API로 대체
+            "current_price": current_price,
             "eval_amount": eval_amount,
             "profit_loss": profit_loss,
             "profit_loss_rate": round(profit_loss_rate, 2),

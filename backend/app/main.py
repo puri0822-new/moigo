@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -34,6 +35,16 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"success": False, "data": None, "message": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # 프론트는 공통 응답의 message를 보여주므로, 검증 실패도 같은 형식으로 내려준다
+    fields = ", ".join(str(err["loc"][-1]) for err in exc.errors())
+    return JSONResponse(
+        status_code=422,
+        content={"success": False, "data": None, "message": f"요청 값이 올바르지 않습니다 ({fields})"},
     )
 
 

@@ -42,8 +42,10 @@ export function apiPost<T>(path: string, data?: unknown) {
 export interface OrderRequest {
   stock_id: number;
   order_type: 'BUY' | 'SELL';
+  price_type: 'MARKET' | 'LIMIT';
   quantity: number;
-  price: number;
+  // 지정가일 때의 한도 가격. 체결가는 항상 서버의 현재가다 (지정가 조건이 지금 맞지 않으면 주문이 거절된다)
+  price?: number;
 }
 
 export interface OrderResult {
@@ -51,13 +53,54 @@ export interface OrderResult {
   stock_name: string;
   order_type: string;
   quantity: number;
-  price: number;
+  price: number; // 실제 체결가
   total_amount: number;
   ordered_at: string;
 }
 
 export function createOrder(body: OrderRequest) {
   return apiPost<OrderResult>('/orders', body);
+}
+
+export interface ApiOrder {
+  id: number;
+  stock_name: string;
+  stock_code: string;
+  order_type: 'BUY' | 'SELL';
+  quantity: number;
+  price: number;
+  total_amount: number;
+  ordered_at: string;
+}
+
+/** 내 주문 내역 (최신순) */
+export function getOrders() {
+  return apiGet<ApiOrder[]>('/orders');
+}
+
+// --- 포트폴리오 ---
+export interface ApiHolding {
+  stock_id: number;
+  stock_name: string;
+  stock_code: string;
+  quantity: number;
+  avg_price: number;
+  current_price: number;
+  eval_amount: number;
+  profit_loss: number;
+  profit_loss_rate: number; // % 단위
+}
+
+export interface ApiPortfolio {
+  balance: number; // 가상 현금
+  total_eval_amount: number; // 보유 주식 평가액 (현재가 기준)
+  total_profit_loss: number; // 보유 주식 평가손익
+  total_profit_loss_rate: number; // % 단위
+  holdings: ApiHolding[];
+}
+
+export function getPortfolio() {
+  return apiGet<ApiPortfolio>('/portfolio');
 }
 
 // --- 계좌 ---

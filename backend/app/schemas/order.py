@@ -1,11 +1,15 @@
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 class OrderRequest(BaseModel):
     stock_id: int
-    order_type: str       # BUY / SELL
-    quantity: int
-    price: int            # 현재가 (프론트에서 전달, 추후 증권 API로 대체)
+    order_type: Literal["BUY", "SELL"]
+    price_type: Literal["MARKET", "LIMIT"] = "MARKET"
+    quantity: int = Field(gt=0)
+    # 지정가 주문일 때의 한도 가격. 체결가는 항상 서버가 가진 현재가이며, 이 값은 체결 조건 확인에만 쓴다.
+    price: int | None = Field(default=None, gt=0)
     ai_analysis_id: int | None = None
 
 class OrderResponse(BaseModel):
