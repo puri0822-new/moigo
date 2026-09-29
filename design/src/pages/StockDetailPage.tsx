@@ -45,7 +45,7 @@ export default function StockDetailPage() {
             cursor: 'pointer', background: 'transparent', fontFamily: 'inherit',
           }}
         >
-          ← 랭킹으로
+          ← 이전으로
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
