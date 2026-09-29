@@ -62,7 +62,7 @@ export default function StockDetailPage() {
             {(() => {
               const changeWon = Math.round(priceNum * stock.changePct / (100 + stock.changePct));
               const sign = stock.changePct >= 0 ? '+' : '';
-              return `어제보다 ${sign}${changeWon.toLocaleString()}원 (${sign}${Math.abs(stock.changePct).toFixed(1)}%)`;
+              return `어제보다 ${sign}${changeWon.toLocaleString()}원 (${Math.abs(stock.changePct).toFixed(1)}%)`;
             })()}
           </div>
           <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 {stock.volume}</div>
