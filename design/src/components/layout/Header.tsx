@@ -33,7 +33,7 @@ export default function Header() {
         <div style={{
           width: 26, height: 26, borderRadius: 7, background: theme.ai,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, color: theme.bg,
+          fontSize: 13, color: theme.aiText,
         }}>AI</div>
         <span>모의투자</span>
       </div>
@@ -126,7 +126,7 @@ export default function Header() {
               width: 34, height: 34, borderRadius: '50%',
               background: theme.ai, border: `2px solid ${theme.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, color: theme.bg, fontWeight: 700, cursor: 'pointer',
+              fontSize: 15, color: theme.aiText, fontWeight: 700, cursor: 'pointer',
             }}
           >
             {nickname ? nickname[0].toUpperCase() : '👤'}
@@ -153,7 +153,7 @@ export default function Header() {
                     width: 42, height: 42, borderRadius: '50%',
                     background: theme.ai, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, color: theme.bg, fontWeight: 700,
+                    fontSize: 18, color: theme.aiText, fontWeight: 700,
                   }}>
                     {nickname ? nickname[0].toUpperCase() : '?'}
                   </div>

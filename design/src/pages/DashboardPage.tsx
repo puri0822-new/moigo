@@ -26,8 +26,12 @@ export default function DashboardPage() {
         display: 'flex', flexDirection: 'column', gap: 14,
         overflowY: 'auto',
       }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: theme.ai }}>
-          AI 추천 &amp; 등락 이유
+        <div style={{
+          fontSize: 13, fontWeight: 700, color: theme.aiText,
+          background: theme.ai, borderRadius: 8, padding: '7px 12px',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+        }}>
+          ✦ AI 추천 &amp; 등락 이유
         </div>
 
         {aiRecs.map((a, i) => {
@@ -135,7 +139,14 @@ export default function DashboardPage() {
         display: 'flex', flexDirection: 'column', gap: 14,
         overflowY: 'auto',
       }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>내 모의매매</div>
+        <div style={{
+          fontSize: 13, fontWeight: 700, color: theme.ai,
+          background: theme.aiSoft, borderRadius: 8, padding: '7px 12px',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          border: `1px solid ${theme.ai}`,
+        }}>
+          ✦ 내 모의매매
+        </div>
 
         {/* 총 평가자산 */}
         <div style={{

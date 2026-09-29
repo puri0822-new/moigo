@@ -12,7 +12,9 @@ const themes: Record<'dark' | 'light', Theme> = {
     textMuted: 'oklch(0.62 0.006 260)',
     up: 'oklch(0.72 0.16 148)',
     down: 'oklch(0.68 0.19 25)',
-    ai: 'oklch(0.74 0.13 264)',
+    ai: '#4F6EF7',
+    aiSoft: 'rgba(79, 110, 247, 0.15)',
+    aiText: '#ffffff',
   },
   light: {
     bg: 'oklch(0.985 0.002 260)',
@@ -23,7 +25,9 @@ const themes: Record<'dark' | 'light', Theme> = {
     textMuted: 'oklch(0.48 0.008 260)',
     up: 'oklch(0.52 0.15 148)',
     down: 'oklch(0.55 0.19 25)',
-    ai: 'oklch(0.5 0.14 264)',
+    ai: '#4F6EF7',
+    aiSoft: 'rgba(79, 110, 247, 0.10)',
+    aiText: '#ffffff',
   },
 };
 

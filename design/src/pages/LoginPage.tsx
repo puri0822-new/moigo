@@ -59,7 +59,7 @@ export default function LoginPage() {
           <div style={{
             width: 52, height: 52, borderRadius: 14, background: theme.ai,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, color: theme.bg, fontWeight: 800,
+            fontSize: 20, color: theme.aiText, fontWeight: 800,
             margin: '0 auto 16px',
           }}>AI</div>
           <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>모의투자</div>
@@ -117,7 +117,7 @@ export default function LoginPage() {
             disabled={submitting}
             style={{
               padding: '12px 0', borderRadius: 10,
-              background: theme.ai, color: theme.bg,
+              background: theme.ai, color: theme.aiText,
               fontSize: 15, fontWeight: 700, border: 'none',
               cursor: submitting ? 'default' : 'pointer', fontFamily: 'inherit', marginTop: 4,
               opacity: submitting ? 0.7 : 1,

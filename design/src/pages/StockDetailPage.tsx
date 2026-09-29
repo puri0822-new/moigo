@@ -79,7 +79,7 @@ export default function StockDetailPage() {
                   fontSize: 12, fontWeight: 600,
                   padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
                   background: period === p ? theme.ai : 'transparent',
-                  color: period === p ? theme.bg : theme.textMuted,
+                  color: period === p ? theme.aiText : theme.textMuted,
                 }}
               >
                 {p}
@@ -203,7 +203,13 @@ export default function StockDetailPage() {
         display: 'flex', flexDirection: 'column', gap: 14,
         overflowY: 'auto',
       }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: theme.ai }}>AI 인사이트</div>
+        <div style={{
+          fontSize: 13, fontWeight: 700, color: theme.aiText,
+          background: theme.ai, borderRadius: 8, padding: '7px 12px',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+        }}>
+          ✦ AI 인사이트
+        </div>
 
         <div style={{
           background: theme.panel2, border: `1px solid ${theme.border}`,

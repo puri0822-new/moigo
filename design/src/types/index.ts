@@ -52,4 +52,6 @@ export interface Theme {
   up: string;
   down: string;
   ai: string;
+  aiSoft: string;
+  aiText: string;
 }
