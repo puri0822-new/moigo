@@ -8,6 +8,7 @@ export default function DashboardPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const [activeRec, setActiveRec] = useState(0);
+  const [showRec, setShowRec] = useState(true);
 
   const mockPortfolio = {
     totalAsset: 12_480_000,
@@ -114,7 +115,7 @@ export default function DashboardPage() {
       }}>
 
         {/* AI 추천 자동 전환 카드 */}
-        <div
+        {showRec && <div
           onClick={() => navigate(`/stock/${recStock.code}`)}
           style={{
             background: theme.ai, borderRadius: 14, padding: '20px 18px',
@@ -152,6 +153,16 @@ export default function DashboardPage() {
               />
             </div>
             <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{rec.bot}</span>
+            <div
+              onClick={e => { e.stopPropagation(); setShowRec(false); }}
+              style={{
+                marginLeft: 'auto', width: 22, height: 22, borderRadius: 6,
+                background: 'rgba(255,255,255,0.15)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.7)',
+                flexShrink: 0,
+              }}
+            >✕</div>
           </div>
 
           {/* 종목 정보 */}
@@ -166,7 +177,7 @@ export default function DashboardPage() {
               {rec.reason}
             </div>
           </div>
-        </div>
+        </div>}
 
         <div style={{
           fontSize: 13, fontWeight: 700, color: theme.ai,
