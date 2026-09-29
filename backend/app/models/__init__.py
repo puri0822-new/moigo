@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     DateTime,
@@ -108,4 +109,18 @@ class Holding(Base):
     stock_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     avg_price: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StockPriceCache(Base):
+    __tablename__ = "stock_price_cache"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    stock_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("stocks.id", ondelete="CASCADE"), unique=True, nullable=False)
+    current_price: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    change_rate: Mapped[float | None] = mapped_column(Numeric(10, 6), nullable=True)
+    trading_volume: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    trading_amount: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    market_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
