@@ -9,6 +9,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const [activeRec, setActiveRec] = useState(0);
   const [showRec, setShowRec] = useState(true);
+  const [activeTab, setActiveTab] = useState<'거래량' | '급상승' | '급하락'>('거래량');
 
   const mockPortfolio = {
     totalAsset: 12_480_000,
@@ -87,10 +88,24 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* 거래량 랭킹 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>실시간 거래량 랭킹</div>
-          <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 기준 · 실시간</div>
+        {/* 거래량 차트 헤더 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>실시간 거래량 차트</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['거래량', '급상승', '급하락'] as const).map(tab => (
+              <div
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+                  cursor: 'pointer',
+                  background: activeTab === tab ? theme.ai : theme.panel2,
+                  color: activeTab === tab ? '#fff' : theme.textMuted,
+                  border: `1px solid ${activeTab === tab ? theme.ai : theme.border}`,
+                }}
+              >{tab}</div>
+            ))}
+          </div>
         </div>
 
         <div style={{
@@ -98,7 +113,13 @@ export default function DashboardPage() {
           background: theme.border, border: `1px solid ${theme.border}`,
           borderRadius: 12, overflow: 'hidden',
         }}>
-          {stocks.map(s => {
+          {[...stocks]
+            .sort((a, b) =>
+              activeTab === '급상승' ? b.changePct - a.changePct :
+              activeTab === '급하락' ? a.changePct - b.changePct :
+              a.rank - b.rank
+            )
+            .map(s => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
             const aiRec = aiRecs.find(r => r.stockName === s.name);
@@ -146,6 +167,7 @@ export default function DashboardPage() {
           })}
         </div>
       </div>
+
 
       {/* 오른쪽: AI 추천 + 내 모의매매 */}
       <div style={{
