@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { stocks, aiRecs, marketIndices, holdings } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
@@ -6,6 +7,7 @@ import StockLogo from '../components/StockLogo';
 export default function DashboardPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const [activeRec, setActiveRec] = useState(0);
 
   const mockPortfolio = {
     totalAsset: 12_480_000,
@@ -14,56 +16,27 @@ export default function DashboardPage() {
     profitRate: 4.0,
   };
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveRec(prev => (prev + 1) % aiRecs.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const rec = aiRecs[activeRec];
+  const recStock = stocks.find(s => s.name === rec.stockName) || stocks[0];
+  const recChangeColor = recStock.changePct >= 0 ? theme.up : theme.down;
+  const recChangeLabel = (recStock.changePct >= 0 ? '▲' : '▼') + Math.abs(recStock.changePct).toFixed(1) + '%';
+
   return (
     <div style={{ display: 'flex', height: '100%' }}>
 
-      {/* 왼쪽: AI 추천 & 등락 이유 */}
-      <div style={{
-        width: 300, flexShrink: 0,
-        borderRight: `1px solid ${theme.border}`,
-        background: theme.panel,
-        padding: 20,
-        display: 'flex', flexDirection: 'column', gap: 14,
-        overflowY: 'auto',
-      }}>
-        <div style={{
-          fontSize: 13, fontWeight: 700, color: theme.aiText,
-          background: theme.ai, borderRadius: 8, padding: '7px 12px',
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-        }}>
-          ✦ AI 추천 &amp; 등락 이유
-        </div>
-
-        {aiRecs.map((a, i) => {
-          const stock = stocks.find(s => s.name === a.stockName) || stocks[0];
-          const changeColor = stock.changePct >= 0 ? theme.up : theme.down;
-          const changeLabel = (stock.changePct >= 0 ? '▲' : '▼') + Math.abs(stock.changePct).toFixed(1) + '%';
-          return (
-            <div
-              key={i}
-              onClick={() => navigate(`/stock/${stock.code}`)}
-              style={{
-                background: theme.panel2, border: `1px solid ${theme.border}`,
-                borderRadius: 10, padding: 12,
-                display: 'flex', flexDirection: 'column', gap: 6, cursor: 'pointer',
-              }}
-            >
-              <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>{a.bot}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{a.stockName}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: changeColor }}>{changeLabel}</span>
-              </div>
-              <div style={{ fontSize: 12, lineHeight: 1.5 }}>{a.reason}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 가운데: 실시간 거래량 랭킹 */}
+      {/* 가운데: 메인 콘텐츠 */}
       <div style={{
         flex: 1, minWidth: 0, padding: 24,
         display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto',
       }}>
+        {/* 지수 */}
         <div style={{ display: 'flex', gap: 12 }}>
           {marketIndices.map(idx => {
             const changeColor = idx.changePct >= 0 ? theme.up : theme.down;
@@ -86,6 +59,68 @@ export default function DashboardPage() {
           })}
         </div>
 
+        {/* AI 추천 자동 전환 카드 */}
+        <div
+          onClick={() => navigate(`/stock/${recStock.code}`)}
+          style={{
+            background: theme.ai, borderRadius: 14, padding: '18px 20px',
+            display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer',
+            position: 'relative', overflow: 'hidden',
+          }}
+        >
+          {/* 배경 장식 */}
+          <div style={{
+            position: 'absolute', right: -20, top: -20,
+            width: 120, height: 120, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.08)',
+          }} />
+          <div style={{
+            position: 'absolute', right: 40, bottom: -30,
+            width: 80, height: 80, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.05)',
+          }} />
+
+          <div style={{
+            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+            background: 'rgba(255,255,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 18,
+          }}>✦</div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>
+              {rec.bot} · AI 추천
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#86efac' : '#fca5a5' }}>
+                {recChangeLabel}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+              {rec.reason}
+            </div>
+          </div>
+
+          {/* 인디케이터 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+            {aiRecs.map((_, i) => (
+              <div
+                key={i}
+                onClick={e => { e.stopPropagation(); setActiveRec(i); }}
+                style={{
+                  width: 6, height: i === activeRec ? 18 : 6,
+                  borderRadius: 3,
+                  background: i === activeRec ? '#fff' : 'rgba(255,255,255,0.35)',
+                  transition: 'height 0.3s',
+                  cursor: 'pointer',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* 거래량 랭킹 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ fontSize: 16, fontWeight: 800 }}>실시간 거래량 랭킹</div>
           <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 기준 · 실시간</div>
