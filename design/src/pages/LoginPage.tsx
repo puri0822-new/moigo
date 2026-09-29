@@ -62,7 +62,7 @@ export default function LoginPage() {
             fontSize: 20, color: theme.aiText, fontWeight: 800,
             margin: '0 auto 16px',
           }}>AI</div>
-          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>모의투자</div>
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>모이고</div>
           <div style={{ fontSize: 14, color: theme.textMuted, marginTop: 6 }}>
             AI가 함께하는 스마트 모의매매
           </div>

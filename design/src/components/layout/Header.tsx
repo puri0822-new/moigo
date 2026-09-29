@@ -36,7 +36,7 @@ export default function Header() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 13, color: theme.aiText,
         }}>AI</div>
-        <span>모의투자</span>
+        <span>모이고</span>
       </div>
 
       {/* 네비게이션 */}
