@@ -248,6 +248,18 @@ export default function StockDetailPage() {
                         <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>{ins.signal}</span>
                       </div>
                       <div style={{ fontSize: 12, lineHeight: 1.6, color: theme.text }}>{ins.comment}</div>
+
+                      {ins.sources.length > 0 && (
+                        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.03em' }}>근거 뉴스</div>
+                          {ins.sources.map((src, si) => (
+                            <div key={si} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <div style={{ fontSize: 11, fontWeight: 500, color: theme.text, lineHeight: 1.4 }}>· {src.title}</div>
+                              <div style={{ fontSize: 10, color: theme.textMuted }}>{src.source} · {src.time}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

@@ -40,12 +40,19 @@ export interface AIRec {
   signal: '매수' | '매도' | '중립';
 }
 
+export interface AIInsightSource {
+  title: string;
+  source: string;
+  time: string;
+}
+
 export interface AIInsight {
   bot: string;
   icon: string;
   stockName: string;
   comment: string;
   signal: '매수' | '매도' | '중립';
+  sources: AIInsightSource[];
 }
 
 export interface OrderbookEntry {
