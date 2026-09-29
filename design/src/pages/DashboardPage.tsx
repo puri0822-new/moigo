@@ -119,7 +119,7 @@ export default function DashboardPage() {
               activeTab === '급하락' ? a.changePct - b.changePct :
               a.rank - b.rank
             )
-            .map(s => {
+            .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
             const aiRec = aiRecs.find(r => r.stockName === s.name);
@@ -134,7 +134,7 @@ export default function DashboardPage() {
                 }}
               >
                 <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
-                  {s.rank}
+                  {i + 1}
                 </div>
                 <StockLogo name={s.name} code={s.code} size={36} />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
