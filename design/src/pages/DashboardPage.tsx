@@ -41,14 +41,16 @@ export default function DashboardPage() {
           {marketIndices.map(idx => {
             const changeColor = idx.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (idx.changePct >= 0 ? '▲' : '▼') + Math.abs(idx.changePct).toFixed(2) + '%';
-            const W = 80, H = 36;
+            const W = 80, H = 36, PAD = 3;
             const min = Math.min(...idx.spark);
             const max = Math.max(...idx.spark);
+            const range = max - min || 1;
+            const toY = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2);
             const pts = idx.spark.map((v, i) => {
               const x = (i / (idx.spark.length - 1)) * W;
-              const y = H - ((v - min) / (max - min)) * H;
-              return `${x},${y}`;
+              return `${x},${toY(v)}`;
             }).join(' ');
+            const baseY = toY(idx.spark[0]);
             return (
               <div key={idx.name} style={{
                 flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
@@ -65,6 +67,12 @@ export default function DashboardPage() {
                   </span>
                 </div>
                 <svg width={W} height={H} style={{ flexShrink: 0 }}>
+                  {/* 기준선 (시가) */}
+                  <line
+                    x1={0} y1={baseY} x2={W} y2={baseY}
+                    stroke={theme.border} strokeWidth={1} strokeDasharray="3 3"
+                  />
+                  {/* 라인 */}
                   <polyline
                     points={pts}
                     fill="none"
