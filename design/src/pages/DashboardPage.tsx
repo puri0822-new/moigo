@@ -10,6 +10,23 @@ export default function DashboardPage() {
   const [activeRec, setActiveRec] = useState(0);
   const [showRec, setShowRec] = useState(true);
   const [activeTab, setActiveTab] = useState<'거래량' | '급상승' | '급하락'>('거래량');
+  const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStockRecIndices(prev => {
+        const next = { ...prev };
+        stocks.forEach(s => {
+          const recs = aiRecs.filter(r => r.stockName === s.name);
+          if (recs.length > 1) {
+            next[s.name] = ((prev[s.name] ?? 0) + 1) % recs.length;
+          }
+        });
+        return next;
+      });
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
 
   const mockPortfolio = {
     totalAsset: 12_480_000,
@@ -122,7 +139,8 @@ export default function DashboardPage() {
             .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
-            const aiRec = aiRecs.find(r => r.stockName === s.name);
+            const stockRecs = aiRecs.filter(r => r.stockName === s.name);
+            const aiRec = stockRecs[(stockRecIndices[s.name] ?? 0) % stockRecs.length];
             const signalColor = aiRec?.signal === '매수' ? theme.up : aiRec?.signal === '매도' ? theme.down : theme.textMuted;
             return (
               <div

@@ -204,9 +204,16 @@ export const holdings: Holding[] = [
 
 export const aiRecs: AIRec[] = [
   { bot: 'Claude', icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64', stockName: 'SK하이닉스', reason: 'HBM 대형 계약 소식으로 단기 상승 모멘텀 강함', signal: '매수' },
+  { bot: 'Gemini', icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: 'SK하이닉스', reason: '실적 서프라이즈로 외국인 순매수 지속 예상', signal: '매수' },
   { bot: 'Gemini', icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: '삼성전자', reason: '반도체 업황 개선 기대감이 리포트에서 동시 언급', signal: '매수' },
+  { bot: 'Perplexity', icon: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64', stockName: '삼성전자', reason: '파운드리 신규 수주로 중장기 실적 개선 기대', signal: '매수' },
+  { bot: 'ChatGPT', icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64', stockName: '삼성전자', reason: '단기 급등 이후 차익 실현 매물 주의 필요', signal: '중립' },
   { bot: 'ChatGPT', icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64', stockName: '카카오', reason: '규제 확정 전까지 변동성 지속 가능성 주의', signal: '중립' },
+  { bot: 'Claude', icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64', stockName: '카카오', reason: '과거 유사 규제 이슈 때 저점 매수 기회로 작용', signal: '중립' },
   { bot: 'Perplexity', icon: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64', stockName: '포스코퓨처엠', reason: '소재 가격 하락 전망으로 하락 압력 감지', signal: '매도' },
+  { bot: 'Gemini', icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: '포스코퓨처엠', reason: '2차전지 섹터 전반 조정 국면, 단기 관망 권고', signal: '매도' },
+  { bot: 'Claude', icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64', stockName: '한미약품', reason: '임상 3상 긍정 결과로 글로벌 기술이전 기대감 상승', signal: '매수' },
+  { bot: 'ChatGPT', icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64', stockName: 'NAVER', reason: 'AI 검색 경쟁 심화로 점유율 방어 여부 불확실', signal: '중립' },
 ];
 
 export const orderbook: OrderbookEntry[] = [
