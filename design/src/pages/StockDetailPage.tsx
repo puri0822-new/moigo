@@ -74,7 +74,7 @@ export default function StockDetailPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <StockLogo name={stock.name} code={stock.code} size={48} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</span>
               <span style={{ fontSize: 13, color: theme.textMuted, fontWeight: 500 }}>{stock.code}</span>
