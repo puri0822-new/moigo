@@ -25,7 +25,6 @@ export default function DashboardPage() {
 
   const rec = aiRecs[activeRec];
   const recStock = stocks.find(s => s.name === rec.stockName) || stocks[0];
-  const recChangeColor = recStock.changePct >= 0 ? theme.up : theme.down;
   const recChangeLabel = (recStock.changePct >= 0 ? '▲' : '▼') + Math.abs(recStock.changePct).toFixed(1) + '%';
 
   return (
@@ -57,67 +56,6 @@ export default function DashboardPage() {
               </div>
             );
           })}
-        </div>
-
-        {/* AI 추천 자동 전환 카드 */}
-        <div
-          onClick={() => navigate(`/stock/${recStock.code}`)}
-          style={{
-            background: theme.ai, borderRadius: 14, padding: '18px 20px',
-            display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer',
-            position: 'relative', overflow: 'hidden',
-          }}
-        >
-          {/* 배경 장식 */}
-          <div style={{
-            position: 'absolute', right: -20, top: -20,
-            width: 120, height: 120, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.08)',
-          }} />
-          <div style={{
-            position: 'absolute', right: 40, bottom: -30,
-            width: 80, height: 80, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.05)',
-          }} />
-
-          <div style={{
-            width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18,
-          }}>✦</div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>
-              {rec.bot} · AI 추천
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#86efac' : '#fca5a5' }}>
-                {recChangeLabel}
-              </span>
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-              {rec.reason}
-            </div>
-          </div>
-
-          {/* 인디케이터 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-            {aiRecs.map((_, i) => (
-              <div
-                key={i}
-                onClick={e => { e.stopPropagation(); setActiveRec(i); }}
-                style={{
-                  width: 6, height: i === activeRec ? 18 : 6,
-                  borderRadius: 3,
-                  background: i === activeRec ? '#fff' : 'rgba(255,255,255,0.35)',
-                  transition: 'height 0.3s',
-                  cursor: 'pointer',
-                }}
-              />
-            ))}
-          </div>
         </div>
 
         {/* 거래량 랭킹 */}
@@ -165,7 +103,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 오른쪽: 내 모의매매 */}
+      {/* 오른쪽: AI 추천 + 내 모의매매 */}
       <div style={{
         width: 300, flexShrink: 0,
         borderLeft: `1px solid ${theme.border}`,
@@ -174,6 +112,74 @@ export default function DashboardPage() {
         display: 'flex', flexDirection: 'column', gap: 14,
         overflowY: 'auto',
       }}>
+
+        {/* AI 추천 자동 전환 카드 */}
+        <div
+          onClick={() => navigate(`/stock/${recStock.code}`)}
+          style={{
+            background: theme.ai, borderRadius: 14, padding: '16px',
+            display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer',
+            position: 'relative', overflow: 'hidden',
+          }}
+        >
+          {/* 배경 장식 */}
+          <div style={{
+            position: 'absolute', right: -20, top: -20,
+            width: 100, height: 100, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.08)',
+          }} />
+          <div style={{
+            position: 'absolute', right: 20, bottom: -30,
+            width: 70, height: 70, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.05)',
+          }} />
+
+          {/* 헤더 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                background: 'rgba(255,255,255,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14,
+              }}>✦</div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>AI 추천</span>
+            </div>
+            {/* 인디케이터 */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {aiRecs.map((_, i) => (
+                <div
+                  key={i}
+                  onClick={e => { e.stopPropagation(); setActiveRec(i); }}
+                  style={{
+                    width: i === activeRec ? 16 : 6, height: 6,
+                    borderRadius: 3,
+                    background: i === activeRec ? '#fff' : 'rgba(255,255,255,0.35)',
+                    transition: 'width 0.3s',
+                    cursor: 'pointer',
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* 종목 정보 */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
+              {rec.bot}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#86efac' : '#fca5a5' }}>
+                {recChangeLabel}
+              </span>
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
+              {rec.reason}
+            </div>
+          </div>
+        </div>
+
         <div style={{
           fontSize: 13, fontWeight: 700, color: theme.ai,
           background: theme.aiSoft, borderRadius: 8, padding: '7px 12px',
