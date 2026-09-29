@@ -1,4 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string ?? 'http://localhost:8000/v1';
+
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+});
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -6,6 +12,7 @@ export interface ApiResponse<T> {
   message: string;
 }
 
+// --- 기본 fetch 헬퍼 (주문/계좌 등 기존 기능용) ---
 async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('access_token');
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -53,19 +60,6 @@ export function createOrder(body: OrderRequest) {
   return apiPost<OrderResult>('/orders', body);
 }
 
-// --- 종목 ---
-export interface StockInfo {
-  id: number;
-  code: string;
-  name: string;
-  market: string;
-  sector: string;
-}
-
-export function getStocks() {
-  return apiGet<StockInfo[]>('/stocks');
-}
-
 // --- 계좌 ---
 export interface AccountInfo {
   id: number;
@@ -77,4 +71,50 @@ export interface AccountInfo {
 
 export function getAccount() {
   return apiGet<AccountInfo>('/account');
+}
+
+// --- 종목 (실시간 가격 포함) ---
+export interface ApiStock {
+  id: number;
+  code: string;
+  name: string;
+  market: string;
+  sector: string | null;
+  current_price: number | null;
+  change_rate: number | null;
+}
+
+export async function fetchStocks(): Promise<ApiStock[]> {
+  const res = await api.get<ApiResponse<ApiStock[]>>('/stocks');
+  return res.data.data;
+}
+
+// --- 뉴스 ---
+export interface ApiNewsItem {
+  id: number;
+  title: string;
+  summary: string | null;
+  url: string;
+  source: string | null;
+  published_at: string;
+}
+
+export async function fetchStockNews(stockId: number, limit = 10): Promise<ApiNewsItem[]> {
+  const res = await api.get<ApiResponse<ApiNewsItem[]>>(`/stocks/${stockId}/news`, { params: { limit } });
+  return res.data.data;
+}
+
+// --- 캔들 차트 ---
+export interface ApiCandle {
+  timestamp: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export async function fetchStockCandles(stockId: number, interval: '1m' | '1d', count: number): Promise<ApiCandle[]> {
+  const res = await api.get<ApiResponse<ApiCandle[]>>(`/stocks/${stockId}/candles`, { params: { interval, count } });
+  return res.data.data;
 }

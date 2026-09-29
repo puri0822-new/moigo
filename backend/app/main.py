@@ -1,14 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import Base, engine
-from app.routers import auth
-from app.routers import orders, portfolio, account, stocks
-import app.models.stock
-import app.models.order
-import app.models.holding
+from fastapi.responses import JSONResponse
 
-# 테이블 자동 생성
-Base.metadata.create_all(bind=engine)
+from app.routers import auth, orders, portfolio, account, stocks
 
 app = FastAPI(title="모이고 API", version="1.0.0")
 
@@ -20,12 +14,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "data": None, "message": exc.detail},
+    )
+
+
+@app.get("/health")
+async def health():
+    return {"success": True, "data": None, "message": "ok"}
+
+
+@app.get("/")
+def root():
+    return {"message": "모이고 API 서버"}
+
+
 app.include_router(auth.router, prefix="/v1")
 app.include_router(orders.router, prefix="/v1")
 app.include_router(portfolio.router, prefix="/v1")
 app.include_router(account.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")
-
-@app.get("/")
-def root():
-    return {"message": "모이고 API 서버"}

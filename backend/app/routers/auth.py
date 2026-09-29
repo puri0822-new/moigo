@@ -4,11 +4,12 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models.user import User
 from app.models.account import Account
-from app.schemas.auth import SignupRequest, LoginRequest, TokenResponse, UserResponse
+from app.schemas.auth import SignupRequest, LoginRequest, TokenResponseData, SignupResponseData
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.firebase import verify_google_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
 
 @router.post("/signup", status_code=201)
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
@@ -36,18 +37,20 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         "message": "회원가입 성공"
     }
 
+
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다")
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token(str(user.id))
     return {
         "success": True,
         "data": {"access_token": token, "token_type": "bearer", "nickname": user.nickname},
         "message": "로그인 성공"
     }
+
 
 @router.post("/logout")
 def logout():
@@ -95,7 +98,7 @@ def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
             user.social_id = social_id
             db.commit()
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token(str(user.id))
     return {
         "success": True,
         "data": {"access_token": token, "token_type": "bearer", "nickname": user.nickname},
