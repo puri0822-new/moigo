@@ -124,6 +124,7 @@ export default function DashboardPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <img src={aiRec.icon} alt={aiRec.bot} width={12} height={12} style={{ borderRadius: 3 }} />
                           <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600 }}>{aiRec.bot}</span>
+                          <span style={{ fontSize: 11, color: theme.textMuted }}>· {aiRec.reason}</span>
                           <span style={{
                             fontSize: 10, fontWeight: 700, color: signalColor,
                             border: `1px solid ${signalColor}`, borderRadius: 4,
