@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { stocks } from '../../data/mockData';
@@ -8,6 +8,7 @@ export default function Header() {
   const { theme, mode, toggle } = useTheme();
   const { logout, nickname } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -37,6 +38,32 @@ export default function Header() {
         }}>AI</div>
         <span>모의투자</span>
       </div>
+
+      {/* 네비게이션 */}
+      <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {[
+          { label: '홈', path: '/' },
+          { label: '랭킹', path: '/ranking' },
+          { label: '피드', path: '/feed' },
+          { label: '내 계좌', path: '/portfolio' },
+        ].map(({ label, path }) => {
+          const active = location.pathname === path;
+          return (
+            <div
+              key={label}
+              onClick={() => navigate(path)}
+              style={{
+                padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                fontSize: 14, fontWeight: active ? 700 : 500,
+                color: active ? theme.ai : theme.textMuted,
+                background: active ? theme.aiSoft : 'transparent',
+              }}
+            >
+              {label}
+            </div>
+          );
+        })}
+      </nav>
 
       <div style={{ flex: 1, maxWidth: 420, position: 'relative' }}>
         <div style={{
