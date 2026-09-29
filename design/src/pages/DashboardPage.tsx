@@ -160,7 +160,11 @@ export default function DashboardPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.name}</span>
                       {aiRec && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                        <div
+                          key={`${s.name}-${aiRec.bot}-${aiRec.signal}`}
+                          className="ai-rec-slide"
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}
+                        >
                           <img src={aiRec.icon} alt={aiRec.bot} width={12} height={12} style={{ borderRadius: 3, flexShrink: 0 }} />
                           <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, flexShrink: 0 }}>{aiRec.bot}</span>
                           <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {aiRec.reason}</span>
