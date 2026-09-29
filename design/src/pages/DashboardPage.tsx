@@ -29,12 +29,12 @@ export default function DashboardPage() {
   const recChangeLabel = (recStock.changePct >= 0 ? '▲' : '▼') + Math.abs(recStock.changePct).toFixed(1) + '%';
 
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', minHeight: '100%' }}>
 
       {/* 가운데: 메인 콘텐츠 */}
       <div style={{
         flex: 1, minWidth: 0, padding: 24,
-        display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto',
+        display: 'flex', flexDirection: 'column', gap: 14,
       }}>
         {/* 지수 */}
         <div style={{ display: 'flex', gap: 12 }}>
@@ -139,7 +139,8 @@ export default function DashboardPage() {
         background: theme.panel,
         padding: 20,
         display: 'flex', flexDirection: 'column', gap: 14,
-        overflowY: 'auto',
+        position: 'sticky', top: 0,
+        height: 'calc(100vh - 64px)', overflowY: 'auto',
       }}>
 
         {/* AI 추천 자동 전환 카드 */}
