@@ -10,5 +10,5 @@ a { color: inherit; text-decoration: none; }
   to   { opacity: 1; transform: translateY(0); }
 }
 .ai-rec-slide {
-  animation: slideDown 0.35s ease;
+  animation: slideDown 0.7s ease;
 }
