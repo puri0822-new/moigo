@@ -19,7 +19,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const timer = setInterval(() => {
       setActiveRec(prev => (prev + 1) % aiRecs.length);
-    }, 3000);
+    }, 6000);
     return () => clearInterval(timer);
   }, []);
 
@@ -117,9 +117,9 @@ export default function DashboardPage() {
         <div
           onClick={() => navigate(`/stock/${recStock.code}`)}
           style={{
-            background: theme.ai, borderRadius: 14, padding: '16px',
-            display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer',
-            position: 'relative', overflow: 'hidden',
+            background: theme.ai, borderRadius: 14, padding: '20px 18px',
+            display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer',
+            position: 'relative', overflow: 'hidden', minHeight: 180,
           }}
         >
           {/* 배경 장식 */}
@@ -135,32 +135,14 @@ export default function DashboardPage() {
           }} />
 
           {/* 헤더 */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                background: 'rgba(255,255,255,0.2)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14,
-              }}>✦</div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>AI 추천</span>
-            </div>
-            {/* 인디케이터 */}
-            <div style={{ display: 'flex', gap: 4 }}>
-              {aiRecs.map((_, i) => (
-                <div
-                  key={i}
-                  onClick={e => { e.stopPropagation(); setActiveRec(i); }}
-                  style={{
-                    width: i === activeRec ? 16 : 6, height: 6,
-                    borderRadius: 3,
-                    background: i === activeRec ? '#fff' : 'rgba(255,255,255,0.35)',
-                    transition: 'width 0.3s',
-                    cursor: 'pointer',
-                  }}
-                />
-              ))}
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14,
+            }}>✦</div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>AI 추천</span>
           </div>
 
           {/* 종목 정보 */}
@@ -174,7 +156,7 @@ export default function DashboardPage() {
                 {recChangeLabel}
               </span>
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, wordBreak: 'keep-all' }}>
               {rec.reason}
             </div>
           </div>
