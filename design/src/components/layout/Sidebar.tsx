@@ -64,7 +64,7 @@ export default function Sidebar() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <StockLogo name={h.name} size={28} />
+                <StockLogo name={h.name} code={stock.code} size={28} />
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600 }}>
                   <span>{h.name}</span>
                   <span style={{ color: theme.textMuted, fontWeight: 500 }}>{h.qty}</span>

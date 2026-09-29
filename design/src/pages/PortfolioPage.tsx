@@ -79,7 +79,7 @@ export default function PortfolioPage() {
                 fontSize: 13, alignItems: 'center',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <StockLogo name={h.name} size={28} />
+                  <StockLogo name={h.name} code={stock.code} size={28} />
                   <div>
                     <div style={{ fontWeight: 700 }}>{h.name}</div>
                     <div style={{ fontSize: 11, color: theme.textMuted }}>{stock.code}</div>
@@ -115,7 +115,9 @@ export default function PortfolioPage() {
             <span style={{ textAlign: 'right' }}>거래금액</span>
             <span style={{ textAlign: 'right' }}>실현손익</span>
           </div>
-          {tradeHistory.map((t, i) => (
+          {tradeHistory.map((t, i) => {
+            const tStock = stocks.find(s => s.name === t.name) || stocks[0];
+            return (
             <div key={i} style={{
               display: 'grid', gridTemplateColumns: '100px 50px 1fr 60px 90px 110px 100px',
               padding: '11px 16px', borderBottom: `1px solid ${theme.border}`,
@@ -129,7 +131,7 @@ export default function PortfolioPage() {
                 {t.type}
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <StockLogo name={t.name} size={22} />
+                <StockLogo name={t.name} code={tStock.code} size={22} />
                 <span style={{ fontWeight: 600 }}>{t.name}</span>
               </div>
               <span style={{ textAlign: 'right' }}>{t.qty}주</span>
@@ -144,7 +146,8 @@ export default function PortfolioPage() {
                 {t.profit ?? '-'}
               </span>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
