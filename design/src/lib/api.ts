@@ -74,6 +74,31 @@ export function getAccount() {
   return apiGet<AccountInfo>('/account');
 }
 
+// --- 포트폴리오 ---
+export interface ApiHolding {
+  stock_id: number;
+  stock_name: string;
+  stock_code: string;
+  quantity: number;
+  avg_price: number;
+  current_price: number;
+  eval_amount: number;
+  profit_loss: number;
+  profit_loss_rate: number;
+}
+
+export interface ApiPortfolio {
+  balance: number;
+  total_eval_amount: number;
+  total_profit_loss: number;
+  total_profit_loss_rate: number;
+  holdings: ApiHolding[];
+}
+
+export function fetchPortfolio() {
+  return apiGet<ApiPortfolio>('/portfolio');
+}
+
 // --- 종목 (실시간 가격 포함) ---
 export interface ApiStock {
   id: number;
@@ -83,6 +108,7 @@ export interface ApiStock {
   sector: string | null;
   current_price: number | null;
   change_rate: number | null;
+  volume?: number | null;
 }
 
 export async function fetchStocks(): Promise<ApiStock[]> {

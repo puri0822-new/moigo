@@ -1,10 +1,25 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, orderbook } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
+import CandleChart from '../components/CandleChart';
+import { fetchStockByCode, fetchStockCandles, type ApiStock } from '../lib/api';
 
 const periods = ['1일', '1주', '1개월', '1년'] as const;
+type Period = (typeof periods)[number];
+
+const PERIOD_PARAMS: Record<Period, { interval: '1m' | '1d'; count: number }> = {
+  '1일': { interval: '1m', count: 200 },
+  '1주': { interval: '1d', count: 5 },
+  '1개월': { interval: '1d', count: 22 },
+  '1년': { interval: '1d', count: 200 },
+};
+
+function formatVolume(volume: number | null | undefined): string {
+  if (volume == null) return '-';
+  return volume >= 10_000 ? `${(volume / 10_000).toFixed(1)}만` : volume.toLocaleString();
+}
 
 export default function StockDetailPage() {
   const { theme } = useTheme();
@@ -12,12 +27,48 @@ export default function StockDetailPage() {
   const navigate = useNavigate();
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [qty, setQty] = useState(1);
-  const [period, setPeriod] = useState<(typeof periods)[number]>('1일');
+  const [period, setPeriod] = useState<Period>('1일');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const stock = stocks.find(s => s.code === code) ?? stocks[0];
-  const priceNum = parseInt(stock.price.replace(/[^0-9]/g, ''), 10);
-  const total = priceNum * qty;
+  const [stock, setStock] = useState<ApiStock | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [candles, setCandles] = useState<CandlestickData<UTCTimestamp | string>[]>([]);
+
+  useEffect(() => {
+    if (!code) return;
+    setLoading(true);
+    setNotFound(false);
+    fetchStockByCode(code)
+      .then(found => {
+        if (!found) {
+          setNotFound(true);
+          return;
+        }
+        setStock(found);
+      })
+      .finally(() => setLoading(false));
+  }, [code]);
+
+  useEffect(() => {
+    if (!stock) return;
+    const { interval, count } = PERIOD_PARAMS[period];
+    fetchStockCandles(stock.id, interval, count)
+      .then(raw => {
+        setCandles(
+          raw.map(c => ({
+            time: interval === '1d'
+              ? c.timestamp.slice(0, 10)
+              : (Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }))
+        );
+      })
+      .catch(() => setCandles([]));
+  }, [stock, period]);
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -25,8 +76,35 @@ export default function StockDetailPage() {
   };
 
   const handleOrder = () => {
-    showToast(`${side === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${qty}주 · ${total.toLocaleString()}원`, true);
+    if (!stock || stock.current_price == null) return;
+    showToast(`${side === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${qty}주 · ${(stock.current_price * qty).toLocaleString()}원`, true);
   };
+
+  if (loading) {
+    return <div style={{ padding: 24, color: theme.textMuted }}>불러오는 중...</div>;
+  }
+
+  if (notFound || !stock) {
+    return (
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
+        <div style={{ color: theme.down, fontWeight: 600 }}>종목을 찾을 수 없습니다.</div>
+        <button
+          onClick={() => navigate('/')}
+          style={{
+            padding: '7px 12px', borderRadius: 8, border: `1px solid ${theme.border}`,
+            fontSize: 13, fontWeight: 600, color: theme.textMuted,
+            cursor: 'pointer', background: 'transparent', fontFamily: 'inherit',
+          }}
+        >
+          ← 랭킹으로
+        </button>
+      </div>
+    );
+  }
+
+  const changePct = (stock.change_rate ?? 0) * 100;
+  const priceLabel = stock.current_price != null ? `${stock.current_price.toLocaleString()}원` : '-';
+  const total = (stock.current_price ?? 0) * qty;
 
   return (
     <div style={{ display: 'flex', height: '100%' }}>
@@ -57,14 +135,14 @@ export default function StockDetailPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{stock.price}</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: stock.changePct >= 0 ? theme.up : theme.down }}>
-            {(stock.changePct >= 0 ? '▲' : '▼') + Math.abs(stock.changePct).toFixed(1) + '%'}
+          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{priceLabel}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: changePct >= 0 ? theme.up : theme.down }}>
+            {(changePct >= 0 ? '▲' : '▼') + Math.abs(changePct).toFixed(1) + '%'}
           </div>
-          <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 {stock.volume}</div>
+          <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 {formatVolume(stock.volume)}</div>
         </div>
 
-        {/* 차트 자리 */}
+        {/* 캔들 차트 */}
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
           borderRadius: 12, height: 260,
@@ -86,11 +164,17 @@ export default function StockDetailPage() {
               </div>
             ))}
           </div>
-          <div style={{
-            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: theme.textMuted, fontSize: 13,
-          }}>
-            차트 영역 ({period})
+          <div style={{ flex: 1, minHeight: 0 }}>
+            {candles.length > 0
+              ? <CandleChart data={candles} theme={theme} />
+              : (
+                <div style={{
+                  height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: theme.textMuted, fontSize: 13,
+                }}>
+                  차트 데이터 없음
+                </div>
+              )}
           </div>
         </div>
 
@@ -163,15 +247,9 @@ export default function StockDetailPage() {
             display: 'flex', flexDirection: 'column', gap: 6,
           }}>
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>호가</div>
-            {orderbook.map((o, i) => (
-              <div key={i} style={{
-                display: 'flex', justifyContent: 'space-between',
-                fontSize: 12, padding: '3px 0',
-                color: o.dir === 'down' ? theme.down : o.dir === 'up' ? theme.up : theme.textMuted,
-              }}>
-                <span>{o.price}</span><span>{o.qty}</span>
-              </div>
-            ))}
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: 13 }}>
+              준비 중
+            </div>
           </div>
         </div>
 
@@ -182,15 +260,7 @@ export default function StockDetailPage() {
           display: 'flex', flexDirection: 'column', gap: 10,
         }}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>최근 뉴스</div>
-          {stock.news.map((n, i) => (
-            <div key={i} style={{
-              display: 'flex', flexDirection: 'column', gap: 2,
-              padding: '10px 0', borderBottom: `1px solid ${theme.border}`,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>{n.title}</div>
-              <div style={{ fontSize: 11, color: theme.textMuted }}>{n.source} · {n.time}</div>
-            </div>
-          ))}
+          <div style={{ color: theme.textMuted, fontSize: 13, padding: '8px 0' }}>준비 중</div>
         </div>
       </div>
 
@@ -217,7 +287,7 @@ export default function StockDetailPage() {
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>등락 이유</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>{stock.aiReason}</div>
+          <div style={{ fontSize: 13, lineHeight: 1.6, color: theme.textMuted }}>준비 중</div>
         </div>
 
         <div style={{
@@ -226,19 +296,7 @@ export default function StockDetailPage() {
           display: 'flex', flexDirection: 'column', gap: 8,
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>AI 코멘트</div>
-          <div style={{ fontSize: 13, lineHeight: 1.6 }}>{stock.aiComment}</div>
-        </div>
-
-        <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>유사 종목</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {stock.similar.map(name => (
-            <div key={name} style={{
-              padding: '5px 10px', borderRadius: 20,
-              border: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted,
-            }}>
-              {name}
-            </div>
-          ))}
+          <div style={{ fontSize: 13, lineHeight: 1.6, color: theme.textMuted }}>준비 중</div>
         </div>
       </div>
 

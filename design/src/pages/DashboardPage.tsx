@@ -1,8 +1,33 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, aiRecs, marketIndices, holdings } from '../data/mockData';
+import { aiRecs, marketIndices } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
+import { fetchStockRankings, fetchPortfolio, type ApiStockRanking, type ApiPortfolio } from '../lib/api';
+
+interface RankedStock {
+  rank: number;
+  name: string;
+  code: string;
+  price: string;
+  volume: string;
+  changePct: number;
+}
+
+function toRankedStock(s: ApiStockRanking, position: number): RankedStock {
+  return {
+    // 화면에 매기는 번호는 서버가 준 순서(랭킹 있는 종목이 먼저, 없는 종목이 뒤) 그대로의 위치 번호다.
+    rank: position,
+    name: s.name,
+    code: s.code,
+    price: s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-',
+    volume:
+      s.trading_volume == null ? '-'
+      : s.trading_volume >= 10_000 ? `${(s.trading_volume / 10_000).toFixed(1)}만`
+      : s.trading_volume.toLocaleString(),
+    changePct: s.change_rate != null ? s.change_rate * 100 : 0,
+  };
+}
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -10,13 +35,19 @@ export default function DashboardPage() {
   const [activeRec, setActiveRec] = useState(0);
   const [showRec, setShowRec] = useState(true);
   const [activeTab, setActiveTab] = useState<'거래량' | '급상승' | '급하락'>('거래량');
+  const [stocks, setStocks] = useState<RankedStock[]>([]);
+  const [portfolio, setPortfolio] = useState<ApiPortfolio | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const mockPortfolio = {
-    totalAsset: 12_480_000,
-    balance: 3_200_000,
-    totalProfit: 480_000,
-    profitRate: 4.0,
-  };
+  useEffect(() => {
+    Promise.all([fetchStockRankings(), fetchPortfolio()])
+      .then(([rankings, portfolioRes]) => {
+        setStocks(rankings.map((s, i) => toRankedStock(s, i + 1)));
+        setPortfolio(portfolioRes.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -25,9 +56,13 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, []);
 
+  if (loading) {
+    return <div style={{ padding: 24, color: theme.textMuted }}>불러오는 중...</div>;
+  }
+
   const rec = aiRecs[activeRec];
-  const recStock = stocks.find(s => s.name === rec.stockName) || stocks[0];
-  const recChangeLabel = (recStock.changePct >= 0 ? '▲' : '▼') + Math.abs(recStock.changePct).toFixed(1) + '%';
+  const recStock = stocks.find(s => s.name === rec.stockName) ?? stocks[0];
+  const recChangeLabel = recStock ? (recStock.changePct >= 0 ? '▲' : '▼') + Math.abs(recStock.changePct).toFixed(1) + '%' : '-';
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', minHeight: '100%' }}>
@@ -181,7 +216,7 @@ export default function DashboardPage() {
       }}>
 
         {/* AI 추천 자동 전환 카드 */}
-        {showRec && <div
+        {showRec && recStock && <div
           onClick={() => navigate(`/stock/${recStock.code}`)}
           style={{
             background: theme.ai, borderRadius: 14, padding: '20px 18px',
@@ -263,47 +298,52 @@ export default function DashboardPage() {
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>총 평가자산</div>
           <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em' }}>
-            {mockPortfolio.totalAsset.toLocaleString()}원
+            {((portfolio?.balance ?? 0) + (portfolio?.total_eval_amount ?? 0)).toLocaleString()}원
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
             <span style={{ color: theme.textMuted }}>수익</span>
-            <span style={{ fontWeight: 700, color: theme.up }}>
-              +{mockPortfolio.totalProfit.toLocaleString()}원 ({mockPortfolio.profitRate.toFixed(2)}%)
+            <span style={{ fontWeight: 700, color: (portfolio?.total_profit_loss ?? 0) >= 0 ? theme.up : theme.down }}>
+              {(portfolio?.total_profit_loss ?? 0) >= 0 ? '+' : ''}
+              {(portfolio?.total_profit_loss ?? 0).toLocaleString()}원 ({(portfolio?.total_profit_loss_rate ?? 0).toFixed(2)}%)
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
             <span style={{ color: theme.textMuted }}>가상현금</span>
-            <span style={{ fontWeight: 600 }}>{mockPortfolio.balance.toLocaleString()}원</span>
+            <span style={{ fontWeight: 600 }}>{(portfolio?.balance ?? 0).toLocaleString()}원</span>
           </div>
         </div>
 
         {/* 보유 종목 */}
         <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>보유 종목</div>
-        {holdings.map(h => {
-          const changeColor = h.changePct >= 0 ? theme.up : theme.down;
-          const changeLabel = (h.changePct >= 0 ? '▲' : '▼') + Math.abs(h.changePct).toFixed(1) + '%';
-          const stock = stocks.find(s => s.name === h.name);
+        {portfolio?.holdings.length === 0 && (
+          <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '10px 0' }}>
+            보유 종목이 없습니다
+          </div>
+        )}
+        {portfolio?.holdings.map(h => {
+          const changeColor = h.profit_loss_rate >= 0 ? theme.up : theme.down;
+          const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(1) + '%';
           return (
             <div
-              key={h.name}
-              onClick={() => stock && navigate(`/stock/${stock.code}`)}
+              key={h.stock_id}
+              onClick={() => navigate(`/stock/${h.stock_code}`)}
               style={{
                 background: theme.panel2, border: `1px solid ${theme.border}`,
                 borderRadius: 10, padding: '10px 12px',
                 display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
               }}
             >
-              <StockLogo name={h.name} code={stock?.code} size={30} />
+              <StockLogo name={h.stock_name} code={h.stock_code} size={30} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {h.name}
+                    {h.stock_name}
                   </span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: changeColor, flexShrink: 0, marginLeft: 6 }}>
                     {changeLabel}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{h.qty}</div>
+                <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{h.quantity}주</div>
               </div>
             </div>
           );
