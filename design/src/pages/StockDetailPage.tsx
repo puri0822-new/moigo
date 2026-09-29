@@ -20,6 +20,8 @@ export default function StockDetailPage() {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [qty, setQty] = useState(1);
   const [period, setPeriod] = useState<(typeof periods)[number]>('1일');
+  const [liked, setLiked] = useState(false);
+  const [alerted, setAlerted] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [rightTab, setRightTab] = useState<'insight' | 'portfolio'>('insight');
 
@@ -72,10 +74,37 @@ export default function StockDetailPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <StockLogo name={stock.name} code={stock.code} size={48} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</span>
               <span style={{ fontSize: 13, color: theme.textMuted, fontWeight: 500 }}>{stock.code}</span>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {/* 알림 아이콘 */}
+                <div
+                  onClick={() => setAlerted(v => !v)}
+                  style={{
+                    width: 34, height: 34, borderRadius: 10,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', fontSize: 17,
+                    background: alerted ? theme.aiSoft : theme.panel2,
+                    border: `1px solid ${alerted ? theme.ai : theme.border}`,
+                    color: alerted ? theme.ai : theme.textMuted,
+                    transition: 'all 0.2s',
+                  }}
+                >🔔</div>
+                {/* 즐겨찾기 아이콘 */}
+                <div
+                  onClick={() => setLiked(v => !v)}
+                  style={{
+                    width: 34, height: 34, borderRadius: 10,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', fontSize: 17,
+                    background: liked ? 'rgba(239,68,68,0.08)' : theme.panel2,
+                    border: `1px solid ${liked ? '#ef4444' : theme.border}`,
+                    transition: 'all 0.2s',
+                  }}
+                >{liked ? '❤️' : '🤍'}</div>
+              </div>
             </div>
             <div style={{
               display: 'inline-flex', alignItems: 'center',
