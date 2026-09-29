@@ -89,14 +89,31 @@ export async function fetchStocks(): Promise<ApiStock[]> {
   return res.data.data;
 }
 
-export async function fetchStockByCode(code: string): Promise<ApiStock | null> {
+export interface ApiStockDetail extends ApiStock {
+  volume: number | null; // 오늘 누적 거래량
+}
+
+export async function fetchStockByCode(code: string): Promise<ApiStockDetail | null> {
   try {
-    const res = await api.get<ApiResponse<ApiStock>>(`/stocks/by-code/${code}`);
+    const res = await api.get<ApiResponse<ApiStockDetail>>(`/stocks/by-code/${code}`);
     return res.data.data;
   } catch (e) {
     if (axios.isAxiosError(e) && e.response?.status === 404) return null;
     throw e;
   }
+}
+
+// --- 거래대금 랭킹 ---
+export interface ApiStockRanking extends ApiStock {
+  rank: number | null; // 거래대금 상위 100위 밖이면 실제 순위가 없어 null
+  trading_volume: number | null; // 오늘 누적 거래량
+  trading_amount: number | null;
+}
+
+/** 오늘 누적 거래대금 순. 100위 안의 종목이 실제 순위대로 앞에 오고, 100위 밖 종목이 뒤에 붙는다. */
+export async function fetchStockRankings(): Promise<ApiStockRanking[]> {
+  const res = await api.get<ApiResponse<ApiStockRanking[]>>('/stocks/rankings');
+  return res.data.data;
 }
 
 // --- 뉴스 ---

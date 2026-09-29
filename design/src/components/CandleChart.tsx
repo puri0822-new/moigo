@@ -23,14 +23,16 @@ export default function CandleChart({ data, theme }: Props) {
     const down = toRgb(theme.down);
 
     const chart = createChart(el, {
-      width: el.clientWidth,
-      height: el.clientHeight,
+      // 생성 시점에 컨테이너 크기가 0일 수 있으므로 고정 크기 대신 컨테이너 크기 변화를 따라가게 한다
+      autoSize: true,
       layout: { background: { color: 'transparent' }, textColor: textMuted },
       grid: {
         vertLines: { color: border },
         horzLines: { color: border },
       },
-      timeScale: { borderColor: border },
+      // 분봉(숫자 timestamp)일 때만 시:분까지 표시. 일봉은 'YYYY-MM-DD' 문자열이라 날짜만 나온다
+      timeScale: { borderColor: border, timeVisible: typeof data[0]?.time === 'number', secondsVisible: false },
+      localization: { priceFormatter: (price: number) => Math.round(price).toLocaleString() },
       rightPriceScale: { borderColor: border },
     });
     chartRef.current = chart;
@@ -45,13 +47,7 @@ export default function CandleChart({ data, theme }: Props) {
     series.setData(data);
     chart.timeScale().fitContent();
 
-    const handleResize = () => {
-      if (el) chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
-    };
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      window.removeEventListener('resize', handleResize);
       chart.remove();
     };
   }, [data, theme]);

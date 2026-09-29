@@ -3,6 +3,17 @@ import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { stocks, aiRecs, marketIndices, holdings } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
+import { fetchStockRankings, type ApiStockRanking } from '../lib/api';
+
+// 백엔드가 시세 캐시를 30초마다 갱신하므로 같은 주기로 다시 받아온다
+const RANKINGS_REFRESH_MS = 30_000;
+
+function formatVolume(volume: number | null) {
+  if (volume == null) return '-';
+  if (volume >= 100_000_000) return `${(volume / 100_000_000).toFixed(1)}억`;
+  if (volume >= 10_000) return `${(volume / 10_000).toFixed(1)}만`;
+  return volume.toLocaleString();
+}
 
 export default function DashboardPage() {
   const { theme } = useTheme();
@@ -11,15 +22,36 @@ export default function DashboardPage() {
   const [showRec, setShowRec] = useState(true);
   const [activeTab, setActiveTab] = useState<'거래량' | '급상승' | '급하락'>('거래량');
   const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
+  const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
+  const [rankingsStatus, setRankingsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetchStockRankings()
+        .then(data => {
+          if (cancelled) return;
+          setRankings(data);
+          setRankingsStatus('ready');
+        })
+        .catch(() => {
+          // 이미 받아 둔 목록이 있으면 일시적인 실패로 화면을 비우지 않는다
+          if (!cancelled) setRankingsStatus(prev => (prev === 'ready' ? prev : 'error'));
+        });
+    };
+    load();
+    const timer = setInterval(load, RANKINGS_REFRESH_MS);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setStockRecIndices(prev => {
         const next = { ...prev };
-        stocks.forEach(s => {
-          const recs = aiRecs.filter(r => r.stockName === s.name);
+        new Set(aiRecs.map(r => r.stockName)).forEach(name => {
+          const recs = aiRecs.filter(r => r.stockName === name);
           if (recs.length > 1) {
-            next[s.name] = ((prev[s.name] ?? 0) + 1) % recs.length;
+            next[name] = ((prev[name] ?? 0) + 1) % recs.length;
           }
         });
         return next;
@@ -43,8 +75,20 @@ export default function DashboardPage() {
   }, []);
 
   const rec = aiRecs[activeRec];
-  const recStock = stocks.find(s => s.name === rec.stockName) || stocks[0];
-  const recChangeLabel = (recStock.changePct >= 0 ? '▲' : '▼') + Math.abs(recStock.changePct).toFixed(1) + '%';
+  // AI 추천 문구는 아직 목업이지만, 종목 등락률은 실제 시세를 쓴다
+  const recLive = rankings.find(s => s.name === rec.stockName);
+  const recCode = recLive?.code ?? stocks.find(s => s.name === rec.stockName)?.code ?? stocks[0].code;
+  const recChangePct = recLive?.change_rate != null ? recLive.change_rate * 100 : null;
+  const recChangeLabel = recChangePct == null ? '' : (recChangePct >= 0 ? '▲' : '▼') + Math.abs(recChangePct).toFixed(1) + '%';
+
+  const rows = rankings.map(s => ({
+    name: s.name,
+    code: s.code,
+    price: s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-',
+    tradingVolume: s.trading_volume ?? -1,
+    volume: formatVolume(s.trading_volume),
+    changePct: s.change_rate != null ? s.change_rate * 100 : 0,
+  }));
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', minHeight: '100%' }}>
@@ -130,11 +174,16 @@ export default function DashboardPage() {
           background: theme.border, border: `1px solid ${theme.border}`,
           borderRadius: 12, overflow: 'hidden',
         }}>
-          {[...stocks]
+          {rankingsStatus !== 'ready' && (
+            <div style={{ padding: '28px 18px', background: theme.panel, textAlign: 'center', fontSize: 13, color: theme.textMuted }}>
+              {rankingsStatus === 'loading' ? '시세를 불러오는 중...' : '시세를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'}
+            </div>
+          )}
+          {[...rows]
             .sort((a, b) =>
               activeTab === '급상승' ? b.changePct - a.changePct :
               activeTab === '급하락' ? a.changePct - b.changePct :
-              a.rank - b.rank
+              b.tradingVolume - a.tradingVolume
             )
             .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
@@ -204,7 +253,7 @@ export default function DashboardPage() {
 
         {/* AI 추천 자동 전환 카드 */}
         {showRec && <div
-          onClick={() => navigate(`/stock/${recStock.code}`)}
+          onClick={() => navigate(`/stock/${recCode}`)}
           style={{
             background: theme.ai, borderRadius: 14, padding: '20px 18px',
             display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer',
@@ -256,11 +305,13 @@ export default function DashboardPage() {
           {/* 종목 정보 */}
           <div key={`rec-body-${activeRec}`} className="ai-rec-slide">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <StockLogo name={recStock.name} code={recStock.code} size={20} />
+              <StockLogo name={rec.stockName} code={recCode} size={20} />
               <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#fca5a5' : '#93c5fd' }}>
-                {recChangeLabel}
-              </span>
+              {recChangePct != null && (
+                <span style={{ fontSize: 13, fontWeight: 700, color: recChangePct >= 0 ? '#fca5a5' : '#93c5fd' }}>
+                  {recChangeLabel}
+                </span>
+              )}
             </div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, wordBreak: 'keep-all' }}>
               {rec.reason}
