@@ -203,10 +203,10 @@ export const holdings: Holding[] = [
 ];
 
 export const aiRecs: AIRec[] = [
-  { bot: 'Claude 추천', icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64', stockName: 'SK하이닉스', reason: '실적 서프라이즈와 HBM 대형 계약 소식이 겹쳐 단기 상승 모멘텀이 강합니다.' },
-  { bot: 'Gemini 추천', icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: '삼성전자', reason: '반도체 업황 개선 기대감이 뉴스와 리서치 리포트에서 동시에 언급되고 있습니다.' },
-  { bot: 'ChatGPT 추천', icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64', stockName: '카카오', reason: '플랫폼 규제 뉴스로 하락했으나 과거 유사 사례에서 규제 확정 전까지 변동성이 지속됐습니다.' },
-  { bot: 'Perplexity 추천', icon: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64', stockName: '포스코퓨처엠', reason: '소재 가격 하락 전망으로 관련 섹터 전반의 하락 압력이 감지됩니다.' },
+  { bot: 'Claude', icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64', stockName: 'SK하이닉스', reason: 'HBM 대형 계약 소식으로 단기 상승 모멘텀 강함', signal: '매수' },
+  { bot: 'Gemini', icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64', stockName: '삼성전자', reason: '반도체 업황 개선 기대감이 리포트에서 동시 언급', signal: '매수' },
+  { bot: 'ChatGPT', icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64', stockName: '카카오', reason: '규제 확정 전까지 변동성 지속 가능성 주의', signal: '중립' },
+  { bot: 'Perplexity', icon: 'https://www.google.com/s2/favicons?domain=perplexity.ai&sz=64', stockName: '포스코퓨처엠', reason: '소재 가격 하락 전망으로 하락 압력 감지', signal: '매도' },
 ];
 
 export const orderbook: OrderbookEntry[] = [

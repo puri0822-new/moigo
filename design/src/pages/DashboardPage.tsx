@@ -101,6 +101,8 @@ export default function DashboardPage() {
           {stocks.map(s => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
+            const aiRec = aiRecs.find(r => r.stockName === s.name);
+            const signalColor = aiRec?.signal === '매수' ? theme.up : aiRec?.signal === '매도' ? theme.down : theme.textMuted;
             return (
               <div
                 key={s.code}
@@ -121,6 +123,20 @@ export default function DashboardPage() {
                     </span>
                     <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.price}</span>
                   </div>
+                  {aiRec && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
+                      <img src={aiRec.icon} alt={aiRec.bot} width={12} height={12} style={{ borderRadius: 3, flexShrink: 0 }} />
+                      <span style={{ color: theme.textMuted, fontWeight: 600 }}>{aiRec.bot}</span>
+                      <span style={{ color: theme.textMuted }}>·</span>
+                      <span style={{ color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{aiRec.reason}</span>
+                      <span style={{
+                        flexShrink: 0, marginLeft: 4,
+                        fontSize: 10, fontWeight: 700, color: signalColor,
+                        border: `1px solid ${signalColor}`, borderRadius: 4,
+                        padding: '1px 5px',
+                      }}>{aiRec.signal}</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: 11 }}>
                     <span style={{ color: theme.textMuted }}>거래량 {s.volume}</span>
                     <span style={{ fontWeight: 700, color: changeColor, flexShrink: 0 }}>{changeLabel}</span>

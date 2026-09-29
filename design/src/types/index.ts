@@ -36,6 +36,7 @@ export interface AIRec {
   icon: string;
   stockName: string;
   reason: string;
+  signal: '매수' | '매도' | '중립';
 }
 
 export interface OrderbookEntry {
