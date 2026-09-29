@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { stocks, orderbook } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
-import StockChart from '../components/StockChart';
 
 const periods = ['1일', '1주', '1개월', '1년'] as const;
 
@@ -87,7 +86,12 @@ export default function StockDetailPage() {
               </div>
             ))}
           </div>
-          <StockChart basePrice={priceNum} period={period} height={210} />
+          <div style={{
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: theme.textMuted, fontSize: 13,
+          }}>
+            차트 영역 ({period})
+          </div>
         </div>
 
         {/* 주문 + 호가 */}
