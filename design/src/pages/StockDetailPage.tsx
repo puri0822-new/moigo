@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { orderbook } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import {
-  fetchStocks, fetchStockNews, fetchStockCandles,
+  fetchStockByCode, fetchStockNews, fetchStockCandles,
   createOrder, getAccount,
   type ApiStock, type ApiNewsItem, type AccountInfo,
 } from '../lib/api';
@@ -41,11 +41,11 @@ export default function StockDetailPage() {
   const [orderLoading, setOrderLoading] = useState(false);
 
   useEffect(() => {
+    if (!code) return;
     setLoading(true);
     setNotFound(false);
-    fetchStocks()
-      .then(async apiStocks => {
-        const found = apiStocks.find(s => s.code === code);
+    fetchStockByCode(code)
+      .then(async found => {
         if (!found) {
           setNotFound(true);
           return;

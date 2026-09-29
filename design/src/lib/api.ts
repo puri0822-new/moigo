@@ -89,6 +89,16 @@ export async function fetchStocks(): Promise<ApiStock[]> {
   return res.data.data;
 }
 
+export async function fetchStockByCode(code: string): Promise<ApiStock | null> {
+  try {
+    const res = await api.get<ApiResponse<ApiStock>>(`/stocks/by-code/${code}`);
+    return res.data.data;
+  } catch (e) {
+    if (axios.isAxiosError(e) && e.response?.status === 404) return null;
+    throw e;
+  }
+}
+
 // --- 뉴스 ---
 export interface ApiNewsItem {
   id: number;
