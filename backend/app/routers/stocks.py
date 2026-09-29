@@ -65,13 +65,9 @@ async def list_stocks(db: AsyncSession = Depends(get_db)):
     return ApiResponse(success=True, data=data, message="요청 성공")
 
 
-@router.get("/{stock_id}", response_model=ApiResponse[StockDetail])
-async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
-    stock = await db.get(Stock, stock_id)
-    if not stock:
-        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
-
+async def _build_stock_detail(stock: Stock) -> StockDetail:
     detail = StockDetail.model_validate(stock)
+
     prices = await _fetch_prices_safe([stock.code])
     price = prices.get(stock.code)
     if price:
@@ -80,7 +76,28 @@ async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
     prev_closes = await _fetch_prev_closes_safe([stock.code])
     _apply_change_rate(detail, prev_closes.get(stock.code))
 
-    return ApiResponse(success=True, data=detail, message="요청 성공")
+    return detail
+
+
+@router.get("/by-code/{code}", response_model=ApiResponse[StockDetail])
+async def get_stock_by_code(code: str, db: AsyncSession = Depends(get_db)):
+    """종목 코드로 단건 조회. 상세페이지에서 종목 하나만 필요할 때 30종목 전체를 도는
+    GET /stocks를 호출하지 않도록 별도로 둔다 (그러면 시세+등락률 계산 때문에 훨씬 느려짐)."""
+    result = await db.execute(select(Stock).where(Stock.code == code))
+    stock = result.scalar_one_or_none()
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
+
+
+@router.get("/{stock_id}", response_model=ApiResponse[StockDetail])
+async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
 
 
 @router.get("/{stock_id}/candles", response_model=ApiResponse[list[Candle]])

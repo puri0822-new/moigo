@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { orderbook } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
-import { fetchStocks, fetchStockNews, fetchStockCandles, type ApiStock, type ApiNewsItem } from '../lib/api';
+import { fetchStockByCode, fetchStockNews, fetchStockCandles, type ApiStock, type ApiNewsItem } from '../lib/api';
 import { timeAgo } from '../lib/time';
 import CandleChart from '../components/CandleChart';
 import type { UTCTimestamp } from 'lightweight-charts';
@@ -33,11 +33,11 @@ export default function StockDetailPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (!code) return;
     setLoading(true);
     setNotFound(false);
-    fetchStocks()
-      .then(async apiStocks => {
-        const found = apiStocks.find(s => s.code === code);
+    fetchStockByCode(code)
+      .then(async found => {
         if (!found) {
           setNotFound(true);
           return;
