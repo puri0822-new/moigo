@@ -36,7 +36,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<'dark' | 'light'>('dark');
+  const [mode, setMode] = useState<'dark' | 'light'>('light');
   const toggle = () => setMode(m => (m === 'dark' ? 'light' : 'dark'));
   return (
     <ThemeContext.Provider value={{ theme: themes[mode], mode, toggle }}>
