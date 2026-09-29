@@ -58,8 +58,12 @@ export default function StockDetailPage() {
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
           <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{stock.price}</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: stock.changePct >= 0 ? theme.up : theme.down }}>
-            {(stock.changePct >= 0 ? '▲' : '▼') + Math.abs(stock.changePct).toFixed(1) + '%'}
+          <div style={{ fontSize: 14, fontWeight: 700, color: stock.changePct >= 0 ? theme.up : theme.down }}>
+            {(() => {
+              const changeWon = Math.round(priceNum * stock.changePct / (100 + stock.changePct));
+              const sign = stock.changePct >= 0 ? '+' : '';
+              return `어제보다 ${sign}${changeWon.toLocaleString()}원 (${sign}${Math.abs(stock.changePct).toFixed(1)}%)`;
+            })()}
           </div>
           <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 {stock.volume}</div>
         </div>
