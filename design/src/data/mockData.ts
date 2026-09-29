@@ -85,6 +85,114 @@ export const stocks: Stock[] = [
       { title: '유럽서 신규 바이오시밀러 판매 허가 획득', source: '제약전문지', time: '7시간 전' },
     ],
   },
+  {
+    rank: 9, name: '삼성바이오로직스', code: '207940', price: '897,000원', volume: '2.8M', changePct: 0.6,
+    aiReason: '글로벌 CMO 수주 증가 기대감이 반영되며 기관 매수세가 유입됐습니다.',
+    aiComment: '바이오 섹터 내 안정적인 실적 성장이 기대됩니다.',
+    similar: ['셀트리온', '한미약품', '유한양행'],
+    news: [
+      { title: '삼성바이오, 글로벌 제약사 신규 CMO 계약 체결', source: '제약전문지', time: '3시간 전' },
+    ],
+  },
+  {
+    rank: 10, name: '기아', code: '000270', price: '112,300원', volume: '2.6M', changePct: 1.3,
+    aiReason: '북미 신차 판매 호조와 친환경차 라인업 확대 소식이 주가를 끌어올렸습니다.',
+    aiComment: '현대차 그룹 전반의 실적 개선 흐름이 긍정적입니다.',
+    similar: ['현대차', '현대모비스', '한국타이어'],
+    news: [
+      { title: '기아, 북미 전기차 판매 전년 대비 34% 증가', source: '자동차전문지', time: '4시간 전' },
+    ],
+  },
+  {
+    rank: 11, name: '크래프톤', code: '259960', price: '342,000원', volume: '2.4M', changePct: -0.9,
+    aiReason: '신규 게임 출시 일정 지연 소식에 실망 매물이 출회됐습니다.',
+    aiComment: '신작 출시 시기가 구체화될 때까지 관망세가 이어질 수 있습니다.',
+    similar: ['넥슨', '엔씨소프트', '넷마블'],
+    news: [
+      { title: '크래프톤 신작 출시 일정 2분기로 연기', source: '게임뉴스', time: '5시간 전' },
+    ],
+  },
+  {
+    rank: 12, name: '한미약품', code: '128940', price: '387,500원', volume: '2.2M', changePct: 2.8,
+    aiReason: '비만 치료제 임상 3상 긍정적 중간 결과 발표로 급등했습니다.',
+    aiComment: '임상 성공 시 글로벌 시장 진출 가능성이 높아 주목할 만합니다.',
+    similar: ['유한양행', '셀트리온', '동아에스티'],
+    news: [
+      { title: '한미약품 비만치료제 임상 3상 중간결과 긍정적', source: '제약전문지', time: '1시간 전' },
+    ],
+  },
+  {
+    rank: 13, name: '카카오뱅크', code: '323410', price: '23,450원', volume: '2.0M', changePct: -1.5,
+    aiReason: '인터넷은행 규제 강화 우려와 함께 금리 인하 수혜 기대감이 약화됐습니다.',
+    aiComment: '금리 방향성이 확인될 때까지 단기 변동성에 주의하세요.',
+    similar: ['카카오', '카카오페이', '토스뱅크'],
+    news: [
+      { title: '인터넷전문은행 건전성 규제 강화 방안 발표', source: '금융뉴스', time: '6시간 전' },
+    ],
+  },
+  {
+    rank: 14, name: '삼성SDI', code: '006400', price: '378,000원', volume: '1.9M', changePct: 0.5,
+    aiReason: '전고체 배터리 상용화 로드맵 발표로 장기 성장 기대감이 유입됐습니다.',
+    aiComment: '배터리 기술 선도 기업으로 장기 투자 관점에서 긍정적입니다.',
+    similar: ['LG에너지솔루션', '포스코퓨처엠', 'SK온'],
+    news: [
+      { title: '삼성SDI, 2027년 전고체 배터리 양산 계획 발표', source: '테크뉴스', time: '8시간 전' },
+    ],
+  },
+  {
+    rank: 15, name: '카카오페이', code: '377300', price: '31,200원', volume: '1.8M', changePct: -2.1,
+    aiReason: '핀테크 경쟁 심화와 수익성 개선 지연 우려로 매도세가 이어졌습니다.',
+    aiComment: '수익 모델 다각화 성과가 확인되기 전까지 보수적 접근이 필요합니다.',
+    similar: ['카카오뱅크', '카카오', '토스'],
+    news: [
+      { title: '카카오페이, 2분기 영업손실 지속', source: '금융뉴스', time: '7시간 전' },
+    ],
+  },
+  {
+    rank: 16, name: '현대모비스', code: '012330', price: '241,500원', volume: '1.7M', changePct: 0.9,
+    aiReason: '전기차 부품 수주 확대와 자율주행 부품 매출 증가 기대감이 반영됐습니다.',
+    aiComment: '모빌리티 전환 수혜주로 안정적인 성장이 기대됩니다.',
+    similar: ['현대차', '기아', '만도'],
+    news: [
+      { title: '현대모비스, 자율주행 센서 모듈 글로벌 공급 확대', source: '자동차전문지', time: '9시간 전' },
+    ],
+  },
+  {
+    rank: 17, name: '에코프로비엠', code: '247540', price: '156,700원', volume: '1.6M', changePct: -3.2,
+    aiReason: '양극재 판가 하락과 고객사 재고 조정 이슈가 동시에 부각됐습니다.',
+    aiComment: '원자재 가격 반등 시그널이 나올 때까지 주의가 필요합니다.',
+    similar: ['포스코퓨처엠', '삼성SDI', 'LG에너지솔루션'],
+    news: [
+      { title: '에코프로비엠, 주요 고객사 발주 축소 영향', source: '증권리서치', time: '3시간 전' },
+    ],
+  },
+  {
+    rank: 18, name: '유한양행', code: '000100', price: '89,400원', volume: '1.5M', changePct: 1.7,
+    aiReason: '레이저티닙 미국 FDA 병용요법 추가 허가로 매수세가 집중됐습니다.',
+    aiComment: '글로벌 항암제 시장 진출 성과가 가시화되고 있습니다.',
+    similar: ['한미약품', '셀트리온', '동아에스티'],
+    news: [
+      { title: '유한양행 레이저티닙 미국 병용요법 FDA 허가 획득', source: '제약전문지', time: '2시간 전' },
+    ],
+  },
+  {
+    rank: 19, name: '한국전력', code: '015760', price: '21,350원', volume: '1.4M', changePct: 0.2,
+    aiReason: '전기요금 인상 기대감이 지속되며 저가 매수세가 유입됐습니다.',
+    aiComment: '요금 정상화 일정이 구체화될 경우 추가 상승 여력이 있습니다.',
+    similar: ['한국가스공사', '지역난방공사', 'SK가스'],
+    news: [
+      { title: '산업부, 하반기 전기요금 조정 검토 착수', source: '에너지뉴스', time: '5시간 전' },
+    ],
+  },
+  {
+    rank: 20, name: '넥슨', code: '225570', price: '47,800원', volume: '1.3M', changePct: 3.1,
+    aiReason: '메이플스토리 신규 콘텐츠 흥행과 일본 법인 실적 호조가 주가를 견인했습니다.',
+    aiComment: '글로벌 IP 확장 전략이 성과를 내고 있어 긍정적입니다.',
+    similar: ['크래프톤', '엔씨소프트', '넷마블'],
+    news: [
+      { title: '넥슨 메이플스토리 신규 직업 출시 흥행', source: '게임뉴스', time: '4시간 전' },
+    ],
+  },
 ];
 
 export const holdings: Holding[] = [
