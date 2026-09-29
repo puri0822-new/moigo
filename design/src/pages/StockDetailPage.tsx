@@ -49,7 +49,7 @@ export default function StockDetailPage() {
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <StockLogo name={stock.name} size={48} />
+          <StockLogo name={stock.name} code={stock.code} size={48} />
           <div>
             <div style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</div>
             <div style={{ fontSize: 13, color: theme.textMuted }}>{stock.code}</div>

@@ -1,13 +1,13 @@
 import firebase_admin
 from firebase_admin import credentials, auth as firebase_auth
-from app.core.config import FIREBASE_SERVICE_ACCOUNT_PATH
+from app.core.config import settings
 
 _initialized = False
 
 def get_firebase_app():
     global _initialized
     if not _initialized:
-        cred = credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_PATH)
+        cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_PATH)
         firebase_admin.initialize_app(cred)
         _initialized = True
     return firebase_admin.get_app()

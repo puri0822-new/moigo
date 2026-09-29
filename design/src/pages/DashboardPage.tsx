@@ -107,7 +107,7 @@ export default function DashboardPage() {
                 <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
                   {s.rank}
                 </div>
-                <StockLogo name={s.name} size={36} />
+                <StockLogo name={s.name} code={s.code} size={36} />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -175,7 +175,7 @@ export default function DashboardPage() {
                 display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
               }}
             >
-              <StockLogo name={h.name} size={30} />
+              <StockLogo name={h.name} code={stock?.code} size={30} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
