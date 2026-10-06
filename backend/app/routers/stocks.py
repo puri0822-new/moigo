@@ -5,7 +5,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core import toss_client
-from app.core.price_fetch import fetch_candle_info_safe, fetch_prices_safe
+from app.core.candle_agg import aggregate_daily
+from app.core.candle_store import get_daily_bars
+from app.core.price_fetch import fetch_prices_safe
 from app.database import get_db
 from app.models import Stock, StockPriceCache
 from app.schemas.candle import Candle
@@ -14,6 +16,12 @@ from app.schemas.ranking import StockRankingItem
 from app.schemas.stock import StockDetail, StockListItem
 
 router = APIRouter(prefix="/stocks", tags=["Stocks"])
+
+# 봉 하나를 만드는 데 드는 거래일 수(대략). 필요한 일봉 개수를 어림잡는 용도.
+# 일봉은 DB(stock_daily_candles)에서 읽고, 주/월/년봉은 그 일봉을 묶어서 만든다.
+_TRADING_DAYS_PER_BAR = {"1d": 1, "1w": 5, "1mo": 22, "1y": 250}
+_MAX_DAILY_HISTORY = 2500  # 약 10년치. 토스에 이보다 긴 이력이 있어도 여기까지만 쓴다
+_MAX_BAR_COUNT = 2000
 
 
 async def _fetch_rankings_safe(type_: str) -> dict[str, dict]:
@@ -97,7 +105,7 @@ async def get_stock_rankings(db: Session = Depends(get_db)):
     return ApiResponse(success=True, data=data, message="요청 성공")
 
 
-async def _build_stock_detail(stock: Stock) -> StockDetail:
+async def _build_stock_detail(db: Session, stock: Stock) -> StockDetail:
     detail = StockDetail.model_validate(stock)
 
     prices = await fetch_prices_safe([stock.code])
@@ -105,9 +113,11 @@ async def _build_stock_detail(stock: Stock) -> StockDetail:
     if price:
         detail.current_price = int(float(price["lastPrice"]))
 
-    candle_info = (await fetch_candle_info_safe([stock.code])).get(stock.code)
-    _apply_change_rate(detail, candle_info)
-    if candle_info:
+    # 전일 종가와 오늘 거래량은 DB의 최근 일봉 두 개에서 읽는다. (오늘 봉은 일정 주기로 토스에서 갱신된다)
+    bars = await get_daily_bars(db, stock, 2)
+    if len(bars) == 2:
+        candle_info = {"prev_close": bars[0]["closePrice"], "volume": bars[1]["volume"]}
+        _apply_change_rate(detail, candle_info)
         detail.volume = int(candle_info["volume"])
 
     return detail
@@ -122,7 +132,7 @@ async def get_stock_by_code(code: str, db: Session = Depends(get_db)):
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
+    return ApiResponse(success=True, data=await _build_stock_detail(db, stock), message="요청 성공")
 
 
 @router.get("/{stock_id}", response_model=ApiResponse[StockDetail])
@@ -131,7 +141,7 @@ async def get_stock(stock_id: int, db: Session = Depends(get_db)):
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
+    return ApiResponse(success=True, data=await _build_stock_detail(db, stock), message="요청 성공")
 
 
 @router.get("/{stock_id}/candles", response_model=ApiResponse[list[Candle]])
@@ -141,17 +151,24 @@ async def get_stock_candles(
     count: int = 100,
     db: Session = Depends(get_db),
 ):
-    if interval not in ("1m", "1d"):
-        raise HTTPException(status_code=400, detail="interval은 1m 또는 1d만 지원합니다")
-    if not 1 <= count <= 200:
-        raise HTTPException(status_code=400, detail="count는 1~200 사이여야 합니다")
+    if interval != "1m" and interval not in _TRADING_DAYS_PER_BAR:
+        raise HTTPException(status_code=400, detail="interval은 1m, 1d, 1w, 1mo, 1y만 지원합니다")
+    if not 1 <= count <= _MAX_BAR_COUNT:
+        raise HTTPException(status_code=400, detail=f"count는 1~{_MAX_BAR_COUNT} 사이여야 합니다")
+    # count를 넉넉히 요청하면 있는 만큼 전부 준다. 주/월/년봉이 필요로 하는 일봉 개수는 상한까지만 읽는다.
+    daily_needed = min(_MAX_DAILY_HISTORY, count if interval == "1d" else (count + 1) * _TRADING_DAYS_PER_BAR.get(interval, 0))
 
     stock = db.get(Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
     try:
-        raw_candles = await toss_client.get_candles(stock.code, interval, count)
+        if interval == "1m":
+            raw_candles = await toss_client.get_candles(stock.code, interval, count)
+        else:
+            # 주/월/년봉은 진행 중인 기간 하나가 중간에 잘려 있을 수 있어 한 기간 더 받아 묶은 뒤 뒤에서 count개만 쓴다
+            daily = await get_daily_bars(db, stock, daily_needed)
+            raw_candles = daily[-count:] if interval == "1d" else aggregate_daily(daily, interval)[-count:]
     except httpx.HTTPError:
         raw_candles = []
 

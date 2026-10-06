@@ -151,6 +151,28 @@ CREATE TRIGGER trg_stock_price_cache_updated_at
     BEFORE UPDATE ON stock_price_cache
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- 10. stock_daily_candles (종목별 일봉) — 종목·거래일당 1행
+-- 토스 캔들 API는 일봉까지만 주고 한 번에 200개로 제한돼서, 주/월/년봉 차트를 만들려면 일봉을
+-- 수백~천 개 읽어야 한다. 매번 다시 받지 않도록 한 번 받은 일봉을 저장하고 이후엔 최근 봉만 갱신한다.
+CREATE TABLE stock_daily_candles (
+    id              BIGSERIAL       PRIMARY KEY,
+    stock_id        BIGINT          NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    trade_date      DATE            NOT NULL,
+    open_price      BIGINT          NOT NULL CHECK (open_price >= 0),
+    high_price      BIGINT          NOT NULL CHECK (high_price >= 0),
+    low_price       BIGINT          NOT NULL CHECK (low_price >= 0),
+    close_price     BIGINT          NOT NULL CHECK (close_price >= 0),
+    volume          BIGINT          NOT NULL CHECK (volume >= 0),
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (stock_id, trade_date)
+);
+
+CREATE TRIGGER trg_stock_daily_candles_updated_at
+    BEFORE UPDATE ON stock_daily_candles
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- 인덱스
 CREATE INDEX idx_news_stock_id ON news(stock_id);
 CREATE INDEX idx_news_published_at ON news(published_at);

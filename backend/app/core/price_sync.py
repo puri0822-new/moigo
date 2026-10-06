@@ -23,7 +23,8 @@ SYNC_INTERVAL_SECONDS = 30
 async def _fetch_rankings_safe(type_: str) -> dict[str, dict]:
     try:
         return await toss_client.get_rankings(type_, "KR", "realtime", 100)
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        logger.warning("토스 랭킹 조회 실패: %r", e)
         return {}
 
 
@@ -76,6 +77,7 @@ async def sync_price_cache_once() -> None:
             })
 
         if not rows:
+            logger.warning("시세를 하나도 받아오지 못해 캐시를 갱신하지 않음")
             return
 
         stmt = pg_insert(StockPriceCache).values(rows)

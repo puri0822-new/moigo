@@ -1,8 +1,11 @@
 import asyncio
+import logging
 
 import httpx
 
 from app.core import toss_client
+
+logger = logging.getLogger(__name__)
 
 # 캔들 API 레이트리밋(초당 20건)보다 여유있게 낮춰서, 동시 호출량이 절대 한도를 넘지 않도록 한다.
 # 상세페이지 조회와 랭킹 캐시 동기화 작업이 동시에 호출량을 늘릴 수 있어 이 세마포어를 공유한다.
@@ -14,7 +17,8 @@ async def fetch_prices_safe(codes: list[str]) -> dict[str, dict]:
         return {}
     try:
         return await toss_client.get_prices(codes)
-    except httpx.HTTPError:
+    except httpx.HTTPError as e:
+        logger.warning("토스 현재가 조회 실패: %r", e)
         return {}
 
 
@@ -38,4 +42,7 @@ async def fetch_candle_info_safe(codes: list[str]) -> dict[str, dict]:
         }
 
     results = await asyncio.gather(*[fetch_one(c) for c in codes])
+    failed = [code for code, info in results if info is None]
+    if failed:
+        logger.warning("토스 캔들 조회 %d/%d건 실패 또는 데이터 부족: %s", len(failed), len(codes), ",".join(failed))
     return {code: info for code, info in results if info is not None}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
+import type { CandlestickData } from 'lightweight-charts';
 import { useTheme } from '../context/ThemeContext';
 import { aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
@@ -10,15 +10,21 @@ import {
   type ApiStock, type ApiStockRanking, type ApiPortfolio,
 } from '../lib/api';
 
-const periods = ['1일', '1주', '1개월', '1년'] as const;
+// 탭 이름은 막대 하나의 단위다. 일 = 일봉, 주 = 주봉, 월 = 월봉, 년 = 년봉.
+// count는 서버에서 가져올 막대 개수(넉넉히 요청하면 있는 만큼 전부 온다), visibleBars는 처음 화면에 보여줄 최근 막대 개수.
+// 나머지는 차트를 드래그하거나 확대·축소해서 본다.
+const periods = ['일', '주', '월', '년'] as const;
 type Period = (typeof periods)[number];
 
-const PERIOD_PARAMS: Record<Period, { interval: '1m' | '1d'; count: number }> = {
-  '1일': { interval: '1m', count: 200 },
-  '1주': { interval: '1d', count: 5 },
-  '1개월': { interval: '1d', count: 22 },
-  '1년': { interval: '1d', count: 200 },
+const PERIOD_PARAMS: Record<Period, { interval: '1d' | '1w' | '1mo' | '1y'; count: number; visibleBars: number }> = {
+  '일': { interval: '1d', count: 2000, visibleBars: 60 },
+  '주': { interval: '1w', count: 500, visibleBars: 52 },
+  '월': { interval: '1mo', count: 150, visibleBars: 36 },
+  '년': { interval: '1y', count: 30, visibleBars: 30 },
 };
+
+// 상세페이지가 현재가와 마지막 막대를 다시 받아오는 주기. 백엔드의 현재가·오늘 봉 캐시도 같은 3초다.
+const POLL_INTERVAL_MS = 3000;
 
 function formatVolume(volume: number | null | undefined): string {
   if (volume == null) return '-';
@@ -33,7 +39,7 @@ export default function StockDetailPage() {
   const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
   const [inputPrice, setInputPrice] = useState(0);
   const [qty, setQty] = useState(1);
-  const [period, setPeriod] = useState<Period>('1일');
+  const [period, setPeriod] = useState<Period>('일');
   const [liked, setLiked] = useState(false);
   const [alerted, setAlerted] = useState(false);
   const [mainTab, setMainTab] = useState<'chart' | 'info' | 'news' | 'community'>('chart');
@@ -47,7 +53,8 @@ export default function StockDetailPage() {
   const [stock, setStock] = useState<ApiStock | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [candles, setCandles] = useState<CandlestickData<UTCTimestamp | string>[]>([]);
+  const [candles, setCandles] = useState<CandlestickData<string>[]>([]);
+  const [liveBar, setLiveBar] = useState<CandlestickData<string> | null>(null);
   const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
   const [portfolio, setPortfolio] = useState<ApiPortfolio | null>(null);
 
@@ -81,16 +88,17 @@ export default function StockDetailPage() {
       .finally(() => setLoading(false));
   }, [code]);
 
+  const stockId = stock?.id;
+
   useEffect(() => {
-    if (!stock) return;
+    if (stockId == null) return;
     const { interval, count } = PERIOD_PARAMS[period];
-    fetchStockCandles(stock.id, interval, count)
+    setLiveBar(null);
+    fetchStockCandles(stockId, interval, count)
       .then(raw => {
         setCandles(
           raw.map(c => ({
-            time: interval === '1d'
-              ? c.timestamp.slice(0, 10)
-              : (Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp),
+            time: c.timestamp.slice(0, 10),
             open: c.open,
             high: c.high,
             low: c.low,
@@ -99,7 +107,43 @@ export default function StockDetailPage() {
         );
       })
       .catch(() => setCandles([]));
-  }, [stock, period]);
+  }, [stockId, period]);
+
+  // 3초마다 현재가·등락률·거래량과 마지막 막대를 다시 받는다.
+  // 탭이 숨겨져 있으면 건너뛰고, 앞 요청이 끝나기 전이면 이번 주기는 건너뛴다.
+  useEffect(() => {
+    if (!code || stockId == null) return;
+    const { interval } = PERIOD_PARAMS[period];
+    let inFlight = false;
+    let cancelled = false;
+
+    const tick = async () => {
+      if (document.visibilityState !== 'visible' || inFlight) return;
+      inFlight = true;
+      try {
+        const [found, bars] = await Promise.all([
+          fetchStockByCode(code),
+          fetchStockCandles(stockId, interval, 1),
+        ]);
+        if (cancelled) return;
+        if (found) setStock(found);
+        const last = bars[bars.length - 1];
+        if (last) {
+          setLiveBar({ time: last.timestamp.slice(0, 10), open: last.open, high: last.high, low: last.low, close: last.close });
+        }
+      } catch {
+        // 일시적인 실패는 무시하고 다음 주기에 다시 시도한다
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const timer = setInterval(tick, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [code, stockId, period]);
 
   useEffect(() => {
     Promise.all([fetchStockRankings(), fetchPortfolio()])
@@ -292,7 +336,7 @@ export default function StockDetailPage() {
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
               {candles.length > 0
-                ? <CandleChart data={candles} theme={theme} />
+                ? <CandleChart data={candles} theme={theme} visibleBars={PERIOD_PARAMS[period].visibleBars} liveBar={liveBar} />
                 : (
                   <div style={{
                     height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
