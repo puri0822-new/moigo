@@ -126,7 +126,7 @@ export default function PortfolioPage() {
                 fontSize: 13, alignItems: 'center',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <StockLogo name={h.stock_name} size={28} />
+                  <StockLogo name={h.stock_name} code={h.stock_code} size={28} />
                   <div>
                     <div style={{ fontWeight: 700 }}>{h.stock_name}</div>
                     <div style={{ fontSize: 11, color: theme.textMuted }}>{h.stock_code}</div>
@@ -182,7 +182,7 @@ export default function PortfolioPage() {
                   {isBuy ? '매수' : '매도'}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <StockLogo name={t.stock_name} size={22} />
+                  <StockLogo name={t.stock_name} code={t.stock_code} size={22} />
                   <span style={{ fontWeight: 600 }}>{t.stock_name}</span>
                 </div>
                 <span style={{ textAlign: 'right' }}>{t.quantity}주</span>

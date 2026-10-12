@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { stocks } from '../../data/mockData';
@@ -8,6 +8,7 @@ export default function Header() {
   const { theme, mode, toggle } = useTheme();
   const { logout, nickname } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -24,19 +25,54 @@ export default function Header() {
       background: theme.panel,
     }}>
       <div
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/dashboard')}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em', cursor: 'pointer',
         }}
       >
         <div style={{
-          width: 26, height: 26, borderRadius: 7, background: theme.ai,
+          width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+          background: `linear-gradient(135deg, #4F6EF7, #7B5EA7)`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, color: theme.bg,
-        }}>AI</div>
-        <span>모의투자</span>
+        }}>
+          <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
+            <polyline points="8,48 22,36 32,41 44,22" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="44" cy="22" r="6" fill="white" opacity="0.3"/>
+            <circle cx="44" cy="22" r="4" fill="white"/>
+            <line x1="44" y1="12" x2="44" y2="16" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.8"/>
+            <line x1="54" y1="22" x2="50" y2="22" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.8"/>
+            <line x1="51" y1="15" x2="48" y2="18" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.8"/>
+          </svg>
+        </div>
+        <span>모이고</span>
       </div>
+
+      {/* 네비게이션 */}
+      <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {[
+          { label: '홈', path: '/dashboard' },
+          { label: '랭킹', path: '/ranking' },
+          { label: '피드', path: '/feed' },
+          { label: '내 계좌', path: '/portfolio' },
+        ].map(({ label, path }) => {
+          const active = location.pathname === path;
+          return (
+            <div
+              key={label}
+              onClick={() => navigate(path)}
+              style={{
+                padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                fontSize: 14, fontWeight: active ? 700 : 500,
+                color: active ? theme.ai : theme.textMuted,
+                background: active ? theme.aiSoft : 'transparent',
+              }}
+            >
+              {label}
+            </div>
+          );
+        })}
+      </nav>
 
       <div style={{ flex: 1, maxWidth: 420, position: 'relative' }}>
         <div style={{
@@ -118,7 +154,16 @@ export default function Header() {
           <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
           <span>{mode === 'dark' ? '다크' : '라이트'}</span>
         </div>
-        <div style={{ fontSize: 19, cursor: 'pointer' }}>🔔</div>
+        <div style={{
+          width: 34, height: 34, borderRadius: 9, border: `1px solid ${theme.border}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', color: theme.textMuted, flexShrink: 0,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+        </div>
         <div style={{ position: 'relative' }}>
           <div
             onClick={() => setProfileOpen(prev => !prev)}
@@ -126,7 +171,7 @@ export default function Header() {
               width: 34, height: 34, borderRadius: '50%',
               background: theme.ai, border: `2px solid ${theme.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, color: theme.bg, fontWeight: 700, cursor: 'pointer',
+              fontSize: 15, color: theme.aiText, fontWeight: 700, cursor: 'pointer',
             }}
           >
             {nickname ? nickname[0].toUpperCase() : '👤'}
@@ -153,7 +198,7 @@ export default function Header() {
                     width: 42, height: 42, borderRadius: '50%',
                     background: theme.ai, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, color: theme.bg, fontWeight: 700,
+                    fontSize: 18, color: theme.aiText, fontWeight: 700,
                   }}>
                     {nickname ? nickname[0].toUpperCase() : '?'}
                   </div>

@@ -118,7 +118,7 @@ export default function Sidebar() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <StockLogo name={h.stock_name} size={28} />
+                <StockLogo name={h.stock_name} code={h.stock_code} size={28} />
                 <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600 }}>
                   <span>{h.stock_name}</span>
                   <span style={{ color: theme.textMuted, fontWeight: 500 }}>{h.quantity}주</span>
