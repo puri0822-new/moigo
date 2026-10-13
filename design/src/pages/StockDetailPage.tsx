@@ -1,21 +1,36 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, orderbook, aiRecs, holdings, stockAiInsights } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { stocks, orderbook, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
+import { createOrder, fetchStockByCode, apiGet } from '../lib/api';
 
 const periods = ['1일', '1주', '1개월', '1년'] as const;
 
-const mockPortfolio = {
-  totalAsset: 12_480_000,
-  balance: 3_200_000,
-  totalProfit: 480_000,
-  profitRate: 4.0,
-};
+interface HoldingItem {
+  stock_id: number;
+  stock_name: string;
+  stock_code: string;
+  quantity: number;
+  avg_price: number;
+  eval_amount: number;
+  profit_loss: number;
+  profit_loss_rate: number;
+}
+
+interface PortfolioData {
+  balance: number;
+  total_eval_amount: number;
+  total_profit_loss: number;
+  total_profit_loss_rate: number;
+  holdings: HoldingItem[];
+}
 
 export default function StockDetailPage() {
   const { theme } = useTheme();
   const { code } = useParams<{ code: string }>();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
@@ -31,10 +46,26 @@ export default function StockDetailPage() {
   const [floatPos, setFloatPos] = useState({ x: 0, y: 0 });
   const [floatMinimized, setFloatMinimized] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [stockId, setStockId] = useState<number | null>(null);
+  const [ordering, setOrdering] = useState(false);
 
   useEffect(() => {
     setFloatPos({ x: window.innerWidth - 316, y: window.innerHeight - 540 });
   }, []);
+
+  const loadPortfolio = useCallback(() => {
+    if (!isAuthenticated) return;
+    apiGet<PortfolioData>('/portfolio').then(res => setPortfolio(res.data)).catch(() => {});
+  }, [isAuthenticated]);
+
+  useEffect(() => { loadPortfolio(); }, [loadPortfolio]);
+
+  useEffect(() => {
+    if (code) {
+      fetchStockByCode(code).then(s => { if (s) setStockId(s.id); });
+    }
+  }, [code]);
 
   // AI 추천 자동 전환
   const [activeRec, setActiveRec] = useState(0);
@@ -83,12 +114,34 @@ export default function StockDetailPage() {
     document.addEventListener('mouseup', onUp);
   };
 
-  const handleOrder = (orderSide?: 'buy' | 'sell') => {
+  const handleOrder = async (orderSide?: 'buy' | 'sell') => {
+    if (!isAuthenticated) {
+      showToast('로그인이 필요합니다', false);
+      return;
+    }
+    if (stockId === null) {
+      showToast('종목 정보를 불러오는 중입니다', false);
+      return;
+    }
     const s = orderSide ?? side;
-    const now = new Date();
-    const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-    setOrderHistory(prev => [{ side: s, type: orderType, price: effectivePrice, qty, total, time }, ...prev]);
-    showToast(`${s === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${qty}주 · ${total.toLocaleString()}원`, true);
+    setOrdering(true);
+    try {
+      await createOrder({
+        stock_id: stockId,
+        order_type: s === 'buy' ? 'BUY' : 'SELL',
+        quantity: qty,
+        price: effectivePrice,
+      });
+      const now = new Date();
+      const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+      setOrderHistory(prev => [{ side: s, type: orderType, price: effectivePrice, qty, total, time }, ...prev]);
+      showToast(`${s === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${qty}주 · ${total.toLocaleString()}원`, true);
+      loadPortfolio();
+    } catch (e: any) {
+      showToast(e.message || '주문에 실패했습니다', false);
+    } finally {
+      setOrdering(false);
+    }
   };
 
   return (
@@ -498,33 +551,50 @@ export default function StockDetailPage() {
               ✦ 내 모의매매
             </div>
 
-            <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>총 평가자산</div>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>{mockPortfolio.totalAsset.toLocaleString()}원</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ color: theme.textMuted }}>수익</span>
-                <span style={{ fontWeight: 700, color: theme.up }}>+{mockPortfolio.totalProfit.toLocaleString()}원 ({mockPortfolio.profitRate.toFixed(2)}%)</span>
+            {isAuthenticated && portfolio ? (() => {
+              const totalAsset = portfolio.balance + portfolio.total_eval_amount;
+              const totalProfit = portfolio.total_profit_loss;
+              const profitRate = portfolio.total_profit_loss_rate;
+              const profitColor = totalProfit >= 0 ? theme.up : theme.down;
+              return (
+                <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>총 평가자산</div>
+                  <div style={{ fontSize: 20, fontWeight: 800 }}>{totalAsset.toLocaleString()}원</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span style={{ color: theme.textMuted }}>수익</span>
+                    <span style={{ fontWeight: 700, color: profitColor }}>{totalProfit >= 0 ? '+' : ''}{totalProfit.toLocaleString()}원 ({profitRate.toFixed(2)}%)</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                    <span style={{ color: theme.textMuted }}>가상현금</span>
+                    <span style={{ fontWeight: 600 }}>{portfolio.balance.toLocaleString()}원</span>
+                  </div>
+                </div>
+              );
+            })() : (
+              <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
+                로그인 후 확인 가능
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ color: theme.textMuted }}>가상현금</span>
-                <span style={{ fontWeight: 600 }}>{mockPortfolio.balance.toLocaleString()}원</span>
-              </div>
-            </div>
+            )}
 
             <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>보유 종목</div>
-            {holdings.map(h => {
-              const changeColor = h.changePct >= 0 ? theme.up : theme.down;
-              const changeLabel = (h.changePct >= 0 ? '▲' : '▼') + Math.abs(h.changePct).toFixed(1) + '%';
-              const hStock = stocks.find(s => s.name === h.name);
+            {!isAuthenticated && (
+              <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '12px 0' }}>로그인 후 확인 가능</div>
+            )}
+            {isAuthenticated && portfolio?.holdings.length === 0 && (
+              <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '12px 0' }}>보유 종목 없음</div>
+            )}
+            {portfolio?.holdings.map(h => {
+              const changeColor = h.profit_loss_rate >= 0 ? theme.up : theme.down;
+              const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(2) + '%';
               return (
-                <div key={h.name} onClick={() => hStock && navigate(`/stock/${hStock.code}`)} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                  <StockLogo name={h.name} code={hStock?.code} size={30} />
+                <div key={h.stock_id} onClick={() => navigate(`/stock/${h.stock_code}`)} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                  <StockLogo name={h.stock_name} code={h.stock_code} size={30} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>{h.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{h.stock_name}</span>
                       <span style={{ fontSize: 12, fontWeight: 700, color: changeColor, flexShrink: 0, marginLeft: 6 }}>{changeLabel}</span>
                     </div>
-                    <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{h.qty}</div>
+                    <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{h.quantity}주</div>
                   </div>
                 </div>
               );
@@ -623,7 +693,7 @@ export default function StockDetailPage() {
               <div style={{ display: 'flex', gap: 5 }}>
                 {[['10%', 0.1], ['25%', 0.25], ['50%', 0.5], ['최대', 1]].map(([label, ratio]) => (
                   <div key={label as string}
-                    onClick={() => { const maxQty = Math.floor(mockPortfolio.balance / effectivePrice); setQty(Math.max(1, Math.floor(maxQty * (ratio as number)))); }}
+                    onClick={() => { const bal = portfolio?.balance ?? 0; const maxQty = Math.floor(bal / effectivePrice); setQty(Math.max(1, Math.floor(maxQty * (ratio as number)))); }}
                     style={{ flex: 1, textAlign: 'center', padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.textMuted }}
                   >{label}</div>
                 ))}
@@ -638,8 +708,8 @@ export default function StockDetailPage() {
 
             {/* 매수 / 매도 버튼 */}
             <div style={{ display: 'flex', gap: 8 }}>
-              <div onClick={() => handleOrder('buy')} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.up, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>매수</div>
-              <div onClick={() => handleOrder('sell')} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.down, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>매도</div>
+              <div onClick={() => !ordering && handleOrder('buy')} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.up, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: ordering ? 'not-allowed' : 'pointer', opacity: ordering ? 0.6 : 1 }}>매수</div>
+              <div onClick={() => !ordering && handleOrder('sell')} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.down, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: ordering ? 'not-allowed' : 'pointer', opacity: ordering ? 0.6 : 1 }}>매도</div>
             </div>
           </div>
         )}

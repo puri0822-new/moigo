@@ -2,8 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import settings
 
-# async URL(postgresql+asyncpg://)에서 sync URL(postgresql://)로 변환
-_sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+# async URL(postgresql+asyncpg://)에서 sync URL(postgresql+psycopg2://)로 변환
+_sync_url = settings.DATABASE_URL.replace("+asyncpg", "+psycopg2")
 engine = create_engine(_sync_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

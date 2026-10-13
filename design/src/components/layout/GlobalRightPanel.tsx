@@ -1,21 +1,42 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { stocks, aiRecs, holdings } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
+import { stocks, aiRecs } from '../../data/mockData';
 import StockLogo from '../StockLogo';
+import { apiGet } from '../../lib/api';
 
-const mockPortfolio = {
-  totalAsset: 12_480_000,
-  balance: 3_200_000,
-  totalProfit: 480_000,
-  profitRate: 4.0,
-};
+interface HoldingItem {
+  stock_id: number;
+  stock_name: string;
+  stock_code: string;
+  quantity: number;
+  avg_price: number;
+  eval_amount: number;
+  profit_loss: number;
+  profit_loss_rate: number;
+}
+
+interface PortfolioData {
+  balance: number;
+  total_eval_amount: number;
+  total_profit_loss: number;
+  total_profit_loss_rate: number;
+  holdings: HoldingItem[];
+}
 
 export default function GlobalRightPanel() {
   const { theme } = useTheme();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [activeRec, setActiveRec] = useState(0);
   const [showRec, setShowRec] = useState(true);
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) { setPortfolio(null); return; }
+    apiGet<PortfolioData>('/portfolio').then(res => setPortfolio(res.data)).catch(() => {});
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -74,34 +95,51 @@ export default function GlobalRightPanel() {
       </div>
 
       {/* 총 평가자산 */}
-      <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>총 평가자산</div>
-        <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em' }}>{mockPortfolio.totalAsset.toLocaleString()}원</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-          <span style={{ color: theme.textMuted }}>수익</span>
-          <span style={{ fontWeight: 700, color: theme.up }}>+{mockPortfolio.totalProfit.toLocaleString()}원 ({mockPortfolio.profitRate.toFixed(2)}%)</span>
+      {isAuthenticated && portfolio ? (() => {
+        const totalAsset = portfolio.balance + portfolio.total_eval_amount;
+        const totalProfit = portfolio.total_profit_loss;
+        const profitRate = portfolio.total_profit_loss_rate;
+        const profitColor = totalProfit >= 0 ? theme.up : theme.down;
+        return (
+          <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>총 평가자산</div>
+            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em' }}>{totalAsset.toLocaleString()}원</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: theme.textMuted }}>수익</span>
+              <span style={{ fontWeight: 700, color: profitColor }}>{totalProfit >= 0 ? '+' : ''}{totalProfit.toLocaleString()}원 ({profitRate.toFixed(2)}%)</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span style={{ color: theme.textMuted }}>가상현금</span>
+              <span style={{ fontWeight: 600 }}>{portfolio.balance.toLocaleString()}원</span>
+            </div>
+          </div>
+        );
+      })() : (
+        <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
+          로그인 후 확인 가능
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-          <span style={{ color: theme.textMuted }}>가상현금</span>
-          <span style={{ fontWeight: 600 }}>{mockPortfolio.balance.toLocaleString()}원</span>
-        </div>
-      </div>
+      )}
 
       {/* 보유 종목 */}
       <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>보유 종목</div>
-      {holdings.map(h => {
-        const changeColor = h.changePct >= 0 ? theme.up : theme.down;
-        const changeLabel = (h.changePct >= 0 ? '▲' : '▼') + Math.abs(h.changePct).toFixed(1) + '%';
-        const stock = stocks.find(s => s.name === h.name);
+      {!isAuthenticated && (
+        <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '12px 0' }}>로그인 후 확인 가능</div>
+      )}
+      {isAuthenticated && portfolio?.holdings.length === 0 && (
+        <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '12px 0' }}>보유 종목 없음</div>
+      )}
+      {portfolio?.holdings.map(h => {
+        const changeColor = h.profit_loss_rate >= 0 ? theme.up : theme.down;
+        const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(2) + '%';
         return (
-          <div key={h.name} onClick={() => stock && navigate(`/stock/${stock.code}`)} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-            <StockLogo name={h.name} code={stock?.code} size={30} />
+          <div key={h.stock_id} onClick={() => navigate(`/stock/${h.stock_code}`)} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+            <StockLogo name={h.stock_name} code={h.stock_code} size={30} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.stock_name}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: changeColor, flexShrink: 0, marginLeft: 6 }}>{changeLabel}</span>
               </div>
-              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{h.qty}</div>
+              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{h.quantity}주</div>
             </div>
           </div>
         );
