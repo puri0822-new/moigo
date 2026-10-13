@@ -170,16 +170,17 @@ export default function StockDetailPage() {
     const s = orderSide ?? side;
     setOrdering(true);
     try {
-      await createOrder({
+      const res = await createOrder({
         stock_id: stockId,
         order_type: s === 'buy' ? 'BUY' : 'SELL',
         quantity: qty,
         price: effectivePrice,
       });
+      const filled = res.data;
       const now = new Date();
       const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-      setOrderHistory(prev => [{ side: s, type: orderType, price: effectivePrice, qty, total, time }, ...prev]);
-      showToast(`${s === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${qty}주 · ${total.toLocaleString()}원`, true);
+      setOrderHistory(prev => [{ side: s, type: orderType, price: filled.price, qty: filled.quantity, total: filled.total_amount, time }, ...prev]);
+      showToast(`${s === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${filled.quantity}주 · ${filled.total_amount.toLocaleString()}원`, true);
       loadPortfolio();
     } catch (e: any) {
       showToast(e.message || '주문에 실패했습니다', false);
@@ -757,6 +758,11 @@ export default function StockDetailPage() {
                 <div onClick={() => orderType === 'limit' && setInputPrice(p => p + 100)}
                   style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: orderType === 'limit' ? 'pointer' : 'default', flexShrink: 0, opacity: orderType === 'market' ? 0.4 : 1 }}>+</div>
               </div>
+              {orderType === 'limit' && inputPrice > 0 && inputPrice < priceNum * 0.9 && (
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', padding: '4px 0' }}>
+                  ⚠ 현재가({priceNum.toLocaleString()}원)보다 가격이 낮습니다
+                </div>
+              )}
             </div>
 
             {/* 수량 입력 */}
@@ -801,7 +807,7 @@ export default function StockDetailPage() {
 
             {/* 주문 확정 버튼 */}
             <div
-              onClick={() => !ordering && setConfirmOrder({ side, price: effectivePrice, qty, total })}
+              onClick={() => !ordering && setConfirmOrder({ side, price: priceNum, qty, total: priceNum * qty })}
               style={{
                 textAlign: 'center', padding: '11px 0', borderRadius: 8,
                 background: side === 'buy' ? theme.up : theme.down,

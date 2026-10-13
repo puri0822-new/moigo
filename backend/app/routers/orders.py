@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.dependencies import get_current_user
+from app.core import toss_client
 from app.models.user import User
 from app.models.account import Account
 from app.models.stock import Stock
@@ -13,32 +14,38 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 @router.post("", status_code=201)
-def create_order(
+async def create_order(
     body: OrderRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 종목 확인
     stock = db.query(Stock).filter(Stock.id == body.stock_id).first()
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    # 계좌 확인
     account = db.query(Account).filter(Account.user_id == current_user.id).first()
     if not account:
         raise HTTPException(status_code=404, detail="계좌를 찾을 수 없습니다")
 
-    total_amount = body.price * body.quantity
+    try:
+        prices = await toss_client.get_prices([stock.code])
+        price_data = prices.get(stock.code)
+        if not price_data:
+            raise HTTPException(status_code=502, detail="현재가를 조회할 수 없습니다")
+        market_price = int(float(price_data["lastPrice"]))
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="현재가를 조회할 수 없습니다")
+
+    total_amount = market_price * body.quantity
 
     if body.order_type == "BUY":
-        # 잔고 확인
         if account.balance < total_amount:
             raise HTTPException(status_code=400, detail="잔고가 부족합니다")
 
-        # 잔고 차감
         account.balance -= total_amount
 
-        # 보유 종목 업데이트 (avg_price 갱신)
         holding = db.query(Holding).filter(
             Holding.user_id == current_user.id,
             Holding.stock_id == body.stock_id
@@ -46,14 +53,14 @@ def create_order(
 
         if holding:
             total_qty = holding.quantity + body.quantity
-            holding.avg_price = (holding.avg_price * holding.quantity + body.price * body.quantity) // total_qty
+            holding.avg_price = (holding.avg_price * holding.quantity + market_price * body.quantity) // total_qty
             holding.quantity = total_qty
         else:
             holding = Holding(
                 user_id=current_user.id,
                 stock_id=body.stock_id,
                 quantity=body.quantity,
-                avg_price=body.price,
+                avg_price=market_price,
             )
             db.add(holding)
 
@@ -78,7 +85,6 @@ def create_order(
     else:
         raise HTTPException(status_code=400, detail="올바르지 않은 주문 유형입니다 (BUY / SELL)")
 
-    # 주문 기록
     order = Order(
         user_id=current_user.id,
         account_id=account.id,
@@ -86,7 +92,7 @@ def create_order(
         ai_analysis_id=body.ai_analysis_id,
         order_type=body.order_type,
         quantity=body.quantity,
-        price=body.price,
+        price=market_price,
         total_amount=total_amount,
     )
     db.add(order)
