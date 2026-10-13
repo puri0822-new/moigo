@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { aiRecs } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import { apiGet, fetchStockRankings, type ApiStockRanking } from '../lib/api';
 
@@ -16,11 +15,30 @@ type MarketIndex = {
 // 백엔드가 시세 캐시를 30초마다 갱신하므로 같은 주기로 다시 받아온다
 const RANKINGS_REFRESH_MS = 30_000;
 
+const REC_LABEL: Record<string, '매수' | '매도' | '중립'> = {
+  BUY: '매수',
+  HOLD: '중립',
+  SELL: '매도',
+};
+
+const BOT_META = {
+  Gemini: { icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64' },
+  Claude: { icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64' },
+  CLOVA: { icon: 'https://www.google.com/s2/favicons?domain=naver.com&sz=64' },
+} as const;
+
 function formatVolume(volume: number | null) {
   if (volume == null) return '-';
   if (volume >= 100_000_000) return `${(volume / 100_000_000).toFixed(1)}억`;
   if (volume >= 10_000) return `${(volume / 10_000).toFixed(1)}만`;
   return volume.toLocaleString();
+}
+
+/** 랭킹 한 줄용 — 긴 AI 요약을 짧게 */
+function shortAiLine(text: string, max = 28) {
+  const one = text.replace(/\s+/g, ' ').trim();
+  if (one.length <= max) return one;
+  return `${one.slice(0, max).trimEnd()}…`;
 }
 
 export default function DashboardPage() {
@@ -61,17 +79,17 @@ export default function DashboardPage() {
     const timer = setInterval(() => {
       setStockRecIndices(prev => {
         const next = { ...prev };
-        new Set(aiRecs.map(r => r.stockName)).forEach(name => {
-          const recs = aiRecs.filter(r => r.stockName === name);
-          if (recs.length > 1) {
-            next[name] = ((prev[name] ?? 0) + 1) % recs.length;
+        rankings.forEach(s => {
+          const n = s.ai?.insights.length ?? 0;
+          if (n > 1) {
+            next[s.code] = ((prev[s.code] ?? 0) + 1) % n;
           }
         });
         return next;
       });
     }, 4000);
     return () => clearInterval(timer);
-  }, []);
+  }, [rankings]);
 
   const rows = rankings.map(s => ({
     name: s.name,
@@ -80,6 +98,7 @@ export default function DashboardPage() {
     tradingVolume: s.trading_volume ?? -1,
     volume: formatVolume(s.trading_volume),
     changePct: s.change_rate != null ? s.change_rate * 100 : 0,
+    insights: s.ai?.insights ?? [],
   }));
 
   return (
@@ -214,9 +233,12 @@ export default function DashboardPage() {
             .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
-            const stockRecs = aiRecs.filter(r => r.stockName === s.name);
-            const aiRec = stockRecs[(stockRecIndices[s.name] ?? 0) % stockRecs.length];
-            const signalColor = aiRec?.signal === '매수' ? theme.up : aiRec?.signal === '매도' ? theme.down : theme.textMuted;
+            const insights = s.insights;
+            const aiRec = insights.length
+              ? insights[(stockRecIndices[s.code] ?? 0) % insights.length]
+              : null;
+            const signal = aiRec ? (REC_LABEL[aiRec.recommendation] ?? '중립') : null;
+            const signalColor = signal === '매수' ? theme.up : signal === '매도' ? theme.down : theme.textMuted;
             return (
               <div
                 key={s.code}
@@ -234,21 +256,29 @@ export default function DashboardPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                       <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.name}</span>
-                      {aiRec && (
+                      {aiRec && signal && (
                         <div
-                          key={`${s.name}-${aiRec.bot}-${aiRec.signal}`}
+                          key={`${s.code}-${aiRec.bot}-${aiRec.recommendation}`}
                           className="ai-rec-slide"
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}
+                          title={aiRec.summary}
+                          style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: 220, overflow: 'hidden' }}
                         >
-                          <img src={aiRec.icon} alt={aiRec.bot} width={12} height={12} style={{ borderRadius: 3, flexShrink: 0 }} />
+                          <img
+                            src={BOT_META[aiRec.bot].icon}
+                            alt={aiRec.bot}
+                            width={12}
+                            height={12}
+                            style={{ borderRadius: 3, flexShrink: 0 }}
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                          />
                           <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, flexShrink: 0 }}>{aiRec.bot}</span>
-                          <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {aiRec.reason}</span>
+                          <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {shortAiLine(aiRec.summary)}</span>
                           <span style={{
                             flexShrink: 0,
                             fontSize: 10, fontWeight: 700, color: signalColor,
                             border: `1px solid ${signalColor}`, borderRadius: 4,
                             padding: '1px 5px',
-                          }}>{aiRec.signal}</span>
+                          }}>{signal}</span>
                         </div>
                       )}
                     </div>

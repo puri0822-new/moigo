@@ -13,6 +13,12 @@ export interface ApiResponse<T> {
   message: string;
 }
 
+function clearAuthSession() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('nickname');
+  window.dispatchEvent(new Event('moigo:auth-cleared'));
+}
+
 // --- 기본 fetch 헬퍼 (주문/계좌 등 기존 기능용) ---
 async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('access_token');
@@ -24,7 +30,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<ApiR
       ...options.headers,
     },
   });
-  const body = (await res.json()) as ApiResponse<T>;
+  const body = (await res.json().catch(() => ({
+    success: false,
+    data: null,
+    message: '요청에 실패했습니다',
+  }))) as ApiResponse<T>;
+  if (res.status === 401) {
+    clearAuthSession();
+    throw new Error(body.message || '로그인이 만료되었습니다. 다시 로그인해 주세요');
+  }
   if (!res.ok || !body.success) {
     throw new Error(body.message || '요청에 실패했습니다');
   }
@@ -159,10 +173,24 @@ export async function fetchStockByCode(code: string): Promise<ApiStockDetail | n
 }
 
 // --- 거래대금 랭킹 ---
+export interface ApiRankingAiInsight {
+  bot: 'Gemini' | 'Claude' | 'CLOVA';
+  recommendation: 'BUY' | 'HOLD' | 'SELL';
+  summary: string;
+}
+
+export interface ApiRankingAiSummary {
+  sentiment: string | null;
+  is_matched: boolean | null;
+  analyzed_at: string;
+  insights: ApiRankingAiInsight[];
+}
+
 export interface ApiStockRanking extends ApiStock {
   rank: number | null; // 거래대금 상위 100위 밖이면 실제 순위가 없어 null
   trading_volume: number | null; // 오늘 누적 거래량
   trading_amount: number | null;
+  ai: ApiRankingAiSummary | null;
 }
 
 /** 오늘 누적 거래대금 순. 100위 안의 종목이 실제 순위대로 앞에 오고, 100위 밖 종목이 뒤에 붙는다. */
@@ -184,6 +212,73 @@ export interface ApiNewsItem {
 export async function fetchStockNews(stockId: number, limit = 10): Promise<ApiNewsItem[]> {
   const res = await api.get<ApiResponse<ApiNewsItem[]>>(`/stocks/${stockId}/news`, { params: { limit } });
   return res.data.data;
+}
+
+// --- AI 분석 ---
+export interface ApiAnalysisNewsItem {
+  id: number;
+  title: string;
+  source: string | null;
+  published_at: string;
+  url?: string | null;
+}
+
+export interface ApiAiAnalysis {
+  id: number;
+  stock_id: number;
+  gemini_result: string | null;
+  claude_result: string | null;
+  clova_result: string | null;
+  gemini_recommendation: string | null;
+  claude_recommendation: string | null;
+  clova_recommendation: string | null;
+  is_matched: boolean | null;
+  sentiment: string | null;
+  price_at_analysis: number | null;
+  analyzed_at: string;
+  related_news: ApiAnalysisNewsItem[];
+}
+
+export interface ApiAiAnalysisCreated {
+  id: number;
+  stock_id: number;
+  analyzed_at: string;
+}
+
+export async function fetchStockAnalysis(stockId: number): Promise<ApiAiAnalysis | null> {
+  try {
+    const res = await api.get<ApiResponse<ApiAiAnalysis>>(`/stocks/${stockId}/analysis`);
+    return res.data.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 404) return null;
+    throw err;
+  }
+}
+
+export async function createStockAnalysis(stockId: number): Promise<ApiAiAnalysis> {
+  const token = localStorage.getItem('access_token');
+  const res = await fetch(`${API_BASE_URL}/stocks/${stockId}/analysis`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    // 백엔드 모델별 ~25s 타임아웃 + 뉴스수집 여유
+    signal: AbortSignal.timeout(45_000),
+  });
+  const body = (await res.json().catch(() => ({
+    success: false,
+    data: null as unknown as ApiAiAnalysis,
+    message: 'AI 분석에 실패했습니다',
+  }))) as ApiResponse<ApiAiAnalysis>;
+  if (res.status === 401) {
+    clearAuthSession();
+    throw new Error(body.message || '로그인이 만료되었습니다. 다시 로그인해 주세요');
+  }
+  if (!res.ok || !body.success) {
+    throw new Error(body.message || 'AI 분석에 실패했습니다');
+  }
+  return body.data;
 }
 
 // --- 캔들 차트 ---

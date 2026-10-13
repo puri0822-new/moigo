@@ -1,12 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { stocks, aiRecs } from '../../data/mockData';
 import StockLogo from '../StockLogo';
 import { fetchStockRankings, getPortfolio, type ApiPortfolio, type ApiStockRanking } from '../../lib/api';
 
 // 시세 캐시 갱신 주기(30초)에 맞춰 평가금액·등락률을 다시 받아온다
 const REFRESH_MS = 30_000;
+
+const REC_LABEL: Record<string, '매수' | '매도' | '중립'> = {
+  BUY: '매수',
+  HOLD: '중립',
+  SELL: '매도',
+};
+
+const BOT_META = {
+  Gemini: { icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64' },
+  Claude: { icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64' },
+  CLOVA: { icon: 'https://www.google.com/s2/favicons?domain=naver.com&sz=64' },
+} as const;
+
+type RealAiRec = {
+  bot: keyof typeof BOT_META;
+  stockName: string;
+  code: string;
+  reason: string;
+  signal: '매수' | '매도' | '중립';
+  changePct: number | null;
+};
+
+function buildRecs(rankings: ApiStockRanking[]): RealAiRec[] {
+  const out: RealAiRec[] = [];
+  for (const s of rankings) {
+    if (!s.ai?.insights?.length) continue;
+    const changePct = s.change_rate != null ? s.change_rate * 100 : null;
+    for (const ins of s.ai.insights) {
+      out.push({
+        bot: ins.bot,
+        stockName: s.name,
+        code: s.code,
+        reason: ins.summary,
+        signal: REC_LABEL[ins.recommendation] ?? '중립',
+        changePct,
+      });
+    }
+  }
+  return out;
+}
 
 export default function GlobalRightPanel() {
   const { theme } = useTheme();
@@ -17,13 +56,6 @@ export default function GlobalRightPanel() {
   const [portfolio, setPortfolio] = useState<ApiPortfolio | null>(null);
   const [portfolioError, setPortfolioError] = useState(false);
   const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveRec(prev => (prev + 1) % aiRecs.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, []);
 
   // 패널은 페이지를 옮겨도 계속 떠 있으므로, 다른 페이지에서 주문하고 돌아왔을 때도 반영되게 경로가 바뀔 때마다 다시 불러온다
   useEffect(() => {
@@ -41,12 +73,28 @@ export default function GlobalRightPanel() {
     return () => { cancelled = true; clearInterval(timer); };
   }, [pathname]);
 
-  const rec = aiRecs[activeRec];
-  // AI 추천 문구는 아직 목업이지만, 종목 등락률은 실제 시세를 쓴다
-  const recLive = rankings.find(s => s.name === rec.stockName);
-  const recCode = recLive?.code ?? stocks.find(s => s.name === rec.stockName)?.code ?? stocks[0].code;
-  const recChangePct = recLive?.change_rate != null ? recLive.change_rate * 100 : null;
+  const recs = useMemo(() => buildRecs(rankings), [rankings]);
+
+  useEffect(() => {
+    if (recs.length === 0) return;
+    const timer = setInterval(() => {
+      setActiveRec(prev => (prev + 1) % recs.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [recs.length]);
+
+  useEffect(() => {
+    if (recs.length === 0) {
+      setActiveRec(0);
+      return;
+    }
+    setActiveRec(prev => prev % recs.length);
+  }, [recs.length]);
+
+  const rec = recs.length > 0 ? recs[activeRec % recs.length] : null;
+  const recChangePct = rec?.changePct ?? null;
   const recChangeLabel = recChangePct == null ? '' : (recChangePct >= 0 ? '▲' : '▼') + Math.abs(recChangePct).toFixed(1) + '%';
+  const signalColor = rec?.signal === '매수' ? '#fca5a5' : rec?.signal === '매도' ? '#93c5fd' : 'rgba(255,255,255,0.75)';
 
   const totalAsset = portfolio ? portfolio.balance + portfolio.total_eval_amount : 0;
   const profit = portfolio?.total_profit_loss ?? 0;
@@ -60,38 +108,51 @@ export default function GlobalRightPanel() {
       display: 'flex', flexDirection: 'column', gap: 14,
       overflowY: 'auto',
     }}>
-      {/* AI 추천 카드 */}
+      {/* AI 뉴스 분석 카드 (실데이터) */}
       {showRec && (
-        <div
-          onClick={() => navigate(`/stock/${recCode}`)}
-          style={{
-            background: theme.ai, borderRadius: 14, padding: '20px 18px',
-            display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer',
-            position: 'relative', overflow: 'hidden', minHeight: 180,
-          }}
-        >
-          <div style={{ position: 'absolute', right: -20, top: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
-          <div style={{ position: 'absolute', right: 20, bottom: -30, width: 70, height: 70, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
+        rec ? (
+          <div
+            onClick={() => navigate(`/stock/${rec.code}`)}
+            style={{
+              background: theme.ai, borderRadius: 14, padding: '20px 18px',
+              display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer',
+              position: 'relative', overflow: 'hidden', minHeight: 180,
+            }}
+          >
+            <div style={{ position: 'absolute', right: -20, top: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+            <div style={{ position: 'absolute', right: 20, bottom: -30, width: 70, height: 70, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
 
-          <div key={`rec-header-${activeRec}`} className="ai-rec-slide" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src={rec.icon} alt={rec.bot} width={20} height={20} style={{ objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+            <div key={`rec-header-${activeRec}`} className="ai-rec-slide" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <img src={BOT_META[rec.bot].icon} alt={rec.bot} width={20} height={20} style={{ objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{rec.bot}</span>
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: signalColor,
+                border: `1px solid ${signalColor}`, borderRadius: 4, padding: '1px 5px',
+              }}>{rec.signal}</span>
+              <div onClick={e => { e.stopPropagation(); setShowRec(false); }} style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}>✕</div>
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{rec.bot}</span>
-            <div onClick={e => { e.stopPropagation(); setShowRec(false); }} style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}>✕</div>
-          </div>
 
-          <div key={`rec-body-${activeRec}`} className="ai-rec-slide">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <StockLogo name={rec.stockName} code={recCode} size={20} />
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
-              {recChangePct != null && (
-                <span style={{ fontSize: 13, fontWeight: 700, color: recChangePct >= 0 ? '#fca5a5' : '#93c5fd' }}>{recChangeLabel}</span>
-              )}
+            <div key={`rec-body-${activeRec}`} className="ai-rec-slide">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <StockLogo name={rec.stockName} code={rec.code} size={20} />
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
+                {recChangePct != null && (
+                  <span style={{ fontSize: 13, fontWeight: 700, color: recChangePct >= 0 ? '#fca5a5' : '#93c5fd' }}>{recChangeLabel}</span>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, wordBreak: 'keep-all' }}>{rec.reason}</div>
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, wordBreak: 'keep-all' }}>{rec.reason}</div>
           </div>
-        </div>
+        ) : (
+          <div style={{
+            background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '16px 14px',
+            fontSize: 12, color: theme.textMuted, lineHeight: 1.5,
+          }}>
+            아직 저장된 AI 뉴스 분석이 없습니다. 종목 상세에서 뉴스 분석을 실행하면 여기에 표시됩니다.
+          </div>
+        )
       )}
 
       <div style={{ fontSize: 13, fontWeight: 700, color: theme.ai, background: theme.aiSoft, borderRadius: 8, padding: '7px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, border: `1px solid ${theme.ai}` }}>

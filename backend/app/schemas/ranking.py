@@ -1,4 +1,20 @@
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel
+
+
+class RankingAiInsight(BaseModel):
+    bot: Literal["Gemini", "Claude", "CLOVA"]
+    recommendation: Literal["BUY", "HOLD", "SELL"]
+    summary: str
+
+
+class RankingAiSummary(BaseModel):
+    sentiment: str | None
+    is_matched: bool | None
+    analyzed_at: datetime
+    insights: list[RankingAiInsight]
 
 
 class StockRankingItem(BaseModel):
@@ -12,3 +28,4 @@ class StockRankingItem(BaseModel):
     change_rate: float | None
     trading_volume: int | None
     trading_amount: int | None
+    ai: RankingAiSummary | None = None

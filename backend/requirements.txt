@@ -12,4 +12,5 @@ bcrypt==4.0.1
 python-dotenv==1.0.1
 python-multipart==0.0.9
 httpx
+google-genai
 firebase-admin==7.6.0
