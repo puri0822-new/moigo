@@ -49,6 +49,8 @@ export default function StockDetailPage() {
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [stockId, setStockId] = useState<number | null>(null);
   const [ordering, setOrdering] = useState(false);
+  const [sellWarn, setSellWarn] = useState(false);
+  const [confirmOrder, setConfirmOrder] = useState<{ side: 'buy' | 'sell'; price: number; qty: number; total: number } | null>(null);
 
   useEffect(() => {
     setFloatPos({ x: window.innerWidth - 316, y: window.innerHeight - 540 });
@@ -66,6 +68,13 @@ export default function StockDetailPage() {
       fetchStockByCode(code).then(s => { if (s) setStockId(s.id); });
     }
   }, [code]);
+
+  useEffect(() => {
+    if (side === 'sell') {
+      const holding = portfolio?.holdings.find(h => h.stock_code === code);
+      if (!holding || holding.quantity <= 0) setSide('buy');
+    }
+  }, [portfolio, code, side]);
 
   // AI 추천 자동 전환
   const [activeRec, setActiveRec] = useState(0);
@@ -637,6 +646,40 @@ export default function StockDetailPage() {
 
         {!floatMinimized && (
           <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 11 }}>
+            {/* 매수 / 매도 선택 탭 */}
+            {(() => {
+              const currentHolding = portfolio?.holdings.find(h => h.stock_code === code);
+              const canSell = !!currentHolding && currentHolding.quantity > 0;
+              return (<>
+                <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: `1px solid ${theme.border}` }}>
+                  {(['buy', 'sell'] as const).map(s => {
+                    const disabled = s === 'sell' && !canSell;
+                    return (
+                      <div key={s} onClick={() => {
+                        if (disabled) { setSellWarn(true); setTimeout(() => setSellWarn(false), 2500); return; }
+                        setSellWarn(false); setSide(s);
+                      }} style={{
+                        flex: 1, textAlign: 'center', padding: '9px 0',
+                        fontSize: 13, fontWeight: 700,
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        opacity: disabled ? 0.35 : 1,
+                        background: side === s && !disabled ? (s === 'buy' ? theme.up : theme.down) : 'transparent',
+                        color: side === s && !disabled ? theme.bg : theme.textMuted,
+                        transition: 'all 0.15s',
+                      }}>
+                        {s === 'buy' ? '매수' : '매도'}
+                      </div>
+                    );
+                  })}
+                </div>
+                {sellWarn && (
+                  <div style={{ fontSize: 11, fontWeight: 600, color: theme.down, textAlign: 'center', marginTop: -4 }}>
+                    보유한 종목이 없어 매도할 수 없습니다
+                  </div>
+                )}
+              </>);
+            })()}
+
             {/* 지정가 / 시장가 탭 */}
             <div style={{ display: 'flex', background: theme.panel2, borderRadius: 8, padding: 3, gap: 3 }}>
               {(['limit', 'market'] as const).map(t => (
@@ -693,7 +736,16 @@ export default function StockDetailPage() {
               <div style={{ display: 'flex', gap: 5 }}>
                 {[['10%', 0.1], ['25%', 0.25], ['50%', 0.5], ['최대', 1]].map(([label, ratio]) => (
                   <div key={label as string}
-                    onClick={() => { const bal = portfolio?.balance ?? 0; const maxQty = Math.floor(bal / effectivePrice); setQty(Math.max(1, Math.floor(maxQty * (ratio as number)))); }}
+                    onClick={() => {
+                      if (side === 'sell') {
+                        const holdingQty = portfolio?.holdings.find(h => h.stock_code === code)?.quantity ?? 0;
+                        setQty(Math.max(1, Math.floor(holdingQty * (ratio as number))));
+                      } else {
+                        const bal = portfolio?.balance ?? 0;
+                        const maxQty = Math.floor(bal / effectivePrice);
+                        setQty(Math.max(1, Math.floor(maxQty * (ratio as number))));
+                      }
+                    }}
                     style={{ flex: 1, textAlign: 'center', padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.textMuted }}
                   >{label}</div>
                 ))}
@@ -706,14 +758,108 @@ export default function StockDetailPage() {
               <span style={{ fontSize: 14, fontWeight: 700 }}>{total.toLocaleString()}원</span>
             </div>
 
-            {/* 매수 / 매도 버튼 */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div onClick={() => !ordering && handleOrder('buy')} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.up, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: ordering ? 'not-allowed' : 'pointer', opacity: ordering ? 0.6 : 1 }}>매수</div>
-              <div onClick={() => !ordering && handleOrder('sell')} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.down, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: ordering ? 'not-allowed' : 'pointer', opacity: ordering ? 0.6 : 1 }}>매도</div>
+            {/* 주문 확정 버튼 */}
+            <div
+              onClick={() => !ordering && setConfirmOrder({ side, price: effectivePrice, qty, total })}
+              style={{
+                textAlign: 'center', padding: '11px 0', borderRadius: 8,
+                background: side === 'buy' ? theme.up : theme.down,
+                color: theme.bg, fontWeight: 700, fontSize: 14,
+                cursor: ordering ? 'not-allowed' : 'pointer',
+                opacity: ordering ? 0.6 : 1,
+              }}
+            >
+              {side === 'buy' ? '매수하기' : '매도하기'}
             </div>
           </div>
         )}
       </div>
+
+      {/* 주문 확인 오버레이 */}
+      {confirmOrder && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setConfirmOrder(null)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: 320, background: theme.panel,
+            border: `1px solid ${theme.border}`,
+            borderRadius: 16, padding: '24px 20px',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column', gap: 16,
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 800, textAlign: 'center' }}>
+              주문 확인
+            </div>
+
+            <div style={{
+              background: theme.panel2, border: `1px solid ${theme.border}`,
+              borderRadius: 10, padding: 14,
+              display: 'flex', flexDirection: 'column', gap: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <StockLogo name={stock.name} code={stock.code} size={32} />
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{stock.name}</div>
+                  <div style={{ fontSize: 11, color: theme.textMuted }}>{stock.code}</div>
+                </div>
+                <div style={{
+                  marginLeft: 'auto', fontSize: 12, fontWeight: 700,
+                  color: confirmOrder.side === 'buy' ? theme.up : theme.down,
+                  border: `1px solid ${confirmOrder.side === 'buy' ? theme.up : theme.down}`,
+                  borderRadius: 6, padding: '3px 10px',
+                }}>
+                  {confirmOrder.side === 'buy' ? '매수' : '매도'}
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: theme.border }} />
+
+              {[
+                ['주문 유형', orderType === 'limit' ? '지정가' : '시장가'],
+                ['가격', `${confirmOrder.price.toLocaleString()}원`],
+                ['수량', `${confirmOrder.qty.toLocaleString()}주`],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span style={{ color: theme.textMuted }}>{label}</span>
+                  <span style={{ fontWeight: 600 }}>{value}</span>
+                </div>
+              ))}
+
+              <div style={{ height: 1, background: theme.border }} />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                <span style={{ fontWeight: 700 }}>총 주문 금액</span>
+                <span style={{ fontWeight: 800 }}>{confirmOrder.total.toLocaleString()}원</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div
+                onClick={() => setConfirmOrder(null)}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 8,
+                  border: `1px solid ${theme.border}`, fontSize: 13, fontWeight: 600,
+                  color: theme.textMuted, cursor: 'pointer',
+                }}
+              >취소</div>
+              <div
+                onClick={async () => {
+                  const { side: s } = confirmOrder;
+                  setConfirmOrder(null);
+                  await handleOrder(s);
+                }}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 8,
+                  background: confirmOrder.side === 'buy' ? theme.up : theme.down,
+                  color: theme.bg, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                }}
+              >{confirmOrder.side === 'buy' ? '매수 확인' : '매도 확인'}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div style={{
