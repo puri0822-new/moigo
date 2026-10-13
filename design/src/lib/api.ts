@@ -39,44 +39,52 @@ export function apiPost<T>(path: string, data?: unknown) {
   return request<T>(path, { method: 'POST', body: data !== undefined ? JSON.stringify(data) : undefined });
 }
 
+export function apiDelete<T>(path: string) {
+  return request<T>(path, { method: 'DELETE' });
+}
+
 // --- 주문 ---
 export interface OrderRequest {
   stock_id: number;
   order_type: 'BUY' | 'SELL';
   price_type: 'MARKET' | 'LIMIT';
   quantity: number;
-  // 지정가일 때의 한도 가격. 체결가는 항상 서버의 현재가다 (지정가 조건이 지금 맞지 않으면 주문이 거절된다)
+  // 지정가일 때의 한도 가격. 체결가는 서버가 호가로 정하고, 지금 체결되지 않으면 미체결 주문으로 남는다
   price?: number;
 }
 
-export interface OrderResult {
-  id: number;
-  stock_name: string;
-  order_type: string;
-  quantity: number;
-  price: number; // 실제 체결가
-  total_amount: number;
-  ordered_at: string;
-}
-
-export function createOrder(body: OrderRequest) {
-  return apiPost<OrderResult>('/orders', body);
-}
+export type OrderStatus = 'PENDING' | 'FILLED' | 'CANCELLED' | 'EXPIRED';
 
 export interface ApiOrder {
   id: number;
   stock_name: string;
   stock_code: string;
   order_type: 'BUY' | 'SELL';
+  price_type: 'MARKET' | 'LIMIT';
+  // PENDING: 미체결(지정가에 닿으면 체결), EXPIRED: 장 마감까지 체결되지 않아 만료
+  status: OrderStatus;
   quantity: number;
+  // 체결된 주문은 평균 체결가·실제 체결 금액, 미체결 주문은 지정가·지정가 기준 금액
   price: number;
   total_amount: number;
+  limit_price: number | null;
   ordered_at: string;
+  filled_at: string | null;
 }
 
-/** 내 주문 내역 (최신순) */
+/** 시장가는 호가로 즉시 체결되고, 지정가는 지금 체결되지 않으면 status가 PENDING인 채로 돌아온다 */
+export function createOrder(body: OrderRequest) {
+  return apiPost<ApiOrder>('/orders', body);
+}
+
+/** 내 주문 내역 (최신순, 미체결·취소·만료 포함) */
 export function getOrders() {
   return apiGet<ApiOrder[]>('/orders');
+}
+
+/** 미체결 주문 취소 */
+export function cancelOrder(orderId: number) {
+  return apiDelete<ApiOrder>(`/orders/${orderId}`);
 }
 
 // --- 포트폴리오 ---
@@ -85,6 +93,7 @@ export interface ApiHolding {
   stock_name: string;
   stock_code: string;
   quantity: number;
+  orderable_quantity: number; // 미체결 매도 주문에 묶인 수량을 뺀, 지금 팔 수 있는 수량
   avg_price: number;
   current_price: number;
   eval_amount: number;
@@ -94,6 +103,7 @@ export interface ApiHolding {
 
 export interface ApiPortfolio {
   balance: number; // 가상 현금
+  orderable_balance: number; // 미체결 매수 주문에 묶인 금액을 뺀, 지금 주문할 수 있는 금액
   total_eval_amount: number; // 보유 주식 평가액 (현재가 기준)
   total_profit_loss: number; // 보유 주식 평가손익
   total_profit_loss_rate: number; // % 단위

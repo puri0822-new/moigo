@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.order_matching import FILLED, reserved_cash, reserved_shares
 from app.core.price_cache import get_current_prices
 from app.models.user import User
 from app.models.account import Account
@@ -20,6 +21,9 @@ def get_portfolio(
     account = db.query(Account).filter(Account.user_id == current_user.id).first()
     holdings = db.query(Holding).filter(Holding.user_id == current_user.id).all()
     current_prices = get_current_prices(db, [h.stock_id for h in holdings])
+    # 미체결 주문에 묶인 금액·수량을 뺀 만큼만 새로 주문할 수 있다
+    pending_cash = reserved_cash(db, current_user.id)
+    pending_shares = reserved_shares(db, current_user.id)
 
     holding_data = []
     total_eval_amount = 0
@@ -42,6 +46,7 @@ def get_portfolio(
             "stock_name": stock.name if stock else "",
             "stock_code": stock.code if stock else "",
             "quantity": h.quantity,
+            "orderable_quantity": max(0, h.quantity - pending_shares.get(h.stock_id, 0)),
             "avg_price": h.avg_price,
             "current_price": current_price,
             "eval_amount": eval_amount,
@@ -56,6 +61,7 @@ def get_portfolio(
         "success": True,
         "data": {
             "balance": account.balance if account else 0,
+            "orderable_balance": max(0, account.balance - pending_cash) if account else 0,
             "total_eval_amount": total_eval_amount,
             "total_profit_loss": total_profit_loss,
             "total_profit_loss_rate": round(total_profit_loss_rate, 2),
@@ -70,8 +76,10 @@ def get_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # 거래 내역에는 실제로 체결된 주문만 보여준다 (미체결·취소·만료 주문은 GET /orders에서 본다)
     orders = db.query(Order).filter(
-        Order.user_id == current_user.id
+        Order.user_id == current_user.id,
+        Order.status == FILLED
     ).order_by(Order.ordered_at.desc()).all()
 
     data = []

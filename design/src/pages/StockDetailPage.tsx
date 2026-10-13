@@ -6,8 +6,8 @@ import { stocks, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import CandleChart from '../components/CandleChart';
 import {
-  createOrder, fetchStockByCode, fetchStockCandles, fetchStockInfo, fetchStockNews, fetchStockOrderbook, getOrders, getPortfolio,
-  type ApiNewsItem, type ApiOrder, type ApiOrderbook, type ApiPortfolio, type ApiStockDetail, type ApiStockInfo,
+  cancelOrder, createOrder, fetchStockByCode, fetchStockCandles, fetchStockInfo, fetchStockNews, fetchStockOrderbook, getOrders, getPortfolio,
+  type ApiNewsItem, type ApiOrder, type ApiOrderbook, type OrderStatus, type ApiPortfolio, type ApiStockDetail, type ApiStockInfo,
 } from '../lib/api';
 import { timeAgo } from '../lib/time';
 
@@ -39,6 +39,8 @@ function formatMarketCap(won: number) {
   }
   return `${eok.toLocaleString()}억원`;
 }
+
+const ORDER_STATUS_LABEL: Record<OrderStatus, string> = { PENDING: '미체결', FILLED: '체결', CANCELLED: '취소', EXPIRED: '만료' };
 
 function formatOrderTime(iso: string) {
   const d = new Date(iso);
@@ -246,14 +248,25 @@ export default function StockDetailPage() {
   }, []);
   useEffect(() => { loadAccountData(); }, [loadAccountData]);
 
+  // 미체결 주문은 서버가 호가를 보고 체결하므로, 남아 있는 동안에는 주기적으로 다시 확인한다
+  const hasPendingOrders = orders.some(o => o.status === 'PENDING');
+  useEffect(() => {
+    if (!hasPendingOrders) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') loadAccountData();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [hasPendingOrders, loadAccountData]);
+
   // AI 등락 이유·유사 종목은 목업 데이터에 있는 종목만 표시된다
   const mockStock = stocks.find(s => s.code === code);
   const priceNum = stock?.current_price ?? 0;
   const effectivePrice = orderType === 'market' ? priceNum : inputPrice;
   const total = effectivePrice * qty;
 
-  const heldQty = portfolio?.holdings.find(h => h.stock_code === code)?.quantity ?? 0;
-  const buyableQty = portfolio && effectivePrice > 0 ? Math.floor(portfolio.balance / effectivePrice) : 0;
+  // 미체결 주문에 묶인 수량·금액은 빼고 계산한다
+  const heldQty = portfolio?.holdings.find(h => h.stock_code === code)?.orderable_quantity ?? 0;
+  const buyableQty = portfolio && effectivePrice > 0 ? Math.floor(portfolio.orderable_balance / effectivePrice) : 0;
   const stockOrders = orders.filter(o => o.stock_code === code);
 
   const rec = aiRecs[activeRec];
@@ -300,13 +313,29 @@ export default function StockDetailPage() {
         ...(orderType === 'limit' ? { price: inputPrice } : {}),
       });
       const o = res.data;
-      showToast(`${orderSide === 'buy' ? '매수' : '매도'} 체결: ${o.stock_name} ${o.quantity}주 · ${o.price.toLocaleString()}원 (총 ${o.total_amount.toLocaleString()}원)`, true);
+      const sideLabel = orderSide === 'buy' ? '매수' : '매도';
+      showToast(
+        o.status === 'PENDING'
+          ? `${sideLabel} 주문 접수: ${o.stock_name} ${o.quantity}주 · 지정가 ${o.price.toLocaleString()}원 (지정가에 닿으면 체결돼요)`
+          : `${sideLabel} 체결: ${o.stock_name} ${o.quantity}주 · ${o.price.toLocaleString()}원 (총 ${o.total_amount.toLocaleString()}원)`,
+        true,
+      );
       loadAccountData();
     } catch (err) {
       showToast(err instanceof Error ? err.message : '주문에 실패했습니다', false);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleCancel = async (orderId: number) => {
+    try {
+      await cancelOrder(orderId);
+      showToast('주문을 취소했어요', true);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '주문 취소에 실패했습니다', false);
+    }
+    loadAccountData();
   };
 
   const applyRatio = (ratio: number) => {
@@ -550,7 +579,7 @@ export default function StockDetailPage() {
               })()}
             </div>
 
-          {/* 주문 내역 (서버에 저장된 이 종목의 체결 내역) */}
+          {/* 주문 내역 (서버에 저장된 이 종목의 주문. 미체결 주문은 취소할 수 있다) */}
           <div style={{ flex: 1, background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 12, overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>주문 내역</span>
@@ -562,20 +591,35 @@ export default function StockDetailPage() {
             ) : (
               <div>
                 {/* 헤더 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 64px', gap: 8, padding: '7px 16px', borderBottom: `1px solid ${theme.border}`, fontSize: 11, fontWeight: 600, color: theme.textMuted }}>
-                  <span>구분</span><span>체결가</span><span style={{ textAlign: 'center' }}>수량</span><span style={{ textAlign: 'right' }}>금액</span><span style={{ textAlign: 'right' }}>시간</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 56px 1fr 56px 44px', gap: 8, padding: '7px 16px', borderBottom: `1px solid ${theme.border}`, fontSize: 11, fontWeight: 600, color: theme.textMuted }}>
+                  <span>구분</span><span>가격</span><span style={{ textAlign: 'center' }}>수량</span><span style={{ textAlign: 'right' }}>금액</span><span style={{ textAlign: 'right' }}>시간</span><span style={{ textAlign: 'right' }}>상태</span>
                 </div>
-                {stockOrders.map((o, i) => (
-                  <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 64px', gap: 8, padding: '9px 16px', borderBottom: i < stockOrders.length - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12, alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, color: o.order_type === 'BUY' ? theme.up : theme.down }}>
-                      {o.order_type === 'BUY' ? '매수' : '매도'}
-                    </span>
-                    <span style={{ color: theme.text }}>{o.price.toLocaleString()}원</span>
-                    <span style={{ textAlign: 'center', color: theme.text }}>{o.quantity.toLocaleString()}주</span>
-                    <span style={{ textAlign: 'right', fontWeight: 600 }}>{o.total_amount.toLocaleString()}원</span>
-                    <span style={{ textAlign: 'right', color: theme.textMuted, fontSize: 11 }}>{formatOrderTime(o.ordered_at)}</span>
-                  </div>
-                ))}
+                {stockOrders.map((o, i) => {
+                  // 취소·만료된 주문은 흐리게 보여준다
+                  const inactive = o.status === 'CANCELLED' || o.status === 'EXPIRED';
+                  return (
+                    <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 56px 1fr 56px 44px', gap: 8, padding: '9px 16px', borderBottom: i < stockOrders.length - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12, alignItems: 'center', opacity: inactive ? 0.5 : 1 }}>
+                      <span style={{ fontWeight: 700, color: o.order_type === 'BUY' ? theme.up : theme.down }}>
+                        {o.order_type === 'BUY' ? '매수' : '매도'}
+                      </span>
+                      <span style={{ color: theme.text }}>{o.price.toLocaleString()}원</span>
+                      <span style={{ textAlign: 'center', color: theme.text }}>{o.quantity.toLocaleString()}주</span>
+                      <span style={{ textAlign: 'right', fontWeight: 600 }}>{o.total_amount.toLocaleString()}원</span>
+                      <span style={{ textAlign: 'right', color: theme.textMuted, fontSize: 11 }}>{formatOrderTime(o.filled_at ?? o.ordered_at)}</span>
+                      {o.status === 'PENDING' ? (
+                        <span
+                          onClick={() => handleCancel(o.id)}
+                          title="미체결 주문 취소"
+                          style={{ textAlign: 'right', fontSize: 11, fontWeight: 700, color: theme.ai, cursor: 'pointer' }}
+                        >
+                          취소
+                        </span>
+                      ) : (
+                        <span style={{ textAlign: 'right', fontSize: 11, color: theme.textMuted }}>{ORDER_STATUS_LABEL[o.status]}</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -950,7 +994,7 @@ export default function StockDetailPage() {
               </div>
               {orderType === 'limit' && (
                 <span style={{ fontSize: 10, color: theme.textMuted, lineHeight: 1.4 }}>
-                  현재가가 지정가 조건에 맞을 때만 현재가로 즉시 체결돼요 (미체결 대기 주문은 아직 지원하지 않아요)
+                  지금 호가로 체결되지 않으면 미체결로 남아 지정가에 닿을 때 체결돼요 (당일 장 마감까지 유효)
                 </span>
               )}
             </div>
@@ -960,7 +1004,7 @@ export default function StockDetailPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: theme.textMuted }}>수량</span>
                 <span style={{ fontSize: 10, color: theme.textMuted }}>
-                  매수 가능 {buyableQty.toLocaleString()}주 · 보유 {heldQty.toLocaleString()}주
+                  매수 가능 {buyableQty.toLocaleString()}주 · 매도 가능 {heldQty.toLocaleString()}주
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '6px 10px' }}>

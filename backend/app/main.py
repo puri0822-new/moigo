@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core import http
+from app.core.order_matching import order_matching_loop
 from app.core.price_sync import price_sync_loop
 from app.routers import auth, orders, portfolio, account, stocks
 
@@ -14,8 +15,10 @@ from app.routers import auth, orders, portfolio, account, stocks
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     sync_task = asyncio.create_task(price_sync_loop())
+    matching_task = asyncio.create_task(order_matching_loop())
     yield
     sync_task.cancel()
+    matching_task.cancel()
     await http.close()
 
 

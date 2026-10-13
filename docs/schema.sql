@@ -107,13 +107,20 @@ CREATE TABLE orders (
     stock_id        BIGINT          NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
     ai_analysis_id  BIGINT          NULL REFERENCES ai_analyses(id) ON DELETE SET NULL,
     order_type      VARCHAR(10)     NOT NULL,
+    price_type      VARCHAR(10)     NOT NULL DEFAULT 'MARKET',
+    status          VARCHAR(10)     NOT NULL DEFAULT 'FILLED',
     quantity        INT             NOT NULL CHECK (quantity > 0),
+    limit_price     BIGINT          NULL,       -- 지정가 주문의 지정가
+    -- 체결된 주문은 평균 체결가(반올림)와 실제 체결 금액, 미체결 주문은 지정가와 지정가 기준 금액
     price           BIGINT          NOT NULL CHECK (price > 0),
     total_amount    BIGINT          NOT NULL CHECK (total_amount > 0),
     ordered_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    filled_at       TIMESTAMPTZ     NULL,
 
     CONSTRAINT chk_order_type CHECK (order_type IN ('BUY', 'SELL')),
-    CONSTRAINT chk_total_amount CHECK (total_amount = price * quantity)
+    CONSTRAINT chk_price_type CHECK (price_type IN ('MARKET', 'LIMIT')),
+    CONSTRAINT chk_order_status CHECK (status IN ('PENDING', 'FILLED', 'CANCELLED', 'EXPIRED')),
+    CONSTRAINT chk_limit_price CHECK (limit_price IS NULL OR limit_price > 0)
 );
 
 -- 8. holdings (보유 종목)
@@ -175,6 +182,7 @@ CREATE TRIGGER trg_stock_daily_candles_updated_at
 
 -- 인덱스
 CREATE INDEX idx_news_stock_id ON news(stock_id);
+CREATE INDEX idx_orders_pending ON orders(stock_id) WHERE status = 'PENDING';
 CREATE INDEX idx_news_published_at ON news(published_at);
 CREATE INDEX idx_ai_analyses_stock_id ON ai_analyses(stock_id);
 CREATE INDEX idx_ai_analyses_analyzed_at ON ai_analyses(analyzed_at);

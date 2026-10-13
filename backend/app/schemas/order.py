@@ -8,7 +8,7 @@ class OrderRequest(BaseModel):
     order_type: Literal["BUY", "SELL"]
     price_type: Literal["MARKET", "LIMIT"] = "MARKET"
     quantity: int = Field(gt=0)
-    # 지정가 주문일 때의 한도 가격. 체결가는 항상 서버가 가진 현재가이며, 이 값은 체결 조건 확인에만 쓴다.
+    # 지정가 주문일 때의 한도 가격. 체결가는 항상 서버가 호가로 정하며, 이 값보다 불리한 가격으로는 체결되지 않는다.
     price: int | None = Field(default=None, gt=0)
     ai_analysis_id: int | None = None
 
