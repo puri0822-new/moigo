@@ -593,12 +593,27 @@ export default function StockDetailPage() {
             {newsStatus === 'ready' && news.length === 0 && <div style={{ fontSize: 12, color: theme.textMuted }}>관련 뉴스가 없습니다</div>}
             {news.map(n => (
               <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" style={{
-                display: 'flex', flexDirection: 'column', gap: 2,
-                padding: '10px 0', borderBottom: `1px solid ${theme.border}`,
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '12px 0', borderBottom: `1px solid ${theme.border}`,
                 color: 'inherit', textDecoration: 'none',
               }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{n.title}</div>
-                <div style={{ fontSize: 11, color: theme.textMuted }}>{n.source ?? ''} · {timeAgo(n.published_at)}</div>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 600, lineHeight: 1.45,
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  }}>{n.title}</div>
+                  <div style={{ fontSize: 11, color: theme.textMuted }}>{n.source ?? ''} · {timeAgo(n.published_at)}</div>
+                </div>
+                {n.image_url && (
+                  <img
+                    src={n.image_url} alt="" loading="lazy" referrerPolicy="no-referrer"
+                    onError={e => { e.currentTarget.style.display = 'none'; }}
+                    style={{
+                      width: 96, height: 64, flexShrink: 0, objectFit: 'cover',
+                      borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.panel2,
+                    }}
+                  />
+                )}
               </a>
             ))}
           </div>

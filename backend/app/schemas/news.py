@@ -10,3 +10,4 @@ class NewsItem(BaseModel):
     url: str
     source: str | None
     published_at: datetime
+    image_url: str | None = None

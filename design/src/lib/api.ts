@@ -108,6 +108,7 @@ export interface ApiNewsItem {
   url: string;
   source: string | null;
   published_at: string;
+  image_url: string | null;
 }
 
 export async function fetchStockNews(stockId: number, limit = 10): Promise<ApiNewsItem[]> {
