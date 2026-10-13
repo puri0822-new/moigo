@@ -16,8 +16,10 @@ from app.models import Stock, StockPriceCache
 from app.schemas.candle import Candle
 from app.schemas.common import ApiResponse
 from app.schemas.news import NewsItem
+from app.schemas.orderbook import Orderbook, OrderbookLevel
 from app.schemas.ranking import StockRankingItem
 from app.schemas.stock import StockDetail, StockListItem
+from app.schemas.stock_info import StockInfo
 
 router = APIRouter(prefix="/stocks", tags=["Stocks"])
 logger = logging.getLogger("uvicorn.error")
@@ -178,6 +180,57 @@ async def get_stock_candles(
         )
         for c in raw_candles
     ]
+    return ApiResponse(success=True, data=data, message="요청 성공")
+
+
+@router.get("/{stock_id}/info", response_model=ApiResponse[StockInfo])
+async def get_stock_info(stock_id: int, db: Session = Depends(get_db)):
+    stock = db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        raw = await asyncio.wait_for(toss_client.get_stock_info(stock.code), TOSS_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError) as e:
+        logger.warning("종목 정보 조회 실패 %s: %r", stock.code, e)
+        raise HTTPException(status_code=502, detail="종목 정보를 불러오지 못했습니다")
+    if not raw:
+        raise HTTPException(status_code=404, detail="종목 정보를 찾을 수 없습니다")
+
+    shares = raw.get("sharesOutstanding")
+    korean = raw.get("koreanMarketDetail") or {}
+    data = StockInfo(
+        english_name=raw.get("englishName"),
+        isin_code=raw.get("isinCode"),
+        market=raw.get("market"),
+        security_type=raw.get("securityType"),
+        is_common_share=raw.get("isCommonShare"),
+        status=raw.get("status"),
+        currency=raw.get("currency"),
+        list_date=raw.get("listDate"),
+        shares_outstanding=int(float(shares)) if shares is not None else None,
+        nxt_supported=korean.get("nxtSupported"),
+        trading_suspended=korean.get("krxTradingSuspended"),
+    )
+    return ApiResponse(success=True, data=data, message="요청 성공")
+
+
+@router.get("/{stock_id}/orderbook", response_model=ApiResponse[Orderbook])
+async def get_stock_orderbook(stock_id: int, db: Session = Depends(get_db)):
+    stock = db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        raw = await asyncio.wait_for(toss_client.get_orderbook(stock.code), TOSS_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError) as e:
+        logger.warning("호가 조회 실패 %s: %r", stock.code, e)
+        raise HTTPException(status_code=502, detail="호가를 불러오지 못했습니다")
+
+    def levels(side: str) -> list[OrderbookLevel]:
+        return [OrderbookLevel(price=int(float(l["price"])), volume=int(float(l["volume"]))) for l in raw.get(side, [])]
+
+    data = Orderbook(timestamp=raw["timestamp"], asks=levels("asks"), bids=levels("bids"))
     return ApiResponse(success=True, data=data, message="요청 성공")
 
 

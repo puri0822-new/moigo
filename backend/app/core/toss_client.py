@@ -15,6 +15,10 @@ BASE_URL = "https://openapi.tossinvest.com"
 # 상세페이지가 3초마다 현재가를 다시 묻는다. 캐시가 폴링 주기와 같으면 경계에서 어떤 때는 캐시, 어떤 때는 새 값이 되므로 그보다 짧게 둔다.
 PRICE_CACHE_TTL_SECONDS = 2
 CANDLE_CACHE_TTL_SECONDS = 60
+# 호가도 상세페이지가 3초마다 다시 묻는다. 여러 사용자가 같은 종목을 보고 있어도 토스 호출은 이 주기에 한 번으로 묶인다.
+ORDERBOOK_CACHE_TTL_SECONDS = 2
+# 종목 기본 정보(상장일, 상장주식수 등)는 거의 바뀌지 않는다
+STOCK_INFO_CACHE_TTL_SECONDS = 3600
 KST = timezone(timedelta(hours=9))
 
 # 토스 캔들 API는 초당 20건이 한도다(그룹별 한도는 다를 수 있어 모든 호출을 한 줄로 세운다).
@@ -29,6 +33,8 @@ _token_cache: dict[str, str | float] = {"access_token": "", "expires_at": 0.0}
 
 _price_cache: dict[str, tuple[dict, float]] = {}
 _candle_cache: dict[tuple[str, str, int], tuple[list[dict], float]] = {}
+_orderbook_cache: dict[str, tuple[dict, float]] = {}
+_stock_info_cache: dict[str, tuple[dict, float]] = {}
 # 전일 종가는 하루 동안 바뀌지 않으므로 (종목코드, KST 날짜) 단위로 캐시
 _prev_close_cache: dict[tuple[str, date], float] = {}
 
@@ -174,6 +180,34 @@ async def get_candles(symbol: str, interval: str, count: int, force: bool = Fals
     candles = list(reversed(data["result"]["candles"]))
     _candle_cache[cache_key] = (candles, now)
     return candles
+
+
+async def get_orderbook(symbol: str) -> dict:
+    """종목의 호가(매도/매수 각 10단계)를 조회. asks는 낮은 가격부터, bids는 높은 가격부터
+    (둘 다 현재가에 가까운 순서)이며 가격·잔량은 문자열로 온다."""
+    now = time.monotonic()
+    cached = _orderbook_cache.get(symbol)
+    if cached and now - cached[1] < ORDERBOOK_CACHE_TTL_SECONDS:
+        return cached[0]
+
+    data = await _authed_get("/api/v1/orderbook", {"symbol": symbol})
+    _orderbook_cache[symbol] = (data["result"], now)
+    return data["result"]
+
+
+async def get_stock_info(symbol: str) -> dict | None:
+    """종목 기본 정보(영문명, ISIN, 상장일, 상장주식수, 거래 상태 등)를 조회. 1시간 캐시.
+    토스에 없는 종목이면 None."""
+    now = time.monotonic()
+    cached = _stock_info_cache.get(symbol)
+    if cached and now - cached[1] < STOCK_INFO_CACHE_TTL_SECONDS:
+        return cached[0]
+
+    data = await _authed_get("/api/v1/stocks", {"symbols": symbol})
+    info = next((item for item in data.get("result", []) if item["symbol"] == symbol), None)
+    if info:
+        _stock_info_cache[symbol] = (info, now)
+    return info
 
 
 def _kst_date(candle: dict) -> date:

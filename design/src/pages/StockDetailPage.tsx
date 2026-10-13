@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { CandlestickData } from 'lightweight-charts';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, orderbook, aiRecs, stockAiInsights } from '../data/mockData';
+import { stocks, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import CandleChart from '../components/CandleChart';
 import {
-  createOrder, fetchStockByCode, fetchStockCandles, fetchStockNews, getOrders, getPortfolio,
-  type ApiNewsItem, type ApiOrder, type ApiPortfolio, type ApiStockDetail,
+  createOrder, fetchStockByCode, fetchStockCandles, fetchStockInfo, fetchStockNews, fetchStockOrderbook, getOrders, getPortfolio,
+  type ApiNewsItem, type ApiOrder, type ApiOrderbook, type ApiPortfolio, type ApiStockDetail, type ApiStockInfo,
 } from '../lib/api';
 import { timeAgo } from '../lib/time';
 
@@ -26,8 +26,19 @@ const PERIOD_PARAMS: Record<Period, { interval: '1d' | '1w' | '1mo' | '1y'; coun
 
 // 상세페이지가 현재가와 마지막 막대를 다시 받아오는 주기. 백엔드의 현재가·오늘 봉 캐시도 같은 3초다.
 const POLL_INTERVAL_MS = 3000;
+// 호가 패널에 보여줄 매도/매수 단계 수 (서버는 각 10단계까지 준다)
+const ORDERBOOK_LEVELS = 5;
 
 type ChartCandle = CandlestickData<string>;
+
+function formatMarketCap(won: number) {
+  const eok = Math.round(won / 100_000_000);
+  if (eok >= 10_000) {
+    const rest = eok % 10_000;
+    return `${Math.floor(eok / 10_000).toLocaleString()}조${rest ? ` ${rest.toLocaleString()}억` : ''}원`;
+  }
+  return `${eok.toLocaleString()}억원`;
+}
 
 function formatOrderTime(iso: string) {
   const d = new Date(iso);
@@ -56,7 +67,7 @@ export default function StockDetailPage() {
   const [floatMinimized, setFloatMinimized] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
-  // 종목 정보·차트·뉴스·주문·내 모의매매는 실제 API, AI 인사이트·호가는 아직 목업
+  // 종목 정보·차트·호가·종목정보·뉴스·주문·내 모의매매는 실제 API, AI 인사이트는 아직 목업
   const [stock, setStock] = useState<ApiStockDetail | null>(null);
   const [stockStatus, setStockStatus] = useState<'loading' | 'ready' | 'notFound' | 'error'>('loading');
   const [candles, setCandles] = useState<ChartCandle[]>([]);
@@ -64,6 +75,10 @@ export default function StockDetailPage() {
   const [liveBar, setLiveBar] = useState<ChartCandle | null>(null);
   const [candlesStatus, setCandlesStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [candlesReloadKey, setCandlesReloadKey] = useState(0);
+  const [orderbook, setOrderbook] = useState<ApiOrderbook | null>(null);
+  const [orderbookStatus, setOrderbookStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [info, setInfo] = useState<ApiStockInfo | null>(null);
+  const [infoStatus, setInfoStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [news, setNews] = useState<ApiNewsItem[]>([]);
   const [newsStatus, setNewsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [portfolio, setPortfolio] = useState<ApiPortfolio | null>(null);
@@ -177,6 +192,52 @@ export default function StockDetailPage() {
       clearInterval(timer);
     };
   }, [code, stockId, period]);
+
+  useEffect(() => {
+    if (stockId == null) return;
+    let cancelled = false;
+    setInfo(null);
+    setInfoStatus('loading');
+    fetchStockInfo(stockId)
+      .then(data => {
+        if (cancelled) return;
+        setInfo(data);
+        setInfoStatus('ready');
+      })
+      .catch(() => { if (!cancelled) setInfoStatus('error'); });
+    return () => { cancelled = true; };
+  }, [stockId]);
+
+  // 호가도 같은 주기로 다시 받는다. 받아 둔 호가가 있으면 일시적인 실패로 패널을 비우지 않는다.
+  useEffect(() => {
+    if (stockId == null) return;
+    let inFlight = false;
+    let cancelled = false;
+    setOrderbook(null);
+    setOrderbookStatus('loading');
+
+    const load = async () => {
+      if (document.visibilityState !== 'visible' || inFlight) return;
+      inFlight = true;
+      try {
+        const data = await fetchStockOrderbook(stockId);
+        if (cancelled) return;
+        setOrderbook(data);
+        setOrderbookStatus('ready');
+      } catch {
+        if (!cancelled) setOrderbookStatus(prev => (prev === 'ready' ? prev : 'error'));
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    load();
+    const timer = setInterval(load, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [stockId]);
 
   // 잔고·보유 종목·주문 내역은 주문할 때마다 바뀌므로 주문 후에도 다시 불러온다
   const loadAccountData = useCallback(() => {
@@ -444,15 +505,49 @@ export default function StockDetailPage() {
               borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 6,
             }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>호가</div>
-              {orderbook.map((o, i) => (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  fontSize: 12, padding: '3px 0',
-                  color: o.dir === 'down' ? theme.down : o.dir === 'up' ? theme.up : theme.textMuted,
-                }}>
-                  <span>{o.price}</span><span>{o.qty}</span>
-                </div>
-              ))}
+              {(() => {
+                if (!orderbook) {
+                  return (
+                    <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
+                      {orderbookStatus === 'error' ? '호가를 불러오지 못했습니다' : '호가를 불러오는 중...'}
+                    </div>
+                  );
+                }
+                // 위에서부터 높은 가격순: 매도호가(현재가에서 먼 것부터) → 매수호가(현재가에 가까운 것부터)
+                const asks = orderbook.asks.slice(0, ORDERBOOK_LEVELS).reverse();
+                const bids = orderbook.bids.slice(0, ORDERBOOK_LEVELS);
+                if (asks.length === 0 && bids.length === 0) {
+                  return <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>표시할 호가가 없습니다</div>;
+                }
+                const maxVolume = Math.max(1, ...asks.map(l => l.volume), ...bids.map(l => l.volume));
+                const row = (l: { price: number; volume: number }, side: 'ask' | 'bid') => {
+                  const color = side === 'ask' ? theme.down : theme.up;
+                  return (
+                    <div
+                      key={`${side}-${l.price}`}
+                      // 호가를 누르면 그 가격으로 지정가 주문을 넣을 수 있게 채워준다
+                      onClick={() => { setOrderType('limit'); setInputPrice(l.price); }}
+                      style={{
+                        position: 'relative', display: 'flex', justifyContent: 'space-between',
+                        fontSize: 12, padding: '3px 6px', borderRadius: 4, cursor: 'pointer', overflow: 'hidden',
+                      }}
+                    >
+                      {/* 잔량 막대 */}
+                      <div style={{
+                        position: 'absolute', top: 0, bottom: 0, right: 0,
+                        width: `${(l.volume / maxVolume) * 100}%`, background: color, opacity: 0.12,
+                      }} />
+                      <span style={{ position: 'relative', fontWeight: 600, color }}>{l.price.toLocaleString()}원</span>
+                      <span style={{ position: 'relative', color: theme.textMuted }}>{l.volume.toLocaleString()}</span>
+                    </div>
+                  );
+                };
+                return <>
+                  {asks.map(l => row(l, 'ask'))}
+                  <div style={{ height: 1, background: theme.border, margin: '2px 0' }} />
+                  {bids.map(l => row(l, 'bid'))}
+                </>;
+              })()}
             </div>
 
           {/* 주문 내역 (서버에 저장된 이 종목의 체결 내역) */}
@@ -491,11 +586,38 @@ export default function StockDetailPage() {
         {mainTab === 'info' && (
           <div style={{
             background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 12, padding: 24, minHeight: 200,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: theme.textMuted, fontSize: 13,
+            borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
           }}>
-            종목정보 준비 중
+            <div style={{ fontSize: 13, fontWeight: 700 }}>종목정보</div>
+            {!info ? (
+              <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
+                {infoStatus === 'error' ? '종목정보를 불러오지 못했습니다' : '종목정보를 불러오는 중...'}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 24 }}>
+                {([
+                  // 시가총액은 상장주식수 × 현재가라 현재가가 갱신될 때마다 같이 바뀐다
+                  ['시가총액', info.shares_outstanding != null && stock.current_price != null ? formatMarketCap(info.shares_outstanding * stock.current_price) : '-'],
+                  ['상장주식수', info.shares_outstanding != null ? `${info.shares_outstanding.toLocaleString()}주` : '-'],
+                  ['시장', info.market ?? stock.market],
+                  ['업종', stock.sector ?? '-'],
+                  ['상장일', info.list_date ?? '-'],
+                  ['주식 종류', info.is_common_share == null ? '-' : info.is_common_share ? '보통주' : '우선주 등'],
+                  ['영문명', info.english_name ?? '-'],
+                  ['ISIN', info.isin_code ?? '-'],
+                  ['거래 상태', info.trading_suspended ? '거래정지' : info.status === 'ACTIVE' ? '정상' : info.status ?? '-'],
+                  ['대체거래소(NXT)', info.nxt_supported == null ? '-' : info.nxt_supported ? '거래 가능' : '거래 불가'],
+                ] as [string, string][]).map(([label, value]) => (
+                  <div key={label} style={{
+                    display: 'flex', justifyContent: 'space-between', gap: 12,
+                    padding: '10px 0', borderBottom: `1px solid ${theme.border}`, fontSize: 13,
+                  }}>
+                    <span style={{ color: theme.textMuted, flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontWeight: 600, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

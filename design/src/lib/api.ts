@@ -190,3 +190,41 @@ export async function fetchStockCandles(stockId: number, interval: '1m' | '1d' |
   const res = await api.get<ApiResponse<ApiCandle[]>>(`/stocks/${stockId}/candles`, { params: { interval, count } });
   return res.data.data;
 }
+
+// --- 호가 ---
+export interface ApiOrderbookLevel {
+  price: number;
+  volume: number; // 잔량
+}
+
+export interface ApiOrderbook {
+  timestamp: string;
+  // 둘 다 현재가에 가까운 호가부터: asks(매도)는 낮은 가격순, bids(매수)는 높은 가격순
+  asks: ApiOrderbookLevel[];
+  bids: ApiOrderbookLevel[];
+}
+
+export async function fetchStockOrderbook(stockId: number): Promise<ApiOrderbook> {
+  const res = await api.get<ApiResponse<ApiOrderbook>>(`/stocks/${stockId}/orderbook`);
+  return res.data.data;
+}
+
+// --- 종목 기본 정보 ---
+export interface ApiStockInfo {
+  english_name: string | null;
+  isin_code: string | null;
+  market: string | null;
+  security_type: string | null;
+  is_common_share: boolean | null;
+  status: string | null;
+  currency: string | null;
+  list_date: string | null; // YYYY-MM-DD
+  shares_outstanding: number | null; // 상장주식수
+  nxt_supported: boolean | null;
+  trading_suspended: boolean | null;
+}
+
+export async function fetchStockInfo(stockId: number): Promise<ApiStockInfo> {
+  const res = await api.get<ApiResponse<ApiStockInfo>>(`/stocks/${stockId}/info`);
+  return res.data.data;
+}
