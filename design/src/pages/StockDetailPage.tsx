@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { UTCTimestamp } from 'lightweight-charts';
+import type { CandlestickData } from 'lightweight-charts';
 import { useTheme } from '../context/ThemeContext';
 import { stocks, orderbook, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
@@ -11,17 +11,23 @@ import {
 } from '../lib/api';
 import { timeAgo } from '../lib/time';
 
-const periods = ['1일', '1주', '1개월', '1년'] as const;
+// 탭 이름은 막대 하나의 단위다. 일 = 일봉, 주 = 주봉, 월 = 월봉, 년 = 년봉.
+// count는 서버에서 가져올 막대 개수(넉넉히 요청하면 있는 만큼 전부 온다), visibleBars는 처음 화면에 보여줄 최근 막대 개수.
+// 나머지는 차트를 드래그하거나 확대·축소해서 본다.
+const periods = ['일', '주', '월', '년'] as const;
+type Period = (typeof periods)[number];
 
-const PERIOD_PARAMS: Record<(typeof periods)[number], { interval: '1m' | '1d'; count: number }> = {
-  '1일': { interval: '1m', count: 200 },
-  '1주': { interval: '1d', count: 5 },
-  '1개월': { interval: '1d', count: 22 },
-  '1년': { interval: '1d', count: 200 }, // 토스 API 최대 200봉 제한으로 실제로는 약 9~10개월치까지만 표시됨
+const PERIOD_PARAMS: Record<Period, { interval: '1d' | '1w' | '1mo' | '1y'; count: number; visibleBars: number }> = {
+  '일': { interval: '1d', count: 2000, visibleBars: 60 },
+  '주': { interval: '1w', count: 500, visibleBars: 52 },
+  '월': { interval: '1mo', count: 150, visibleBars: 36 },
+  '년': { interval: '1y', count: 30, visibleBars: 30 },
 };
-const KST_OFFSET_SECONDS = 9 * 60 * 60;
 
-type ChartCandle = { time: UTCTimestamp | string; open: number; high: number; low: number; close: number };
+// 상세페이지가 현재가와 마지막 막대를 다시 받아오는 주기. 백엔드의 현재가·오늘 봉 캐시도 같은 3초다.
+const POLL_INTERVAL_MS = 3000;
+
+type ChartCandle = CandlestickData<string>;
 
 function formatOrderTime(iso: string) {
   const d = new Date(iso);
@@ -40,7 +46,7 @@ export default function StockDetailPage() {
   // 10%~최대 버튼의 기준: 매수는 가상현금으로 살 수 있는 수량, 매도는 보유 수량
   const [ratioBase, setRatioBase] = useState<'buy' | 'sell'>('buy');
   const [submitting, setSubmitting] = useState(false);
-  const [period, setPeriod] = useState<(typeof periods)[number]>('1일');
+  const [period, setPeriod] = useState<Period>('일');
   const [liked, setLiked] = useState(false);
   const [alerted, setAlerted] = useState(false);
   const [mainTab, setMainTab] = useState<'chart' | 'info' | 'news' | 'community'>('chart');
@@ -54,6 +60,8 @@ export default function StockDetailPage() {
   const [stock, setStock] = useState<ApiStockDetail | null>(null);
   const [stockStatus, setStockStatus] = useState<'loading' | 'ready' | 'notFound' | 'error'>('loading');
   const [candles, setCandles] = useState<ChartCandle[]>([]);
+  // 폴링으로 받은 마지막 막대. 차트를 다시 그리지 않고 마지막 막대만 갱신한다
+  const [liveBar, setLiveBar] = useState<ChartCandle | null>(null);
   const [candlesStatus, setCandlesStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [candlesReloadKey, setCandlesReloadKey] = useState(0);
   const [news, setNews] = useState<ApiNewsItem[]>([]);
@@ -91,11 +99,14 @@ export default function StockDetailPage() {
     return () => { cancelled = true; };
   }, [code]);
 
+  // 3초 폴링이 stock 객체를 계속 새로 만들므로, 뉴스·차트는 종목이 바뀔 때만 다시 받도록 id에 의존시킨다
+  const stockId = stock?.id;
+
   useEffect(() => {
-    if (!stock) return;
+    if (stockId == null) return;
     let cancelled = false;
     setNewsStatus('loading');
-    fetchStockNews(stock.id)
+    fetchStockNews(stockId)
       .then(data => {
         if (cancelled) return;
         setNews(data);
@@ -103,21 +114,19 @@ export default function StockDetailPage() {
       })
       .catch(() => { if (!cancelled) setNewsStatus('error'); });
     return () => { cancelled = true; };
-  }, [stock]);
+  }, [stockId]);
 
   useEffect(() => {
-    if (!stock) return;
+    if (stockId == null) return;
     let cancelled = false;
     const { interval, count } = PERIOD_PARAMS[period];
     setCandlesStatus('loading');
-    fetchStockCandles(stock.id, interval, count)
+    setLiveBar(null);
+    fetchStockCandles(stockId, interval, count)
       .then(data => {
         if (cancelled) return;
         setCandles(data.map(c => ({
-          time: interval === '1d'
-            ? c.timestamp.slice(0, 10)
-            // lightweight-charts는 시간을 UTC로 표시하므로, 한국 시간으로 보이도록 9시간을 더해 전달
-            : (Math.floor(new Date(c.timestamp).getTime() / 1000 + KST_OFFSET_SECONDS) as UTCTimestamp),
+          time: c.timestamp.slice(0, 10),
           open: c.open,
           high: c.high,
           low: c.low,
@@ -131,7 +140,43 @@ export default function StockDetailPage() {
         setCandlesStatus('error');
       });
     return () => { cancelled = true; };
-  }, [stock, period, candlesReloadKey]);
+  }, [stockId, period, candlesReloadKey]);
+
+  // 3초마다 현재가·등락률·거래량과 마지막 막대를 다시 받는다.
+  // 탭이 숨겨져 있으면 건너뛰고, 앞 요청이 끝나기 전이면 이번 주기는 건너뛴다.
+  useEffect(() => {
+    if (!code || stockId == null) return;
+    const { interval } = PERIOD_PARAMS[period];
+    let inFlight = false;
+    let cancelled = false;
+
+    const tick = async () => {
+      if (document.visibilityState !== 'visible' || inFlight) return;
+      inFlight = true;
+      try {
+        const [found, bars] = await Promise.all([
+          fetchStockByCode(code),
+          fetchStockCandles(stockId, interval, 1),
+        ]);
+        if (cancelled) return;
+        if (found) setStock(found);
+        const last = bars[bars.length - 1];
+        if (last) {
+          setLiveBar({ time: last.timestamp.slice(0, 10), open: last.open, high: last.high, low: last.low, close: last.close });
+        }
+      } catch {
+        // 일시적인 실패는 무시하고 다음 주기에 다시 시도한다
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const timer = setInterval(tick, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [code, stockId, period]);
 
   // 잔고·보유 종목·주문 내역은 주문할 때마다 바뀌므로 주문 후에도 다시 불러온다
   const loadAccountData = useCallback(() => {
@@ -217,7 +262,7 @@ export default function StockDetailPage() {
           {stockStatus === 'error' && '종목 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'}
         </div>
         {stockStatus !== 'loading' && (
-          <button onClick={() => navigate('/')} style={{ alignSelf: 'flex-start', color: theme.ai, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
+          <button onClick={() => navigate('/dashboard')} style={{ alignSelf: 'flex-start', color: theme.ai, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
             ← 홈으로
           </button>
         )}
@@ -268,19 +313,29 @@ export default function StockDetailPage() {
                     color: alerted ? theme.ai : theme.textMuted,
                     transition: 'all 0.2s',
                   }}
-                >🔔</div>
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
                 {/* 즐겨찾기 아이콘 */}
                 <div
                   onClick={() => setLiked(v => !v)}
                   style={{
                     width: 34, height: 34, borderRadius: 10,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: 17,
+                    cursor: 'pointer',
                     background: liked ? 'rgba(239,68,68,0.08)' : theme.panel2,
                     border: `1px solid ${liked ? '#ef4444' : theme.border}`,
+                    color: liked ? '#ef4444' : theme.textMuted,
                     transition: 'all 0.2s',
                   }}
-                >{liked ? '❤️' : '🤍'}</div>
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                  </svg>
+                </div>
               </div>
             </div>
             {stock.sector && (
@@ -354,7 +409,7 @@ export default function StockDetailPage() {
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
               {candlesStatus === 'ready' && candles.length > 0 ? (
-                <CandleChart data={candles} theme={theme} />
+                <CandleChart data={candles} theme={theme} visibleBars={PERIOD_PARAMS[period].visibleBars} liveBar={liveBar} />
               ) : (
                 <div style={{
                   height: '100%', display: 'flex', flexDirection: 'column', gap: 8,
@@ -509,6 +564,61 @@ export default function StockDetailPage() {
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* AI 인사이트 탭 */}
           {rightTab === 'insight' && <>
+            {/* AI 종합 게이지 */}
+            {(() => {
+              const insights = stockAiInsights.filter(i => i.stockName === stock.name);
+              if (insights.length === 0) return null;
+              const buyCount = insights.filter(i => i.signal === '매수').length;
+              const neutralCount = insights.filter(i => i.signal === '중립').length;
+              const sellCount = insights.filter(i => i.signal === '매도').length;
+              const total = insights.length;
+              // -1(매도) ~ +1(매수) 평균 스코어
+              const score = (buyCount - sellCount) / total;
+              // 0%=매도, 50%=중립, 100%=매수
+              const pct = ((score + 1) / 2) * 100;
+              const gaugeColor = score > 0.2 ? theme.up : score < -0.2 ? theme.down : theme.textMuted;
+              const gaugeLabel = score > 0.2 ? '매수 우세' : score < -0.2 ? '매도 우세' : '중립';
+
+              return (
+                <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>AI 종합 의견</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: gaugeColor }}>{gaugeLabel}</div>
+                  </div>
+
+                  {/* 게이지 바 */}
+                  <div style={{ position: 'relative' }}>
+                    {/* 배경 그라디언트 바 */}
+                    <div style={{
+                      height: 8, borderRadius: 99,
+                      background: `linear-gradient(to right, ${theme.down}, ${theme.textMuted} 50%, ${theme.up})`,
+                      opacity: 0.35,
+                    }} />
+                    {/* 포인터 */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: `${pct}%`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 16, height: 16,
+                      borderRadius: '50%',
+                      background: gaugeColor,
+                      border: `3px solid ${theme.panel2}`,
+                      boxShadow: `0 0 0 2px ${gaugeColor}`,
+                      transition: 'left 0.4s ease',
+                    }} />
+                  </div>
+
+                  {/* 라벨 + 카운트 */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600 }}>
+                    <span style={{ color: theme.down }}>매도 {sellCount}</span>
+                    <span style={{ color: theme.textMuted }}>중립 {neutralCount}</span>
+                    <span style={{ color: theme.up }}>매수 {buyCount}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* 등락 이유 */}
             <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>등락 이유</div>

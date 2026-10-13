@@ -1,4 +1,4 @@
-import type { Stock, Holding, AIRec, AIInsight, AIInsightSource, OrderbookEntry, MarketIndex } from '../types';
+import type { Stock, Holding, AIRec, AIInsight, OrderbookEntry, MarketIndex } from '../types';
 
 export const marketIndices: MarketIndex[] = [
   { name: '코스피', value: '2,634.87', changePct: 0.82, changePoint: '+21.45',
@@ -215,8 +215,6 @@ export const aiRecs: AIRec[] = [
   { bot: 'Claude', icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64', stockName: '한미약품', reason: '임상 3상 긍정 결과로 글로벌 기술이전 기대감 상승', signal: '매수' },
   { bot: 'ChatGPT', icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64', stockName: 'NAVER', reason: 'AI 검색 경쟁 심화로 점유율 방어 여부 불확실', signal: '중립' },
 ];
-
-const _: AIInsightSource[] = []; // type check helper
 
 export const stockAiInsights: AIInsight[] = [
   // 삼성전자

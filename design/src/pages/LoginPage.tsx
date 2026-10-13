@@ -17,7 +17,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await loginWithEmail(email, password);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다');
     } finally {
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setError('');
     try {
       await loginWithGoogle();
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다');
     }

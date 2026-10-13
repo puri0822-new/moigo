@@ -4,6 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string ?? 'http://loca
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 10_000,
 });
 
 export interface ApiResponse<T> {
@@ -125,6 +126,7 @@ export interface ApiStock {
   sector: string | null;
   current_price: number | null;
   change_rate: number | null;
+  volume?: number | null;
 }
 
 export async function fetchStocks(): Promise<ApiStock[]> {
@@ -184,7 +186,7 @@ export interface ApiCandle {
   volume: number;
 }
 
-export async function fetchStockCandles(stockId: number, interval: '1m' | '1d', count: number): Promise<ApiCandle[]> {
+export async function fetchStockCandles(stockId: number, interval: '1m' | '1d' | '1w' | '1mo' | '1y', count: number): Promise<ApiCandle[]> {
   const res = await api.get<ApiResponse<ApiCandle[]>>(`/stocks/${stockId}/candles`, { params: { interval, count } });
   return res.data.data;
 }
