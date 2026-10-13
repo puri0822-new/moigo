@@ -5,52 +5,32 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import toss_client
+from app.core import naver_client, toss_client
 from app.core.database import get_db
 from app.models import Stock
-from app.schemas.candle import Candle
 from app.schemas.common import ApiResponse
+from app.schemas.news import NewsItem
 from app.schemas.stock import StockDetail, StockListItem
 
 router = APIRouter(prefix="/stocks", tags=["Stocks"])
 
+EXTERNAL_API_TIMEOUT_SECONDS = 6
+
 
 async def _fetch_prices_safe(codes: list[str]) -> dict[str, dict]:
     try:
-        return await toss_client.get_prices(codes)
-    except httpx.HTTPError:
+        return await asyncio.wait_for(toss_client.get_prices(codes), EXTERNAL_API_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        # 토스 API 장애/무응답 시에도 종목 목록 자체는 내려주고, 시세만 null로 둔다
         return {}
-
-
-async def _fetch_prev_closes_safe(codes: list[str]) -> dict[str, float]:
-    """등락률 계산용 전일 종가. 일봉 2개(전일/당일)를 조회해 앞쪽(전일)의 종가를 사용."""
-
-    async def fetch_one(code: str) -> tuple[str, float | None]:
-        try:
-            candles = await toss_client.get_candles(code, "1d", 2)
-        except httpx.HTTPError:
-            return code, None
-        if len(candles) < 2:
-            return code, None
-        return code, float(candles[-2]["closePrice"])
-
-    results = await asyncio.gather(*[fetch_one(c) for c in codes])
-    return {code: close for code, close in results if close is not None}
-
-
-def _apply_change_rate(item: StockListItem, prev_close: float | None) -> None:
-    if item.current_price is not None and prev_close:
-        item.change_rate = (item.current_price - prev_close) / prev_close
 
 
 @router.get("", response_model=ApiResponse[list[StockListItem]])
 async def list_stocks(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Stock).order_by(Stock.id))
     stocks = result.scalars().all()
-    codes = [s.code for s in stocks]
 
-    prices = await _fetch_prices_safe(codes)
-    prev_closes = await _fetch_prev_closes_safe(codes)
+    prices = await _fetch_prices_safe([s.code for s in stocks])
 
     data = []
     for s in stocks:
@@ -58,36 +38,9 @@ async def list_stocks(db: AsyncSession = Depends(get_db)):
         price = prices.get(s.code)
         if price:
             item.current_price = int(float(price["lastPrice"]))
-        _apply_change_rate(item, prev_closes.get(s.code))
         data.append(item)
 
     return ApiResponse(success=True, data=data, message="요청 성공")
-
-
-async def _build_stock_detail(stock: Stock) -> StockDetail:
-    detail = StockDetail.model_validate(stock)
-
-    prices = await _fetch_prices_safe([stock.code])
-    price = prices.get(stock.code)
-    if price:
-        detail.current_price = int(float(price["lastPrice"]))
-
-    prev_closes = await _fetch_prev_closes_safe([stock.code])
-    _apply_change_rate(detail, prev_closes.get(stock.code))
-
-    return detail
-
-
-@router.get("/by-code/{code}", response_model=ApiResponse[StockDetail])
-async def get_stock_by_code(code: str, db: AsyncSession = Depends(get_db)):
-    """종목 코드로 단건 조회. 상세페이지에서 종목 하나만 필요할 때 30종목 전체를 도는
-    GET /stocks를 호출하지 않도록 별도로 둔다 (그러면 시세+등락률 계산 때문에 훨씬 느려짐)."""
-    result = await db.execute(select(Stock).where(Stock.code == code))
-    stock = result.scalar_one_or_none()
-    if not stock:
-        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
-
-    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
 
 
 @router.get("/{stock_id}", response_model=ApiResponse[StockDetail])
@@ -96,39 +49,28 @@ async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
+    detail = StockDetail.model_validate(stock)
+    prices = await _fetch_prices_safe([stock.code])
+    price = prices.get(stock.code)
+    if price:
+        detail.current_price = int(float(price["lastPrice"]))
+
+    return ApiResponse(success=True, data=detail, message="요청 성공")
 
 
-@router.get("/{stock_id}/candles", response_model=ApiResponse[list[Candle]])
-async def get_stock_candles(
-    stock_id: int,
-    interval: str = "1d",
-    count: int = 100,
-    db: AsyncSession = Depends(get_db),
-):
-    if interval not in ("1m", "1d"):
-        raise HTTPException(status_code=400, detail="interval은 1m 또는 1d만 지원합니다")
-    if not 1 <= count <= 200:
-        raise HTTPException(status_code=400, detail="count는 1~200 사이여야 합니다")
-
+@router.get("/{stock_id}/news", response_model=ApiResponse[list[NewsItem]])
+async def get_stock_news(stock_id: int, limit: int = 10, db: AsyncSession = Depends(get_db)):
     stock = await db.get(Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
     try:
-        raw_candles = await toss_client.get_candles(stock.code, interval, count)
-    except httpx.HTTPError:
-        raw_candles = []
-
-    data = [
-        Candle(
-            timestamp=c["timestamp"],
-            open=float(c["openPrice"]),
-            high=float(c["highPrice"]),
-            low=float(c["lowPrice"]),
-            close=float(c["closePrice"]),
-            volume=float(c["volume"]),
+        items = await asyncio.wait_for(
+            naver_client.search_news(stock.name, display=limit), EXTERNAL_API_TIMEOUT_SECONDS
         )
-        for c in raw_candles
-    ]
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        # 네이버 API 장애/무응답 시 빈 목록으로 응답 (종목 상세 자체는 막지 않음)
+        items = []
+
+    data = [NewsItem(id=i + 1, **item) for i, item in enumerate(items)]
     return ApiResponse(success=True, data=data, message="요청 성공")
