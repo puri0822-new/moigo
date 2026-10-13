@@ -73,55 +73,86 @@ export default function DashboardPage() {
         flex: 1, minWidth: 0, padding: 24,
         display: 'flex', flexDirection: 'column', gap: 14,
       }}>
-        {/* 지수 */}
-        <div style={{ display: 'flex', gap: 12 }}>
-          {marketIndices.map(idx => {
-            const changeColor = idx.changePct >= 0 ? theme.up : theme.down;
-            const changeLabel = (idx.changePct >= 0 ? '▲' : '▼') + Math.abs(idx.changePct).toFixed(2) + '%';
-            const W = 80, H = 36, PAD = 3;
-            const min = Math.min(...idx.spark);
-            const max = Math.max(...idx.spark);
-            const range = max - min || 1;
-            const toY = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2);
-            const pts = idx.spark.map((v, i) => {
-              const x = (i / (idx.spark.length - 1)) * W;
-              return `${x},${toY(v)}`;
-            }).join(' ');
-            const baseY = toY(idx.spark[0]);
-            return (
-              <div key={idx.name} style={{
-                flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
-                borderRadius: 12, padding: '14px 18px',
-                display: 'flex', alignItems: 'center', gap: 12,
-              }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>{idx.name}</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontSize: 20, fontWeight: 800 }}>{idx.value}</span>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: changeColor }}>
-                    {idx.changePoint} ({changeLabel})
-                  </span>
+        {/* 소개 배너 */}
+        <div style={{
+          background: `linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)`,
+          borderRadius: 16, padding: '28px 32px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'relative', overflow: 'hidden', minHeight: 140,
+        }}>
+          {/* 배경 장식 */}
+          <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+          <div style={{ position: 'absolute', right: 80, bottom: -60, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+          <div style={{ position: 'absolute', left: '45%', top: -20, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+
+          {/* 텍스트 */}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 10 }}>
+              ✦ AI-Powered Mock Trading
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.4, marginBottom: 14 }}>
+              AI가 분석하고,<br />내가 결정하는 모의매매
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[
+                { label: '포트폴리오', path: '/portfolio' },
+                { label: '랭킹 보기', path: '/ranking' },
+              ].map(item => (
+                <div
+                  key={item.label}
+                  onClick={() => navigate(item.path)}
+                  style={{
+                    padding: '7px 16px', borderRadius: 20,
+                    background: 'rgba(255,255,255,0.15)',
+                    border: '1px solid rgba(255,255,255,0.25)',
+                    fontSize: 12, fontWeight: 600, color: '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {item.label}
                 </div>
-                <svg width={W} height={H} style={{ flexShrink: 0 }}>
-                  {/* 기준선 (시가) */}
-                  <line
-                    x1={0} y1={baseY} x2={W} y2={baseY}
-                    stroke={theme.border} strokeWidth={1} strokeDasharray="3 3"
-                  />
-                  {/* 라인 */}
-                  <polyline
-                    points={pts}
-                    fill="none"
-                    stroke={changeColor}
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-            );
-          })}
+              ))}
+            </div>
+          </div>
+
+          {/* 우측 지수 플로팅 카드 (그래프 포함) */}
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+            {marketIndices.map(idx => {
+              const isUp = idx.changePct >= 0;
+              const W = 80, H = 32, PAD = 3;
+              const min = Math.min(...idx.spark);
+              const max = Math.max(...idx.spark);
+              const range = max - min || 1;
+              const toY = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2);
+              const pts = idx.spark.map((v, i) => {
+                const x = (i / (idx.spark.length - 1)) * W;
+                return `${x},${toY(v)}`;
+              }).join(' ');
+              const baseY = toY(idx.spark[0]);
+              return (
+                <div key={idx.name} style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 12, padding: '10px 16px',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  minWidth: 200,
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginBottom: 3 }}>{idx.name}</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>{idx.value}</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: isUp ? '#fca5a5' : '#93c5fd', marginTop: 2 }}>
+                      {isUp ? '▲' : '▼'} {Math.abs(idx.changePct).toFixed(2)}%
+                    </div>
+                  </div>
+                  <svg width={W} height={H} style={{ flexShrink: 0 }}>
+                    <line x1={0} y1={baseY} x2={W} y2={baseY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3 3" />
+                    <polyline points={pts} fill="none" stroke={isUp ? '#fca5a5' : '#93c5fd'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                  </svg>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* 거래량 차트 헤더 */}

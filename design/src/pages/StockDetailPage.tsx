@@ -262,19 +262,29 @@ export default function StockDetailPage() {
                     color: alerted ? theme.ai : theme.textMuted,
                     transition: 'all 0.2s',
                   }}
-                >🔔</div>
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
                 {/* 즐겨찾기 아이콘 */}
                 <div
                   onClick={() => setLiked(v => !v)}
                   style={{
                     width: 34, height: 34, borderRadius: 10,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: 17,
+                    cursor: 'pointer',
                     background: liked ? 'rgba(239,68,68,0.08)' : theme.panel2,
                     border: `1px solid ${liked ? '#ef4444' : theme.border}`,
+                    color: liked ? '#ef4444' : theme.textMuted,
                     transition: 'all 0.2s',
                   }}
-                >{liked ? '❤️' : '🤍'}</div>
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                  </svg>
+                </div>
               </div>
             </div>
             {stock.sector && (
@@ -466,6 +476,61 @@ export default function StockDetailPage() {
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* AI 인사이트 탭 */}
           {rightTab === 'insight' && <>
+{/* AI 종합 게이지 */}
+            {(() => {
+              const insights = stockAiInsights.filter(i => i.stockName === stock.name);
+              if (insights.length === 0) return null;
+              const buyCount = insights.filter(i => i.signal === '매수').length;
+              const neutralCount = insights.filter(i => i.signal === '중립').length;
+              const sellCount = insights.filter(i => i.signal === '매도').length;
+              const total = insights.length;
+              // -1(매도) ~ +1(매수) 평균 스코어
+              const score = (buyCount - sellCount) / total;
+              // 0%=매도, 50%=중립, 100%=매수
+              const pct = ((score + 1) / 2) * 100;
+              const gaugeColor = score > 0.2 ? theme.up : score < -0.2 ? theme.down : theme.textMuted;
+              const gaugeLabel = score > 0.2 ? '매수 우세' : score < -0.2 ? '매도 우세' : '중립';
+
+              return (
+                <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>AI 종합 의견</div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: gaugeColor }}>{gaugeLabel}</div>
+                  </div>
+
+                  {/* 게이지 바 */}
+                  <div style={{ position: 'relative' }}>
+                    {/* 배경 그라디언트 바 */}
+                    <div style={{
+                      height: 8, borderRadius: 99,
+                      background: `linear-gradient(to right, ${theme.down}, ${theme.textMuted} 50%, ${theme.up})`,
+                      opacity: 0.35,
+                    }} />
+                    {/* 포인터 */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: `${pct}%`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 16, height: 16,
+                      borderRadius: '50%',
+                      background: gaugeColor,
+                      border: `3px solid ${theme.panel2}`,
+                      boxShadow: `0 0 0 2px ${gaugeColor}`,
+                      transition: 'left 0.4s ease',
+                    }} />
+                  </div>
+
+                  {/* 라벨 + 카운트 */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600 }}>
+                    <span style={{ color: theme.down }}>매도 {sellCount}</span>
+                    <span style={{ color: theme.textMuted }}>중립 {neutralCount}</span>
+                    <span style={{ color: theme.up }}>매수 {buyCount}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* AI별 추천 코멘트 */}
             {(() => {
               const insights = stockAiInsights.filter(i => i.stockName === stock.name);
@@ -478,6 +543,7 @@ export default function StockDetailPage() {
               }
               return <>
                 <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>AI별 코멘트</div>
+
                 {insights.map((ins, idx) => {
                   const signalColor = ins.signal === '매수' ? theme.up : ins.signal === '매도' ? theme.down : theme.textMuted;
                   return (
