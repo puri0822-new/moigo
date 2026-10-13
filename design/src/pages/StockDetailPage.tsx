@@ -4,7 +4,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { stocks, orderbook, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
-import { createOrder, fetchStockByCode, apiGet } from '../lib/api';
+import { createOrder, fetchStockByCode, fetchStockCandles, apiGet } from '../lib/api';
+import type { ApiCandle } from '../lib/api';
+import CandleChart from '../components/CandleChart';
+import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
 
 const periods = ['1일', '1주', '1개월', '1년'] as const;
 
@@ -51,6 +54,9 @@ export default function StockDetailPage() {
   const [ordering, setOrdering] = useState(false);
   const [sellWarn, setSellWarn] = useState(false);
   const [confirmOrder, setConfirmOrder] = useState<{ side: 'buy' | 'sell'; price: number; qty: number; total: number } | null>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [liveChangeRate, setLiveChangeRate] = useState<number | null>(null);
+  const [candles, setCandles] = useState<CandlestickData<UTCTimestamp>[]>([]);
 
   useEffect(() => {
     setFloatPos({ x: window.innerWidth - 316, y: window.innerHeight - 540 });
@@ -65,9 +71,36 @@ export default function StockDetailPage() {
 
   useEffect(() => {
     if (code) {
-      fetchStockByCode(code).then(s => { if (s) setStockId(s.id); });
+      fetchStockByCode(code).then(s => {
+        if (s) {
+          setStockId(s.id);
+          if (s.current_price) setLivePrice(s.current_price);
+          if (s.change_rate !== null) setLiveChangeRate(s.change_rate);
+        }
+      });
     }
   }, [code]);
+
+  const periodToParams: Record<string, { interval: '1m' | '1d'; count: number }> = {
+    '1일': { interval: '1m', count: 390 },
+    '1주': { interval: '1d', count: 7 },
+    '1개월': { interval: '1d', count: 30 },
+    '1년': { interval: '1d', count: 365 },
+  };
+
+  useEffect(() => {
+    if (stockId === null) return;
+    const { interval, count } = periodToParams[period];
+    fetchStockCandles(stockId, interval, count).then(raw => {
+      setCandles(raw.map((c: ApiCandle) => ({
+        time: (interval === '1m' ? Math.floor(new Date(c.timestamp).getTime() / 1000) : c.timestamp.slice(0, 10)) as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      })));
+    }).catch(() => setCandles([]));
+  }, [stockId, period]);
 
   useEffect(() => {
     if (side === 'sell') {
@@ -87,7 +120,9 @@ export default function StockDetailPage() {
   }, []);
 
   const stock = stocks.find(s => s.code === code) ?? stocks[0];
-  const priceNum = parseInt(stock.price.replace(/[^0-9]/g, ''), 10);
+  const mockPrice = parseInt(stock.price.replace(/[^0-9]/g, ''), 10);
+  const priceNum = livePrice ?? mockPrice;
+  const changeRate = liveChangeRate !== null ? liveChangeRate * 100 : stock.changePct;
 
   // 지정가 초기값 설정
   useEffect(() => { setInputPrice(priceNum); }, [priceNum]);
@@ -229,12 +264,12 @@ export default function StockDetailPage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{stock.price}</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: stock.changePct >= 0 ? theme.up : theme.down }}>
+          <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{priceNum.toLocaleString()}원</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: changeRate >= 0 ? theme.up : theme.down }}>
             {(() => {
-              const changeWon = Math.round(priceNum * stock.changePct / (100 + stock.changePct));
-              const sign = stock.changePct >= 0 ? '+' : '';
-              return `어제보다 ${sign}${changeWon.toLocaleString()}원 (${Math.abs(stock.changePct).toFixed(1)}%)`;
+              const changeWon = Math.round(priceNum * changeRate / (100 + changeRate));
+              const sign = changeRate >= 0 ? '+' : '';
+              return `어제보다 ${sign}${changeWon.toLocaleString()}원 (${Math.abs(changeRate).toFixed(2)}%)`;
             })()}
           </div>
           <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 {stock.volume}</div>
@@ -276,8 +311,14 @@ export default function StockDetailPage() {
                 }}>{p}</div>
               ))}
             </div>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: 13 }}>
-              차트 영역 ({period})
+            <div style={{ flex: 1, minHeight: 0 }}>
+              {candles.length > 0 ? (
+                <CandleChart data={candles} theme={theme} />
+              ) : (
+                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: 13 }}>
+                  차트 데이터를 불러오는 중...
+                </div>
+              )}
             </div>
           </div>
 
