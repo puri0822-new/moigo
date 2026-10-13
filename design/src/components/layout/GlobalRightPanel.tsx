@@ -12,6 +12,7 @@ interface HoldingItem {
   stock_code: string;
   quantity: number;
   avg_price: number;
+  current_price: number;
   eval_amount: number;
   profit_loss: number;
   profit_loss_rate: number;
@@ -130,16 +131,19 @@ export default function GlobalRightPanel() {
       )}
       {portfolio?.holdings.map(h => {
         const changeColor = h.profit_loss_rate >= 0 ? theme.up : theme.down;
-        const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(2) + '%';
+        const sign = h.profit_loss >= 0 ? '+' : '-';
         return (
           <div key={h.stock_id} onClick={() => navigate(`/stock/${h.stock_code}`)} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
             <StockLogo name={h.stock_name} code={h.stock_code} size={30} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.stock_name}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: changeColor, flexShrink: 0, marginLeft: 6 }}>{changeLabel}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, flexShrink: 0, marginLeft: 6 }}>{h.avg_price.toLocaleString()}원</span>
               </div>
-              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{h.quantity}주</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2 }}>
+                <span style={{ fontSize: 11, color: theme.textMuted }}>{h.quantity}주</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: changeColor, flexShrink: 0 }}>{sign}{Math.abs(h.profit_loss).toLocaleString()}원 ({Math.abs(h.profit_loss_rate).toFixed(1)}%)</span>
+              </div>
             </div>
           </div>
         );

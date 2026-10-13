@@ -1,7 +1,11 @@
+import asyncio
+
+import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.dependencies import get_current_user
+from app.core import toss_client
 from app.models.user import User
 from app.models.account import Account
 from app.models.stock import Stock
@@ -12,20 +16,36 @@ router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 
 @router.get("")
-def get_portfolio(
+async def get_portfolio(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     account = db.query(Account).filter(Account.user_id == current_user.id).first()
     holdings = db.query(Holding).filter(Holding.user_id == current_user.id).all()
 
+    codes = []
+    stock_map: dict[int, Stock] = {}
+    for h in holdings:
+        stock = db.query(Stock).filter(Stock.id == h.stock_id).first()
+        if stock:
+            stock_map[h.stock_id] = stock
+            codes.append(stock.code)
+
+    try:
+        prices = await toss_client.get_prices(codes) if codes else {}
+    except httpx.HTTPError:
+        prices = {}
+
     holding_data = []
     total_eval_amount = 0
     total_buy_amount = 0
 
     for h in holdings:
-        stock = db.query(Stock).filter(Stock.id == h.stock_id).first()
-        eval_amount = h.avg_price * h.quantity  # 추후 현재가로 대체
+        stock = stock_map.get(h.stock_id)
+        price_data = prices.get(stock.code) if stock else None
+        current_price = int(float(price_data["lastPrice"])) if price_data else h.avg_price
+
+        eval_amount = current_price * h.quantity
         buy_amount = h.avg_price * h.quantity
         profit_loss = eval_amount - buy_amount
         profit_loss_rate = (profit_loss / buy_amount * 100) if buy_amount > 0 else 0.0
@@ -39,7 +59,7 @@ def get_portfolio(
             "stock_code": stock.code if stock else "",
             "quantity": h.quantity,
             "avg_price": h.avg_price,
-            "current_price": h.avg_price,   # 추후 증권 API로 대체
+            "current_price": current_price,
             "eval_amount": eval_amount,
             "profit_loss": profit_loss,
             "profit_loss_rate": round(profit_loss_rate, 2),
