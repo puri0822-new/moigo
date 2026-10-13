@@ -79,8 +79,14 @@ async def list_stocks(db: AsyncSession = Depends(get_db)):
     return ApiResponse(success=True, data=data, message="요청 성공")
 
 
-async def _build_stock_detail(stock: Stock) -> StockDetail:
+async def _build_stock_detail(stock: Stock, db: AsyncSession) -> StockDetail:
     detail = StockDetail.model_validate(stock)
+
+    vol = await db.execute(
+        text("SELECT volume FROM stock_daily_candles WHERE stock_id = :id ORDER BY trade_date DESC LIMIT 1"),
+        {"id": stock.id},
+    )
+    detail.volume = vol.scalar_one_or_none()
 
     prices = await _fetch_prices_safe([stock.code])
     price = prices.get(stock.code)
@@ -102,7 +108,7 @@ async def get_stock_by_code(code: str, db: AsyncSession = Depends(get_db)):
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
+    return ApiResponse(success=True, data=await _build_stock_detail(stock, db), message="요청 성공")
 
 
 @router.get("/{stock_id}", response_model=ApiResponse[StockDetail])
@@ -111,7 +117,7 @@ async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    return ApiResponse(success=True, data=await _build_stock_detail(stock), message="요청 성공")
+    return ApiResponse(success=True, data=await _build_stock_detail(stock, db), message="요청 성공")
 
 
 @router.get("/{stock_id}/candles", response_model=ApiResponse[list[Candle]])

@@ -38,7 +38,6 @@ async def get_portfolio(
 
     holding_data = []
     total_eval_amount = 0
-    total_buy_amount = 0
 
     for h in holdings:
         stock = stock_map.get(h.stock_id)
@@ -51,7 +50,6 @@ async def get_portfolio(
         profit_loss_rate = (profit_loss / buy_amount * 100) if buy_amount > 0 else 0.0
 
         total_eval_amount += eval_amount
-        total_buy_amount += buy_amount
 
         holding_data.append({
             "stock_id": h.stock_id,
@@ -65,13 +63,16 @@ async def get_portfolio(
             "profit_loss_rate": round(profit_loss_rate, 2),
         })
 
-    total_profit_loss = total_eval_amount - total_buy_amount
-    total_profit_loss_rate = (total_profit_loss / total_buy_amount * 100) if total_buy_amount > 0 else 0.0
+    # 합계 수익은 실현 손익까지 포함하도록 초기 자금 대비로 계산한다 (랭킹과 같은 기준)
+    balance = account.balance if account else 0
+    initial_balance = account.initial_balance if account else 0
+    total_profit_loss = balance + total_eval_amount - initial_balance
+    total_profit_loss_rate = (total_profit_loss / initial_balance * 100) if initial_balance > 0 else 0.0
 
     return {
         "success": True,
         "data": {
-            "balance": account.balance if account else 0,
+            "balance": balance,
             "total_eval_amount": total_eval_amount,
             "total_profit_loss": total_profit_loss,
             "total_profit_loss_rate": round(total_profit_loss_rate, 2),

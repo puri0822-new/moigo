@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { stocks, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import { createOrder, fetchStockByCode, fetchStockCandles, fetchStockNews, fetchStockOrderbook, apiGet } from '../lib/api';
-import type { ApiCandle, ApiNewsItem, ApiOrderbook } from '../lib/api';
+import type { ApiCandle, ApiNewsItem, ApiOrderbook, ApiStock } from '../lib/api';
 import { timeAgo } from '../lib/time';
 import CandleChart from '../components/CandleChart';
 import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
@@ -57,6 +57,8 @@ export default function StockDetailPage() {
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [stockId, setStockId] = useState<number | null>(null);
+  const [apiStock, setApiStock] = useState<ApiStock | null>(null);
+  const [stockStatus, setStockStatus] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading');
   const [ordering, setOrdering] = useState(false);
   const [sellWarn, setSellWarn] = useState(false);
   const [confirmOrder, setConfirmOrder] = useState<{ side: 'buy' | 'sell'; price: number; qty: number; total: number } | null>(null);
@@ -67,6 +69,7 @@ export default function StockDetailPage() {
   const [orderbookStatus, setOrderbookStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [news, setNews] = useState<ApiNewsItem[]>([]);
   const [newsStatus, setNewsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [orderbookExpanded, setOrderbookExpanded] = useState(false);
   const [stockInfo, setStockInfo] = useState<{
     english_name: string | null; isin_code: string | null; market: string | null;
     is_common_share: boolean | null; status: string | null; list_date: string | null;
@@ -86,15 +89,25 @@ export default function StockDetailPage() {
   useEffect(() => { loadPortfolio(); }, [loadPortfolio]);
 
   useEffect(() => {
-    if (code) {
-      fetchStockByCode(code).then(s => {
-        if (s) {
-          setStockId(s.id);
-          if (s.current_price) setLivePrice(s.current_price);
-          if (s.change_rate !== null) setLiveChangeRate(s.change_rate);
-        }
-      });
-    }
+    if (!code) return;
+    let cancelled = false;
+    setStockId(null);
+    setApiStock(null);
+    setLivePrice(null);
+    setLiveChangeRate(null);
+    setStockStatus('loading');
+    fetchStockByCode(code)
+      .then(s => {
+        if (cancelled) return;
+        if (!s) { setStockStatus('notfound'); return; }
+        setApiStock(s);
+        setStockId(s.id);
+        if (s.current_price) setLivePrice(s.current_price);
+        if (s.change_rate !== null) setLiveChangeRate(s.change_rate);
+        setStockStatus('ready');
+      })
+      .catch(() => { if (!cancelled) setStockStatus('error'); });
+    return () => { cancelled = true; };
   }, [code]);
 
   const periodToParams: Record<string, { interval: '1m' | '1d'; count: number }> = {
@@ -189,10 +202,20 @@ export default function StockDetailPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const stock = stocks.find(s => s.code === code) ?? stocks[0];
-  const mockPrice = parseInt(stock.price.replace(/[^0-9]/g, ''), 10);
-  const priceNum = livePrice ?? mockPrice;
-  const changeRate = liveChangeRate !== null ? liveChangeRate * 100 : stock.changePct;
+  // 이름·코드·업종·거래량은 API 값. AI 등락 이유와 유사 종목만 아직 목업이라, 목업에 없는 종목은 비워 둔다.
+  const mockStock = stocks.find(s => s.code === code);
+  const stock = {
+    name: apiStock?.name ?? '',
+    code: apiStock?.code ?? code ?? '',
+    sector: apiStock?.sector ?? null,
+    volume: apiStock?.volume != null
+      ? (apiStock.volume >= 1_000_000 ? `${(apiStock.volume / 1_000_000).toFixed(1)}M` : `${(apiStock.volume / 1_000).toFixed(0)}K`)
+      : '-',
+    aiReason: mockStock?.aiReason ?? null,
+    similar: mockStock?.similar ?? [],
+  };
+  const priceNum = livePrice ?? 0;
+  const changeRate = liveChangeRate !== null ? liveChangeRate * 100 : 0;
 
   // 지정가 초기값 설정
   useEffect(() => { setInputPrice(priceNum); }, [priceNum]);
@@ -258,6 +281,62 @@ export default function StockDetailPage() {
       setOrdering(false);
     }
   };
+
+  const renderOrderbook = (levelCount: number, large: boolean) => {
+    if (!orderbook) {
+      return (
+        <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
+          {orderbookStatus === 'error' ? '호가를 불러오지 못했습니다' : '호가를 불러오는 중...'}
+        </div>
+      );
+    }
+    // 위에서부터 높은 가격순: 매도호가(현재가에서 먼 것부터) → 매수호가(현재가에 가까운 것부터)
+    const asks = orderbook.asks.slice(0, levelCount).reverse();
+    const bids = orderbook.bids.slice(0, levelCount);
+    if (asks.length === 0 && bids.length === 0) {
+      return <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>표시할 호가가 없습니다</div>;
+    }
+    const maxVolume = Math.max(1, ...asks.map(l => l.volume), ...bids.map(l => l.volume));
+    const row = (l: { price: number; volume: number }, rowSide: 'ask' | 'bid') => {
+      const color = rowSide === 'ask' ? theme.down : theme.up;
+      return (
+        <div
+          key={`${rowSide}-${l.price}`}
+          onClick={() => { setOrderType('limit'); setInputPrice(l.price); setOrderbookExpanded(false); }}
+          style={{
+            position: 'relative', display: 'flex', justifyContent: 'space-between',
+            fontSize: large ? 14 : 12, padding: large ? '7px 10px' : '3px 6px',
+            borderRadius: 4, cursor: 'pointer', overflow: 'hidden',
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0, right: 0,
+            width: `${(l.volume / maxVolume) * 100}%`, background: color, opacity: 0.12,
+          }} />
+          <span style={{ position: 'relative', fontWeight: 600, color }}>{l.price.toLocaleString()}원</span>
+          <span style={{ position: 'relative', color: theme.textMuted }}>{l.volume.toLocaleString()}</span>
+        </div>
+      );
+    };
+    return <>
+      {asks.map(l => row(l, 'ask'))}
+      <div style={{ height: 1, background: theme.border, margin: '2px 0' }} />
+      {bids.map(l => row(l, 'bid'))}
+    </>;
+  };
+
+  if (stockStatus !== 'ready') {
+    return (
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 13, color: theme.textMuted }}>
+          {stockStatus === 'loading' ? '종목 정보를 불러오는 중...' : stockStatus === 'notfound' ? '종목을 찾을 수 없습니다' : '종목 정보를 불러오지 못했습니다'}
+        </div>
+        {stockStatus !== 'loading' && (
+          <div onClick={() => navigate('/dashboard')} style={{ alignSelf: 'flex-start', fontSize: 13, fontWeight: 600, color: theme.ai, cursor: 'pointer' }}>← 홈으로</div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100%', alignItems: 'flex-start' }}>
@@ -399,48 +478,24 @@ export default function StockDetailPage() {
               flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
               borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 6,
             }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>호가</div>
-              {(() => {
-                if (!orderbook) {
-                  return (
-                    <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
-                      {orderbookStatus === 'error' ? '호가를 불러오지 못했습니다' : '호가를 불러오는 중...'}
-                    </div>
-                  );
-                }
-                // 위에서부터 높은 가격순: 매도호가(현재가에서 먼 것부터) → 매수호가(현재가에 가까운 것부터)
-                const asks = orderbook.asks.slice(0, ORDERBOOK_LEVELS).reverse();
-                const bids = orderbook.bids.slice(0, ORDERBOOK_LEVELS);
-                if (asks.length === 0 && bids.length === 0) {
-                  return <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>표시할 호가가 없습니다</div>;
-                }
-                const maxVolume = Math.max(1, ...asks.map(l => l.volume), ...bids.map(l => l.volume));
-                const row = (l: { price: number; volume: number }, side: 'ask' | 'bid') => {
-                  const color = side === 'ask' ? theme.down : theme.up;
-                  return (
-                    <div
-                      key={`${side}-${l.price}`}
-                      onClick={() => { setOrderType('limit'); setInputPrice(l.price); }}
-                      style={{
-                        position: 'relative', display: 'flex', justifyContent: 'space-between',
-                        fontSize: 12, padding: '3px 6px', borderRadius: 4, cursor: 'pointer', overflow: 'hidden',
-                      }}
-                    >
-                      <div style={{
-                        position: 'absolute', top: 0, bottom: 0, right: 0,
-                        width: `${(l.volume / maxVolume) * 100}%`, background: color, opacity: 0.12,
-                      }} />
-                      <span style={{ position: 'relative', fontWeight: 600, color }}>{l.price.toLocaleString()}원</span>
-                      <span style={{ position: 'relative', color: theme.textMuted }}>{l.volume.toLocaleString()}</span>
-                    </div>
-                  );
-                };
-                return <>
-                  {asks.map(l => row(l, 'ask'))}
-                  <div style={{ height: 1, background: theme.border, margin: '2px 0' }} />
-                  {bids.map(l => row(l, 'bid'))}
-                </>;
-              })()}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>호가</span>
+                <div
+                  onClick={() => setOrderbookExpanded(true)}
+                  title="호가 크게 보기"
+                  style={{
+                    width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: theme.textMuted,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                </div>
+              </div>
+              {renderOrderbook(ORDERBOOK_LEVELS, false)}
             </div>
 
           {/* 주문 내역 */}
@@ -594,7 +649,7 @@ export default function StockDetailPage() {
             {/* 등락 이유 */}
             <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>등락 이유</div>
-              <div style={{ fontSize: 13, lineHeight: 1.6 }}>{stock.aiReason}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: stock.aiReason ? undefined : theme.textMuted }}>{stock.aiReason ?? 'AI 분석 준비 중입니다'}</div>
             </div>
 
             {/* AI 종합 게이지 */}
@@ -690,7 +745,7 @@ export default function StockDetailPage() {
             })()}
 
             {/* 유사 종목 */}
-            <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>유사 종목</div>
+            {stock.similar.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>유사 종목</div>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {stock.similar.map(name => (
                 <div key={name} style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted, cursor: 'pointer' }}
@@ -961,6 +1016,45 @@ export default function StockDetailPage() {
           </div>
         )}
       </div>
+
+      {/* 호가 크게 보기 */}
+      {orderbookExpanded && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setOrderbookExpanded(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: 420, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 48px)',
+            background: theme.panel, border: `1px solid ${theme.border}`,
+            borderRadius: 16, padding: 20,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column', gap: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <StockLogo name={stock.name} code={stock.code} size={28} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>{stock.name} 호가</div>
+                <div style={{ fontSize: 11, color: theme.textMuted }}>현재가 {priceNum.toLocaleString()}원 · 호가를 누르면 지정가로 입력</div>
+              </div>
+              <div
+                onClick={() => setOrderbookExpanded(false)}
+                style={{
+                  marginLeft: 'auto', width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                  border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: theme.textMuted, fontSize: 13,
+                }}
+              >✕</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, color: theme.textMuted, padding: '0 10px 6px', borderBottom: `1px solid ${theme.border}` }}>
+              <span>호가</span><span>잔량</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
+              {renderOrderbook(10, true)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 주문 확인 오버레이 */}
       {confirmOrder && (

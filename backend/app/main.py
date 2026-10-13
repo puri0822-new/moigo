@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routers import auth, orders, portfolio, account, stocks, market
+from app.routers import auth, orders, portfolio, account, stocks, market, ranking
 
 app = FastAPI(title="모이고 API", version="1.0.0")
 
@@ -39,3 +39,4 @@ app.include_router(portfolio.router, prefix="/v1")
 app.include_router(account.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")
 app.include_router(market.router, prefix="/v1")
+app.include_router(ranking.router, prefix="/v1")
