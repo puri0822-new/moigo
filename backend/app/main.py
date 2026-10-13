@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app.core import http
 from app.core.order_matching import order_matching_loop
 from app.core.price_sync import price_sync_loop
-from app.routers import auth, orders, portfolio, account, stocks
+from app.routers import account, auth, market, orders, portfolio, stocks
 
 
 @asynccontextmanager
@@ -66,3 +66,4 @@ app.include_router(orders.router, prefix="/v1")
 app.include_router(portfolio.router, prefix="/v1")
 app.include_router(account.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")
+app.include_router(market.router, prefix="/v1")

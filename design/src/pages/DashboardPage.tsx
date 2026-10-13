@@ -1,9 +1,17 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { aiRecs, marketIndices } from '../data/mockData';
+import { aiRecs } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
-import { fetchStockRankings, type ApiStockRanking } from '../lib/api';
+import { apiGet, fetchStockRankings, type ApiStockRanking } from '../lib/api';
+
+type MarketIndex = {
+  name: string;
+  value: string;
+  changePoint: string;
+  changePct: number;
+  spark: number[];
+};
 
 // 백엔드가 시세 캐시를 30초마다 갱신하므로 같은 주기로 다시 받아온다
 const RANKINGS_REFRESH_MS = 30_000;
@@ -22,6 +30,7 @@ export default function DashboardPage() {
   const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
   const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
   const [rankingsStatus, setRankingsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [marketIndices, setMarketIndices] = useState<MarketIndex[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,6 +49,12 @@ export default function DashboardPage() {
     load();
     const timer = setInterval(load, RANKINGS_REFRESH_MS);
     return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
+  useEffect(() => {
+    apiGet<MarketIndex[]>('/market/indices')
+      .then(res => setMarketIndices(res.data))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -122,15 +137,16 @@ export default function DashboardPage() {
             {marketIndices.map(idx => {
               const isUp = idx.changePct >= 0;
               const W = 80, H = 32, PAD = 3;
-              const min = Math.min(...idx.spark);
-              const max = Math.max(...idx.spark);
+              const spark = idx.spark.length > 1 ? idx.spark : [0, 0];
+              const min = Math.min(...spark);
+              const max = Math.max(...spark);
               const range = max - min || 1;
               const toY = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2);
-              const pts = idx.spark.map((v, i) => {
-                const x = (i / (idx.spark.length - 1)) * W;
+              const pts = spark.map((v, i) => {
+                const x = (i / (spark.length - 1)) * W;
                 return `${x},${toY(v)}`;
               }).join(' ');
-              const baseY = toY(idx.spark[0]);
+              const baseY = toY(spark[0]);
               return (
                 <div key={idx.name} style={{
                   background: 'rgba(255,255,255,0.12)',
@@ -147,10 +163,12 @@ export default function DashboardPage() {
                       {isUp ? '▲' : '▼'} {Math.abs(idx.changePct).toFixed(2)}%
                     </div>
                   </div>
-                  <svg width={W} height={H} style={{ flexShrink: 0 }}>
-                    <line x1={0} y1={baseY} x2={W} y2={baseY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3 3" />
-                    <polyline points={pts} fill="none" stroke={isUp ? '#fca5a5' : '#93c5fd'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-                  </svg>
+                  {spark.length > 1 && (
+                    <svg width={W} height={H} style={{ flexShrink: 0 }}>
+                      <line x1={0} y1={baseY} x2={W} y2={baseY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3 3" />
+                      <polyline points={pts} fill="none" stroke={isUp ? '#fca5a5' : '#93c5fd'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                    </svg>
+                  )}
                 </div>
               );
             })}
