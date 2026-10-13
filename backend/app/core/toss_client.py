@@ -8,12 +8,14 @@ from app.core.config import settings
 BASE_URL = "https://openapi.tossinvest.com"
 PRICE_CACHE_TTL_SECONDS = 60
 CANDLE_CACHE_TTL_SECONDS = 60
+STOCK_INFO_CACHE_TTL_SECONDS = 3600
 
 _token_lock = asyncio.Lock()
 _token_cache: dict[str, str | float] = {"access_token": "", "expires_at": 0.0}
 
 _price_cache: dict[str, tuple[dict, float]] = {}
 _candle_cache: dict[tuple[str, str, int], tuple[list[dict], float]] = {}
+_stock_info_cache: dict[str, tuple[dict, float]] = {}
 
 
 async def _get_access_token() -> str:
@@ -103,3 +105,25 @@ async def get_candles(symbol: str, interval: str, count: int) -> list[dict]:
     candles = list(reversed(data["result"]["candles"]))
     _candle_cache[cache_key] = (candles, now)
     return candles
+
+
+async def get_stock_info(symbol: str) -> dict | None:
+    now = time.monotonic()
+    cached = _stock_info_cache.get(symbol)
+    if cached and now - cached[1] < STOCK_INFO_CACHE_TTL_SECONDS:
+        return cached[0]
+
+    token = await _get_access_token()
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(
+            f"{BASE_URL}/api/v1/stocks",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"symbols": symbol},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    info = next((item for item in data.get("result", []) if item["symbol"] == symbol), None)
+    if info:
+        _stock_info_cache[symbol] = (info, now)
+    return info

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { stocks, orderbook, aiRecs, stockAiInsights } from '../data/mockData';
+import { stocks, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import { createOrder, fetchStockByCode, fetchStockCandles, apiGet } from '../lib/api';
 import type { ApiCandle } from '../lib/api';
@@ -57,6 +57,13 @@ export default function StockDetailPage() {
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [liveChangeRate, setLiveChangeRate] = useState<number | null>(null);
   const [candles, setCandles] = useState<CandlestickData<UTCTimestamp>[]>([]);
+  const [orderbookData, setOrderbookData] = useState<{ asks: { price: string; volume: string }[]; bids: { price: string; volume: string }[] } | null>(null);
+  const [stockInfo, setStockInfo] = useState<{
+    english_name: string | null; isin_code: string | null; market: string | null;
+    is_common_share: boolean | null; status: string | null; list_date: string | null;
+    shares_outstanding: number | null; nxt_supported: boolean | null; trading_suspended: boolean | null;
+  } | null>(null);
+  const [stockInfoStatus, setStockInfoStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
     setFloatPos({ x: window.innerWidth - 316, y: window.innerHeight - 540 });
@@ -82,10 +89,10 @@ export default function StockDetailPage() {
   }, [code]);
 
   const periodToParams: Record<string, { interval: '1m' | '1d'; count: number }> = {
-    '1일': { interval: '1m', count: 390 },
-    '1주': { interval: '1d', count: 7 },
-    '1개월': { interval: '1d', count: 30 },
-    '1년': { interval: '1d', count: 365 },
+    '1일': { interval: '1m', count: 200 },
+    '1주': { interval: '1d', count: 5 },
+    '1개월': { interval: '1d', count: 22 },
+    '1년': { interval: '1d', count: 200 },
   };
 
   useEffect(() => {
@@ -101,6 +108,21 @@ export default function StockDetailPage() {
       })));
     }).catch(() => setCandles([]));
   }, [stockId, period]);
+
+  useEffect(() => {
+    if (stockId === null) return;
+    apiGet<{ asks: { price: string; volume: string }[]; bids: { price: string; volume: string }[] }>(`/stocks/${stockId}/orderbook`)
+      .then(res => setOrderbookData(res.data))
+      .catch(() => {});
+  }, [stockId]);
+
+  useEffect(() => {
+    if (stockId === null) return;
+    setStockInfoStatus('loading');
+    apiGet<typeof stockInfo>(`/stocks/${stockId}/info`)
+      .then(res => { setStockInfo(res.data); setStockInfoStatus('ready'); })
+      .catch(() => setStockInfoStatus('error'));
+  }, [stockId]);
 
   useEffect(() => {
     if (side === 'sell') {
@@ -327,18 +349,55 @@ export default function StockDetailPage() {
             {/* 호가 */}
             <div style={{
               flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
-              borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 6,
+              borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 0,
             }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>호가</div>
-              {orderbook.map((o, i) => (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  fontSize: 12, padding: '3px 0',
-                  color: o.dir === 'down' ? theme.down : o.dir === 'up' ? theme.up : theme.textMuted,
-                }}>
-                  <span>{o.price}</span><span>{o.qty}</span>
-                </div>
-              ))}
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>호가</div>
+              {!orderbookData ? (
+                <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '12px 0' }}>호가 불러오는 중...</div>
+              ) : (() => {
+                const asks5 = orderbookData.asks.slice(0, 5);
+                const bids5 = orderbookData.bids.slice(0, 5);
+                const maxVol = Math.max(...asks5.map(x => parseInt(x.volume)), ...bids5.map(x => parseInt(x.volume)));
+                return (
+                  <>
+                    <div style={{ display: 'flex', fontSize: 10, color: theme.textMuted, padding: '0 0 4px', borderBottom: `1px solid ${theme.border}` }}>
+                      <span style={{ width: 90 }}>호가</span>
+                      <span style={{ flex: 1 }}>잔량</span>
+                    </div>
+                    {[...asks5].reverse().map((a, i) => {
+                      const vol = parseInt(a.volume);
+                      const pct = vol / maxVol * 100;
+                      return (
+                        <div key={`ask-${i}`} style={{ display: 'flex', alignItems: 'center', fontSize: 12, padding: '4px 0' }}>
+                          <span style={{ width: 90, fontWeight: 600, color: theme.down }}>{parseInt(a.price).toLocaleString()}</span>
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ flex: 1, height: 14, background: theme.panel2, borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ width: `${pct}%`, height: '100%', background: `${theme.down}30`, borderRadius: 3 }} />
+                            </div>
+                            <span style={{ fontSize: 10, color: theme.textMuted, width: 50, textAlign: 'right', flexShrink: 0 }}>{vol.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{ height: 1, background: theme.border, margin: '3px 0' }} />
+                    {bids5.map((b, i) => {
+                      const vol = parseInt(b.volume);
+                      const pct = vol / maxVol * 100;
+                      return (
+                        <div key={`bid-${i}`} style={{ display: 'flex', alignItems: 'center', fontSize: 12, padding: '4px 0' }}>
+                          <span style={{ width: 90, fontWeight: 600, color: theme.up }}>{parseInt(b.price).toLocaleString()}</span>
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ flex: 1, height: 14, background: theme.panel2, borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ width: `${pct}%`, height: '100%', background: `${theme.up}30`, borderRadius: 3 }} />
+                            </div>
+                            <span style={{ fontSize: 10, color: theme.textMuted, width: 50, textAlign: 'right', flexShrink: 0 }}>{vol.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()}
             </div>
 
           {/* 주문 내역 */}
@@ -385,11 +444,42 @@ export default function StockDetailPage() {
         {mainTab === 'info' && (
           <div style={{
             background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 12, padding: 24, minHeight: 200,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: theme.textMuted, fontSize: 13,
+            borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
           }}>
-            종목정보 준비 중
+            <div style={{ fontSize: 13, fontWeight: 700 }}>종목정보</div>
+            {stockInfoStatus !== 'ready' || !stockInfo ? (
+              <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
+                {stockInfoStatus === 'error' ? '종목정보를 불러오지 못했습니다' : '종목정보를 불러오는 중...'}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 24 }}>
+                {([
+                  ['시가총액', stockInfo.shares_outstanding != null && livePrice != null ? (() => {
+                    const eok = Math.round(stockInfo.shares_outstanding! * livePrice / 100_000_000);
+                    return eok >= 10_000
+                      ? `${Math.floor(eok / 10_000).toLocaleString()}조${eok % 10_000 ? ` ${(eok % 10_000).toLocaleString()}억` : ''}원`
+                      : `${eok.toLocaleString()}억원`;
+                  })() : '-'],
+                  ['상장주식수', stockInfo.shares_outstanding != null ? `${stockInfo.shares_outstanding.toLocaleString()}주` : '-'],
+                  ['시장', stockInfo.market ?? '-'],
+                  ['업종', stock.sector ?? '-'],
+                  ['상장일', stockInfo.list_date ?? '-'],
+                  ['주식 종류', stockInfo.is_common_share == null ? '-' : stockInfo.is_common_share ? '보통주' : '우선주 등'],
+                  ['영문명', stockInfo.english_name ?? '-'],
+                  ['ISIN', stockInfo.isin_code ?? '-'],
+                  ['거래 상태', stockInfo.trading_suspended ? '거래정지' : stockInfo.status === 'ACTIVE' ? '정상' : stockInfo.status ?? '-'],
+                  ['대체거래소(NXT)', stockInfo.nxt_supported == null ? '-' : stockInfo.nxt_supported ? '거래 가능' : '거래 불가'],
+                ] as [string, string][]).map(([label, value]) => (
+                  <div key={label} style={{
+                    display: 'flex', justifyContent: 'space-between', gap: 12,
+                    padding: '10px 0', borderBottom: `1px solid ${theme.border}`, fontSize: 13,
+                  }}>
+                    <span style={{ color: theme.textMuted, flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontWeight: 600, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

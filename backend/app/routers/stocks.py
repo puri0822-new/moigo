@@ -141,3 +141,56 @@ async def get_stock_candles(
         for c in raw_candles
     ]
     return ApiResponse(success=True, data=data, message="요청 성공")
+
+
+@router.get("/{stock_id}/orderbook", response_model=ApiResponse[dict])
+async def get_orderbook(stock_id: int, db: AsyncSession = Depends(get_db)):
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    token = await toss_client._get_access_token()
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(
+                f"{toss_client.BASE_URL}/api/v1/orderbook",
+                headers={"Authorization": f"Bearer {token}"},
+                params={"symbol": stock.code},
+            )
+            resp.raise_for_status()
+            result = resp.json()["result"]
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="호가 정보를 조회할 수 없습니다")
+
+    return ApiResponse(success=True, data=result, message="요청 성공")
+
+
+@router.get("/{stock_id}/info", response_model=ApiResponse[dict])
+async def get_stock_info(stock_id: int, db: AsyncSession = Depends(get_db)):
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        raw = await toss_client.get_stock_info(stock.code)
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="종목 정보를 불러오지 못했습니다")
+    if not raw:
+        raise HTTPException(status_code=404, detail="종목 정보를 찾을 수 없습니다")
+
+    korean = raw.get("koreanMarketDetail") or {}
+    shares = raw.get("sharesOutstanding")
+    data = {
+        "english_name": raw.get("englishName"),
+        "isin_code": raw.get("isinCode"),
+        "market": raw.get("market"),
+        "security_type": raw.get("securityType"),
+        "is_common_share": raw.get("isCommonShare"),
+        "status": raw.get("status"),
+        "currency": raw.get("currency"),
+        "list_date": raw.get("listDate"),
+        "shares_outstanding": int(float(shares)) if shares is not None else None,
+        "nxt_supported": korean.get("nxtSupported"),
+        "trading_suspended": korean.get("krxTradingSuspended"),
+    }
+    return ApiResponse(success=True, data=data, message="요청 성공")
