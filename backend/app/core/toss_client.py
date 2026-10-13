@@ -9,6 +9,7 @@ BASE_URL = "https://openapi.tossinvest.com"
 PRICE_CACHE_TTL_SECONDS = 60
 CANDLE_CACHE_TTL_SECONDS = 60
 STOCK_INFO_CACHE_TTL_SECONDS = 3600
+ORDERBOOK_CACHE_TTL_SECONDS = 2
 
 _token_lock = asyncio.Lock()
 _token_cache: dict[str, str | float] = {"access_token": "", "expires_at": 0.0}
@@ -16,6 +17,7 @@ _token_cache: dict[str, str | float] = {"access_token": "", "expires_at": 0.0}
 _price_cache: dict[str, tuple[dict, float]] = {}
 _candle_cache: dict[tuple[str, str, int], tuple[list[dict], float]] = {}
 _stock_info_cache: dict[str, tuple[dict, float]] = {}
+_orderbook_cache: dict[str, tuple[dict, float]] = {}
 
 
 async def _get_access_token() -> str:
@@ -105,6 +107,28 @@ async def get_candles(symbol: str, interval: str, count: int) -> list[dict]:
     candles = list(reversed(data["result"]["candles"]))
     _candle_cache[cache_key] = (candles, now)
     return candles
+
+
+async def get_orderbook(symbol: str) -> dict:
+    """종목의 호가(매도/매수 각 10단계)를 조회. asks는 낮은 가격부터, bids는 높은 가격부터
+    (둘 다 현재가에 가까운 순서)이며 가격·잔량은 문자열로 온다."""
+    now = time.monotonic()
+    cached = _orderbook_cache.get(symbol)
+    if cached and now - cached[1] < ORDERBOOK_CACHE_TTL_SECONDS:
+        return cached[0]
+
+    token = await _get_access_token()
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(
+            f"{BASE_URL}/api/v1/orderbook",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"symbol": symbol},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    _orderbook_cache[symbol] = (data["result"], now)
+    return data["result"]
 
 
 async def get_stock_info(symbol: str) -> dict | None:

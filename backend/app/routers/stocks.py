@@ -1,18 +1,24 @@
 import asyncio
+import logging
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import toss_client
+from app.core import naver_client, toss_client
 from app.core.database import get_db
 from app.models import Stock
 from app.schemas.candle import Candle
 from app.schemas.common import ApiResponse
+from app.schemas.news import NewsItem
+from app.schemas.orderbook import Orderbook, OrderbookLevel
 from app.schemas.stock import StockDetail, StockListItem
 
 router = APIRouter(prefix="/stocks", tags=["Stocks"])
+logger = logging.getLogger(__name__)
+
+TOSS_TIMEOUT_SECONDS = 6
 
 
 async def _fetch_prices_safe(codes: list[str]) -> dict[str, dict]:
@@ -143,26 +149,23 @@ async def get_stock_candles(
     return ApiResponse(success=True, data=data, message="요청 성공")
 
 
-@router.get("/{stock_id}/orderbook", response_model=ApiResponse[dict])
-async def get_orderbook(stock_id: int, db: AsyncSession = Depends(get_db)):
+@router.get("/{stock_id}/orderbook", response_model=ApiResponse[Orderbook])
+async def get_stock_orderbook(stock_id: int, db: AsyncSession = Depends(get_db)):
     stock = await db.get(Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    token = await toss_client._get_access_token()
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(
-                f"{toss_client.BASE_URL}/api/v1/orderbook",
-                headers={"Authorization": f"Bearer {token}"},
-                params={"symbol": stock.code},
-            )
-            resp.raise_for_status()
-            result = resp.json()["result"]
-    except httpx.HTTPError:
-        raise HTTPException(status_code=502, detail="호가 정보를 조회할 수 없습니다")
+        raw = await asyncio.wait_for(toss_client.get_orderbook(stock.code), TOSS_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError) as e:
+        logger.warning("호가 조회 실패 %s: %r", stock.code, e)
+        raise HTTPException(status_code=502, detail="호가를 불러오지 못했습니다")
 
-    return ApiResponse(success=True, data=result, message="요청 성공")
+    def levels(side: str) -> list[OrderbookLevel]:
+        return [OrderbookLevel(price=int(float(l["price"])), volume=int(float(l["volume"]))) for l in raw.get(side, [])]
+
+    data = Orderbook(timestamp=raw["timestamp"], asks=levels("asks"), bids=levels("bids"))
+    return ApiResponse(success=True, data=data, message="요청 성공")
 
 
 @router.get("/{stock_id}/info", response_model=ApiResponse[dict])
@@ -193,4 +196,19 @@ async def get_stock_info(stock_id: int, db: AsyncSession = Depends(get_db)):
         "nxt_supported": korean.get("nxtSupported"),
         "trading_suspended": korean.get("krxTradingSuspended"),
     }
+    return ApiResponse(success=True, data=data, message="요청 성공")
+
+
+@router.get("/{stock_id}/news", response_model=ApiResponse[list[NewsItem]])
+async def get_stock_news(stock_id: int, limit: int = 10, db: AsyncSession = Depends(get_db)):
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        items = await asyncio.wait_for(naver_client.search_news(stock.name, display=limit), TOSS_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        items = []
+
+    data = [NewsItem(id=i + 1, **item) for i, item in enumerate(items)]
     return ApiResponse(success=True, data=data, message="요청 성공")
