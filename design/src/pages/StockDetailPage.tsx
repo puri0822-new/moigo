@@ -8,6 +8,7 @@ import { createOrder, fetchStockByCode, fetchStockCandles, fetchStockNews, fetch
 import type { ApiCandle, ApiNewsItem, ApiOrderbook, ApiStock } from '../lib/api';
 import { timeAgo } from '../lib/time';
 import CandleChart from '../components/CandleChart';
+import PostFeed from '../components/PostFeed';
 import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
 
 const periods = ['1일', '1주', '1개월', '1년'] as const;
@@ -620,16 +621,7 @@ export default function StockDetailPage() {
         )}
 
         {/* 커뮤니티 탭 */}
-        {mainTab === 'community' && (
-          <div style={{
-            background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 12, padding: 24, minHeight: 200,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: theme.textMuted, fontSize: 13,
-          }}>
-            커뮤니티 준비 중
-          </div>
-        )}
+        {mainTab === 'community' && apiStock && <PostFeed stockId={apiStock.id} stockName={apiStock.name} />}
       </div>
 
       {/* 우측 패널 (탭) */}

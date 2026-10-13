@@ -5,5 +5,8 @@ __pycache__/
 .env.*
 !.env.example
 
+# 사용자가 올린 파일 (피드 사진 등)
+uploads/
+
 # Firebase Admin SDK 서비스 계정 키 등 민감한 자격증명
 secrets/
