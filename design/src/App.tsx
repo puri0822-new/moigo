@@ -9,6 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import StockDetailPage from './pages/StockDetailPage';
 import PortfolioPage from './pages/PortfolioPage';
 import RankingPage from './pages/RankingPage';
+import FeedPage from './pages/FeedPage';
 import AppLayout from './components/layout/AppLayout';
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/stock/:code" element={<StockDetailPage />} />
           <Route path="/portfolio" element={<PortfolioPage />} />
           <Route path="/ranking" element={<RankingPage />} />
+          <Route path="/feed" element={<FeedPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

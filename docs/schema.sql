@@ -180,6 +180,32 @@ CREATE TRIGGER trg_stock_daily_candles_updated_at
     BEFORE UPDATE ON stock_daily_candles
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- 11~13. posts / post_likes / post_comments (커뮤니티 피드: 글, 좋아요, 댓글)
+CREATE TABLE posts (
+    id          BIGSERIAL    PRIMARY KEY,
+    user_id     BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stock_id    BIGINT       NULL REFERENCES stocks(id) ON DELETE SET NULL,   -- 특정 종목에 대한 글이면 그 종목, 자유 글이면 NULL
+    content     TEXT         NOT NULL CHECK (char_length(content) BETWEEN 1 AND 1000),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE post_likes (
+    id          BIGSERIAL    PRIMARY KEY,
+    post_id     BIGINT       NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id     BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (post_id, user_id)
+);
+
+CREATE TABLE post_comments (
+    id          BIGSERIAL    PRIMARY KEY,
+    post_id     BIGINT       NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id     BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content     TEXT         NOT NULL CHECK (char_length(content) BETWEEN 1 AND 500),
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 인덱스
 CREATE INDEX idx_news_stock_id ON news(stock_id);
 CREATE INDEX idx_orders_pending ON orders(stock_id) WHERE status = 'PENDING';
@@ -190,3 +216,5 @@ CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_stock_id ON orders(stock_id);
 CREATE INDEX idx_orders_ordered_at ON orders(ordered_at);
 CREATE INDEX idx_holdings_user_id ON holdings(user_id);
+CREATE INDEX idx_posts_stock_id ON posts(stock_id);
+CREATE INDEX idx_post_comments_post_id ON post_comments(post_id);

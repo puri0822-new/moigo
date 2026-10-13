@@ -256,3 +256,59 @@ export async function fetchMarketIndices(): Promise<ApiMarketIndex[]> {
   const res = await api.get<ApiResponse<ApiMarketIndex[]>>('/market/indices');
   return res.data.data;
 }
+
+// --- 커뮤니티 (피드) ---
+export interface ApiPost {
+  id: number;
+  author: string; // 작성자 닉네임
+  is_mine: boolean;
+  content: string;
+  stock: { id: number; code: string; name: string } | null; // 특정 종목에 대한 글이면 그 종목
+  like_count: number;
+  comment_count: number;
+  liked: boolean; // 내가 좋아요를 눌렀는지
+  created_at: string;
+}
+
+export interface ApiComment {
+  id: number;
+  author: string;
+  is_mine: boolean;
+  content: string;
+  created_at: string;
+}
+
+/** 최신순. stockId를 주면 그 종목 글만, beforeId를 주면 그보다 오래된 글을 이어서 받는다 */
+export function fetchPosts({ stockId, limit, beforeId }: { stockId?: number; limit?: number; beforeId?: number } = {}) {
+  const params = new URLSearchParams();
+  if (stockId != null) params.set('stock_id', String(stockId));
+  if (limit != null) params.set('limit', String(limit));
+  if (beforeId != null) params.set('before_id', String(beforeId));
+  const query = params.toString();
+  return apiGet<ApiPost[]>(`/posts${query ? `?${query}` : ''}`);
+}
+
+export function createPost(body: { content: string; stock_id?: number | null }) {
+  return apiPost<ApiPost>('/posts', body);
+}
+
+export function deletePost(postId: number) {
+  return apiDelete<null>(`/posts/${postId}`);
+}
+
+/** 좋아요를 누르지 않았으면 누르고, 이미 눌렀으면 취소한다 */
+export function togglePostLike(postId: number) {
+  return apiPost<{ liked: boolean; like_count: number }>(`/posts/${postId}/like`);
+}
+
+export function fetchComments(postId: number) {
+  return apiGet<ApiComment[]>(`/posts/${postId}/comments`);
+}
+
+export function createComment(postId: number, content: string) {
+  return apiPost<ApiComment>(`/posts/${postId}/comments`, { content });
+}
+
+export function deleteComment(postId: number, commentId: number) {
+  return apiDelete<null>(`/posts/${postId}/comments/${commentId}`);
+}

@@ -7,6 +7,7 @@ from app.models.stock_price_cache import StockPriceCache
 from app.models.stock_daily_candle import StockDailyCandle
 from app.models.news import News
 from app.models.ai_analysis import AiAnalysis, AiAnalysisNews
+from app.models.community import Post, PostComment, PostLike
 
 __all__ = [
     "User",
@@ -19,4 +20,7 @@ __all__ = [
     "News",
     "AiAnalysis",
     "AiAnalysisNews",
+    "Post",
+    "PostLike",
+    "PostComment",
 ]

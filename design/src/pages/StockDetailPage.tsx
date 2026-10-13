@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { stocks, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import CandleChart from '../components/CandleChart';
+import PostFeed from '../components/PostFeed';
 import {
   cancelOrder, createOrder, fetchStockByCode, fetchStockCandles, fetchStockInfo, fetchStockNews, fetchStockOrderbook, getOrders, getPortfolio,
   type ApiNewsItem, type ApiOrder, type ApiOrderbook, type OrderStatus, type ApiPortfolio, type ApiStockDetail, type ApiStockInfo,
@@ -689,16 +690,7 @@ export default function StockDetailPage() {
         )}
 
         {/* 커뮤니티 탭 */}
-        {mainTab === 'community' && (
-          <div style={{
-            background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 12, padding: 24, minHeight: 200,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: theme.textMuted, fontSize: 13,
-          }}>
-            커뮤니티 준비 중
-          </div>
-        )}
+        {mainTab === 'community' && <PostFeed stockId={stock.id} stockName={stock.name} />}
       </div>
 
       {/* 우측 패널 (탭) */}
