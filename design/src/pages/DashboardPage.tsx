@@ -1,16 +1,55 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { stocks, aiRecs, marketIndices } from '../data/mockData';
+import { aiRecs } from '../data/mockData';
+import { apiGet } from '../lib/api';
+import type { ApiStock } from '../lib/api';
 import StockLogo from '../components/StockLogo';
+
+interface DisplayStock {
+  name: string;
+  code: string;
+  price: string;
+  volume: string;
+  volumeRaw: number;
+  changePct: number;
+  rank: number;
+}
 
 export default function DashboardPage() {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'거래량' | '급상승' | '급하락'>('거래량');
   const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
+  const [liveStocks, setLiveStocks] = useState<DisplayStock[]>([]);
+  const [marketIndices, setMarketIndices] = useState<{ name: string; value: string; changePoint: string; changePct: number; spark: number[] }[]>([]);
 
   useEffect(() => {
+    apiGet<{ name: string; value: string; changePoint: string; changePct: number; spark: number[] }[]>('/market/indices')
+      .then(res => setMarketIndices(res.data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiGet<ApiStock[]>('/stocks')
+      .then(res => {
+        setLiveStocks(res.data.map((s, i) => ({
+          name: s.name,
+          code: s.code,
+          price: s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-',
+          volume: s.volume != null ? (s.volume >= 1_000_000 ? `${(s.volume / 1_000_000).toFixed(1)}M` : `${(s.volume / 1_000).toFixed(0)}K`) : '-',
+          volumeRaw: s.volume ?? 0,
+          changePct: s.change_rate != null ? s.change_rate * 100 : 0,
+          rank: i + 1,
+        })));
+      })
+      .catch(() => {});
+  }, []);
+
+  const stocks = liveStocks;
+
+  useEffect(() => {
+    if (stocks.length === 0) return;
     const timer = setInterval(() => {
       setStockRecIndices(prev => {
         const next = { ...prev };
@@ -24,7 +63,7 @@ export default function DashboardPage() {
       });
     }, 4000);
     return () => clearInterval(timer);
-  }, []);
+  }, [stocks]);
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', minHeight: '100%' }}>
@@ -81,15 +120,16 @@ export default function DashboardPage() {
             {marketIndices.map(idx => {
               const isUp = idx.changePct >= 0;
               const W = 80, H = 32, PAD = 3;
-              const min = Math.min(...idx.spark);
-              const max = Math.max(...idx.spark);
+              const spark = idx.spark.length > 1 ? idx.spark : [0, 0];
+              const min = Math.min(...spark);
+              const max = Math.max(...spark);
               const range = max - min || 1;
               const toY = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2);
-              const pts = idx.spark.map((v, i) => {
-                const x = (i / (idx.spark.length - 1)) * W;
+              const pts = spark.map((v, i) => {
+                const x = (i / (spark.length - 1)) * W;
                 return `${x},${toY(v)}`;
               }).join(' ');
-              const baseY = toY(idx.spark[0]);
+              const baseY = toY(spark[0]);
               return (
                 <div key={idx.name} style={{
                   background: 'rgba(255,255,255,0.12)',
@@ -106,10 +146,12 @@ export default function DashboardPage() {
                       {isUp ? '▲' : '▼'} {Math.abs(idx.changePct).toFixed(2)}%
                     </div>
                   </div>
-                  <svg width={W} height={H} style={{ flexShrink: 0 }}>
-                    <line x1={0} y1={baseY} x2={W} y2={baseY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3 3" />
-                    <polyline points={pts} fill="none" stroke={isUp ? '#fca5a5' : '#93c5fd'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-                  </svg>
+                  {spark.length > 1 && (
+                    <svg width={W} height={H} style={{ flexShrink: 0 }}>
+                      <line x1={0} y1={baseY} x2={W} y2={baseY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3 3" />
+                      <polyline points={pts} fill="none" stroke={isUp ? '#fca5a5' : '#93c5fd'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                    </svg>
+                  )}
                 </div>
               );
             })}
@@ -145,7 +187,7 @@ export default function DashboardPage() {
             .sort((a, b) =>
               activeTab === '급상승' ? b.changePct - a.changePct :
               activeTab === '급하락' ? a.changePct - b.changePct :
-              a.rank - b.rank
+              b.volumeRaw - a.volumeRaw
             )
             .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;

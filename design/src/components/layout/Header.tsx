@@ -1,8 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { stocks } from '../../data/mockData';
+import { apiGet } from '../../lib/api';
+import type { ApiStock } from '../../lib/api';
+
+interface SearchStock {
+  name: string;
+  code: string;
+  price: string;
+  changePct: number;
+}
 
 export default function Header() {
   const { theme, mode, toggle } = useTheme();
@@ -12,8 +20,22 @@ export default function Header() {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [allStocks, setAllStocks] = useState<SearchStock[]>([]);
 
-  const results = stocks
+  useEffect(() => {
+    apiGet<ApiStock[]>('/stocks')
+      .then(res => {
+        setAllStocks(res.data.map(s => ({
+          name: s.name,
+          code: s.code,
+          price: s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-',
+          changePct: s.change_rate != null ? s.change_rate * 100 : 0,
+        })));
+      })
+      .catch(() => {});
+  }, []);
+
+  const results = allStocks
     .filter(s => query && (s.name.includes(query) || s.code.includes(query)))
     .slice(0, 6);
 

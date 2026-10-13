@@ -2,7 +2,7 @@ import asyncio
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import toss_client
@@ -49,8 +49,16 @@ async def list_stocks(db: AsyncSession = Depends(get_db)):
     stocks = result.scalars().all()
     codes = [s.code for s in stocks]
 
-    prices = await _fetch_prices_safe(codes)
-    prev_closes = await _fetch_prev_closes_safe(codes)
+    prices, prev_closes = await asyncio.gather(
+        _fetch_prices_safe(codes),
+        _fetch_prev_closes_safe(codes),
+    )
+
+    vol_rows = await db.execute(text(
+        "SELECT DISTINCT ON (stock_id) stock_id, volume "
+        "FROM stock_daily_candles ORDER BY stock_id, trade_date DESC"
+    ))
+    volumes = {row.stock_id: row.volume for row in vol_rows}
 
     data = []
     for s in stocks:
@@ -59,6 +67,7 @@ async def list_stocks(db: AsyncSession = Depends(get_db)):
         if price:
             item.current_price = int(float(price["lastPrice"]))
         _apply_change_rate(item, prev_closes.get(s.code))
+        item.volume = volumes.get(s.id)
         data.append(item)
 
     return ApiResponse(success=True, data=data, message="요청 성공")

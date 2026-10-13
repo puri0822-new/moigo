@@ -82,6 +82,7 @@ export interface ApiStock {
   sector: string | null;
   current_price: number | null;
   change_rate: number | null;
+  volume: number | null;
 }
 
 export async function fetchStocks(): Promise<ApiStock[]> {
