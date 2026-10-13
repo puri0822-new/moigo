@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { stocks } from '../../data/mockData';
+import { fetchStocks, type ApiStock } from '../../lib/api';
 
 export default function Header() {
   const { theme, mode, toggle } = useTheme();
@@ -13,8 +13,21 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
+  const [stocks, setStocks] = useState<ApiStock[]>([]);
+
+  // 검색은 서버의 실제 종목 목록에서 한다. 검색창을 열 때마다 다시 받아 시세도 최신으로 보여준다
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetchStocks()
+      .then(data => { if (!cancelled) setStocks(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const keyword = query.trim().toLowerCase();
   const results = stocks
-    .filter(s => query && (s.name.includes(query) || s.code.includes(query)))
+    .filter(s => keyword && (s.name.toLowerCase().includes(keyword) || s.code.includes(keyword)))
     .slice(0, 6);
 
   return (
@@ -128,13 +141,17 @@ export default function Header() {
                   <span style={{ fontSize: 11, color: theme.textMuted }}>{s.code}</span>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{s.price}</div>
-                  <div style={{
-                    fontSize: 11, fontWeight: 600,
-                    color: s.changePct >= 0 ? theme.up : theme.down,
-                  }}>
-                    {s.changePct >= 0 ? '▲' : '▼'}{Math.abs(s.changePct).toFixed(1)}%
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>
+                    {s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-'}
                   </div>
+                  {s.change_rate != null && (
+                    <div style={{
+                      fontSize: 11, fontWeight: 600,
+                      color: s.change_rate >= 0 ? theme.up : theme.down,
+                    }}>
+                      {s.change_rate >= 0 ? '▲' : '▼'}{Math.abs(s.change_rate * 100).toFixed(1)}%
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

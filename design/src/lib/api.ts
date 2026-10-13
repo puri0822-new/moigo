@@ -238,3 +238,21 @@ export async function fetchStockInfo(stockId: number): Promise<ApiStockInfo> {
   const res = await api.get<ApiResponse<ApiStockInfo>>(`/stocks/${stockId}/info`);
   return res.data.data;
 }
+
+// --- 지수 ---
+export interface ApiMarketIndex {
+  code: string; // KOSPI / KOSDAQ
+  name: string;
+  value: number;
+  change: number; // 전일 대비 포인트
+  change_rate: number; // 전일 대비 등락률 (0.01 = 1%)
+  prev_close: number;
+  is_open: boolean;
+  traded_at: string;
+  spark: number[]; // 당일(휴장일이면 마지막 거래일) 10분 간격 추이
+}
+
+export async function fetchMarketIndices(): Promise<ApiMarketIndex[]> {
+  const res = await api.get<ApiResponse<ApiMarketIndex[]>>('/market/indices');
+  return res.data.data;
+}

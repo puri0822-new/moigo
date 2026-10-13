@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { aiRecs, marketIndices } from '../data/mockData';
+import { aiRecs } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
-import { fetchStockRankings, type ApiStockRanking } from '../lib/api';
+import { fetchMarketIndices, fetchStockRankings, type ApiMarketIndex, type ApiStockRanking } from '../lib/api';
 
 // 백엔드가 시세 캐시를 30초마다 갱신하므로 같은 주기로 다시 받아온다
 const RANKINGS_REFRESH_MS = 30_000;
@@ -22,10 +22,15 @@ export default function DashboardPage() {
   const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
   const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
   const [rankingsStatus, setRankingsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [marketIndices, setMarketIndices] = useState<ApiMarketIndex[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     const load = () => {
+      // 지수를 못 받아와도 이미 받아 둔 값은 그대로 둔다 (한 번도 못 받았으면 지수 카드만 빠진다)
+      fetchMarketIndices()
+        .then(data => { if (!cancelled) setMarketIndices(data); })
+        .catch(() => {});
       fetchStockRankings()
         .then(data => {
           if (cancelled) return;
@@ -120,19 +125,21 @@ export default function DashboardPage() {
           {/* 우측 지수 플로팅 카드 (그래프 포함) */}
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
             {marketIndices.map(idx => {
-              const isUp = idx.changePct >= 0;
+              const changePct = idx.change_rate * 100;
+              const isUp = changePct >= 0;
               const W = 80, H = 32, PAD = 3;
-              const min = Math.min(...idx.spark);
-              const max = Math.max(...idx.spark);
+              // 기준선은 전일 종가. 추이가 기준선 위에 있으면 오늘 오른 것이다
+              const min = Math.min(...idx.spark, idx.prev_close);
+              const max = Math.max(...idx.spark, idx.prev_close);
               const range = max - min || 1;
               const toY = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2);
               const pts = idx.spark.map((v, i) => {
-                const x = (i / (idx.spark.length - 1)) * W;
+                const x = idx.spark.length > 1 ? (i / (idx.spark.length - 1)) * W : W;
                 return `${x},${toY(v)}`;
               }).join(' ');
-              const baseY = toY(idx.spark[0]);
+              const baseY = toY(idx.prev_close);
               return (
-                <div key={idx.name} style={{
+                <div key={idx.code} style={{
                   background: 'rgba(255,255,255,0.12)',
                   backdropFilter: 'blur(8px)',
                   border: '1px solid rgba(255,255,255,0.2)',
@@ -142,9 +149,9 @@ export default function DashboardPage() {
                 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginBottom: 3 }}>{idx.name}</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>{idx.value}</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>{idx.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div style={{ fontSize: 11, fontWeight: 700, color: isUp ? '#fca5a5' : '#93c5fd', marginTop: 2 }}>
-                      {isUp ? '▲' : '▼'} {Math.abs(idx.changePct).toFixed(2)}%
+                      {isUp ? '▲' : '▼'} {Math.abs(idx.change).toFixed(2)} ({Math.abs(changePct).toFixed(2)}%)
                     </div>
                   </div>
                   <svg width={W} height={H} style={{ flexShrink: 0 }}>
