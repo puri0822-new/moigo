@@ -16,6 +16,8 @@ interface AuthContextValue {
   loginWithEmail: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  // 회원 설정에서 닉네임을 바꾸면 헤더 등에도 바로 반영한다
+  updateNickname: (nickname: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -50,8 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await Promise.allSettled([apiPost('/auth/logout'), signOut(auth)]);
   };
 
+  const updateNickname = (next: string) => {
+    localStorage.setItem('nickname', next);
+    setNickname(next);
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, nickname, loginWithEmail, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, nickname, loginWithEmail, loginWithGoogle, logout, updateNickname }}>
       {children}
     </AuthContext.Provider>
   );

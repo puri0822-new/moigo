@@ -42,6 +42,10 @@ export function apiPut<T>(path: string, data?: unknown) {
   return request<T>(path, { method: 'PUT', body: data !== undefined ? JSON.stringify(data) : undefined });
 }
 
+export function apiPatch<T>(path: string, data?: unknown) {
+  return request<T>(path, { method: 'PATCH', body: data !== undefined ? JSON.stringify(data) : undefined });
+}
+
 export function apiDelete<T>(path: string) {
   return request<T>(path, { method: 'DELETE' });
 }
