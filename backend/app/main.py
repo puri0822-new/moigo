@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.uploads import UPLOAD_DIR, UPLOAD_URL_PREFIX
-from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community
+from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai
 
 app = FastAPI(title="모이고 API", version="1.0.0")
 
@@ -43,6 +43,7 @@ app.include_router(stocks.router, prefix="/v1")
 app.include_router(market.router, prefix="/v1")
 app.include_router(ranking.router, prefix="/v1")
 app.include_router(community.router, prefix="/v1")
+app.include_router(ai.router, prefix="/v1")
 
 UPLOAD_DIR.mkdir(exist_ok=True)
 app.mount(UPLOAD_URL_PREFIX, StaticFiles(directory=UPLOAD_DIR), name="uploads")

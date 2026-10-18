@@ -171,3 +171,63 @@ CREATE TABLE post_comments (
 
 CREATE INDEX idx_posts_stock_id ON posts(stock_id);
 CREATE INDEX idx_post_comments_post_id ON post_comments(post_id);
+
+-- ai_models / ai_recommendations / ai_recommendation_results / ai_recommendation_evidence (AI 모델, 종목 추천, 결과 검증, 근거 뉴스)
+-- 추천을 내는 AI 모델 목록. 모델을 추가·중단할 때 코드를 고치지 않고 이 테이블만 바꾼다
+CREATE TABLE ai_models (
+    code          VARCHAR(30)   PRIMARY KEY,                        -- CLAUDE, GEMINI, ... (ai_recommendations.ai_model이 참조)
+    display_name  VARCHAR(50)   NOT NULL,                           -- 화면에 보이는 이름
+    provider      VARCHAR(30)   NOT NULL,                           -- ANTHROPIC, GOOGLE, ...
+    model_id      VARCHAR(100)  NULL,                               -- API 호출에 쓰는 모델 ID. 추천 생성을 붙일 때 채운다
+    color         VARCHAR(7)    NOT NULL,                           -- 그래프·강조에 쓰는 색 (#RRGGBB)
+    is_active     BOOLEAN       NOT NULL DEFAULT TRUE,              -- FALSE면 새 추천을 만들지 않는다 (지난 성적은 남는다)
+    sort_order    INT           NOT NULL DEFAULT 0,
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_ai_models_color CHECK (color ~ '^#[0-9A-Fa-f]{6}$')
+);
+
+INSERT INTO ai_models (code, display_name, provider, color, sort_order) VALUES
+    ('CLAUDE', 'Claude', 'ANTHROPIC', '#D4714F', 1),
+    ('GEMINI', 'Gemini', 'GOOGLE', '#4285F4', 2);
+
+CREATE TABLE ai_recommendations (
+    id                       BIGSERIAL     PRIMARY KEY,
+    ai_model                 VARCHAR(30)   NOT NULL REFERENCES ai_models(code),  -- 추천한 AI
+    period_type              VARCHAR(10)   NOT NULL,                     -- WEEKLY: 1주 뒤 검증, MONTHLY: 1달 뒤 검증
+    stock_id                 BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    opinion                  VARCHAR(10)   NOT NULL,                     -- BUY: 오르면 적중, SELL: 떨어지면 적중
+    reason                   TEXT          NOT NULL,                     -- AI가 밝힌 추천 근거
+    confidence               SMALLINT      NULL CHECK (confidence BETWEEN 0 AND 100),
+    price_at_recommendation  BIGINT        NOT NULL CHECK (price_at_recommendation > 0),
+    recommended_at           TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    evaluate_at              TIMESTAMPTZ   NOT NULL,                     -- 이 시각이 지나면 결과를 검증한다
+
+    CONSTRAINT chk_ai_rec_period CHECK (period_type IN ('WEEKLY', 'MONTHLY')),
+    CONSTRAINT chk_ai_rec_opinion CHECK (opinion IN ('BUY', 'SELL'))
+);
+
+CREATE TABLE ai_recommendation_results (
+    id                   BIGSERIAL      PRIMARY KEY,
+    recommendation_id    BIGINT         NOT NULL UNIQUE REFERENCES ai_recommendations(id) ON DELETE CASCADE,
+    price_at_evaluation  BIGINT         NOT NULL CHECK (price_at_evaluation > 0),
+    return_rate          NUMERIC(8, 4)  NOT NULL,                        -- (검증가 - 추천가) / 추천가, 0.0123 = +1.23%
+    is_hit               BOOLEAN        NOT NULL,
+    failure_reason       TEXT           NULL,                            -- 틀렸을 때 AI가 뉴스를 근거로 설명한 이유
+    evaluated_at         TIMESTAMPTZ    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ai_recommendation_evidence (
+    id                 BIGSERIAL     PRIMARY KEY,
+    recommendation_id  BIGINT        NOT NULL REFERENCES ai_recommendations(id) ON DELETE CASCADE,
+    title              VARCHAR(500)  NOT NULL,                          -- 근거로 쓴 뉴스 제목
+    source             VARCHAR(100)  NULL,                              -- 언론사
+    url                VARCHAR(1000) NULL,
+    published_at       TIMESTAMPTZ   NULL,
+    insight            TEXT          NOT NULL                           -- 이 뉴스가 추천에 어떻게 반영됐는지 AI가 쓴 한 줄
+);
+
+CREATE INDEX idx_ai_rec_model_period ON ai_recommendations(ai_model, period_type, recommended_at DESC);
+CREATE INDEX idx_ai_rec_stock_id ON ai_recommendations(stock_id);
+CREATE INDEX idx_ai_rec_evaluate_at ON ai_recommendations(evaluate_at);
+CREATE INDEX idx_ai_rec_evidence_rec_id ON ai_recommendation_evidence(recommendation_id);
