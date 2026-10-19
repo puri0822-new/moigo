@@ -49,6 +49,22 @@ async def _get_access_token() -> str:
         return data["access_token"]  # type: ignore[return-value]
 
 
+async def _api_get(path: str, params: dict) -> dict:
+    """토스 API GET 호출. 토큰이 무효가 되면(401) 새 토큰으로 한 번만 다시 시도한다."""
+    token = await _get_access_token()
+    async with httpx.AsyncClient(timeout=5) as client:
+        resp = await client.get(f"{BASE_URL}{path}", headers={"Authorization": f"Bearer {token}"}, params=params)
+        if resp.status_code == 401:
+            # 동시에 401을 받은 다른 요청이 이미 새 토큰을 받았으면 그 토큰을 그대로 쓴다
+            if _token_cache["access_token"] == token:
+                _token_cache["access_token"] = ""
+                _token_cache["expires_at"] = 0.0
+            token = await _get_access_token()
+            resp = await client.get(f"{BASE_URL}{path}", headers={"Authorization": f"Bearer {token}"}, params=params)
+        resp.raise_for_status()
+        return resp.json()
+
+
 async def get_prices(symbols: list[str]) -> dict[str, dict]:
     """종목 코드 목록의 현재가를 조회. 60초 이내 조회한 종목은 캐시에서 반환."""
     if not symbols:
@@ -68,15 +84,7 @@ async def get_prices(symbols: list[str]) -> dict[str, dict]:
     if not to_fetch:
         return result
 
-    token = await _get_access_token()
-    async with httpx.AsyncClient(timeout=5) as client:
-        resp = await client.get(
-            f"{BASE_URL}/api/v1/prices",
-            headers={"Authorization": f"Bearer {token}"},
-            params={"symbols": ",".join(to_fetch)},
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    data = await _api_get("/api/v1/prices", {"symbols": ",".join(to_fetch)})
 
     for item in data.get("result", []):
         _price_cache[item["symbol"]] = (item, now)
@@ -93,15 +101,7 @@ async def get_candles(symbol: str, interval: str, count: int) -> list[dict]:
     if cached and now - cached[1] < CANDLE_CACHE_TTL_SECONDS:
         return cached[0]
 
-    token = await _get_access_token()
-    async with httpx.AsyncClient(timeout=5) as client:
-        resp = await client.get(
-            f"{BASE_URL}/api/v1/candles",
-            headers={"Authorization": f"Bearer {token}"},
-            params={"symbol": symbol, "interval": interval, "count": count},
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    data = await _api_get("/api/v1/candles", {"symbol": symbol, "interval": interval, "count": count})
 
     # 토스는 최신순(내림차순)으로 반환하므로, 차트 라이브러리가 기대하는 오름차순으로 뒤집는다
     candles = list(reversed(data["result"]["candles"]))
@@ -117,15 +117,7 @@ async def get_orderbook(symbol: str) -> dict:
     if cached and now - cached[1] < ORDERBOOK_CACHE_TTL_SECONDS:
         return cached[0]
 
-    token = await _get_access_token()
-    async with httpx.AsyncClient(timeout=5) as client:
-        resp = await client.get(
-            f"{BASE_URL}/api/v1/orderbook",
-            headers={"Authorization": f"Bearer {token}"},
-            params={"symbol": symbol},
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    data = await _api_get("/api/v1/orderbook", {"symbol": symbol})
 
     _orderbook_cache[symbol] = (data["result"], now)
     return data["result"]
@@ -137,15 +129,7 @@ async def get_stock_info(symbol: str) -> dict | None:
     if cached and now - cached[1] < STOCK_INFO_CACHE_TTL_SECONDS:
         return cached[0]
 
-    token = await _get_access_token()
-    async with httpx.AsyncClient(timeout=5) as client:
-        resp = await client.get(
-            f"{BASE_URL}/api/v1/stocks",
-            headers={"Authorization": f"Bearer {token}"},
-            params={"symbols": symbol},
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    data = await _api_get("/api/v1/stocks", {"symbols": symbol})
 
     info = next((item for item in data.get("result", []) if item["symbol"] == symbol), None)
     if info:
