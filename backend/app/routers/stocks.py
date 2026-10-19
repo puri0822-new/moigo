@@ -3,21 +3,24 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core import naver_client, toss_client
+from app.core.ai_analyze import get_latest_analysis, related_news_for, run_analysis
 from app.core.candle_agg import aggregate_daily
 from app.core.candle_store import get_daily_bars
+from app.core.dependencies import get_current_user
 from app.core.price_fetch import fetch_prices_safe
 from app.database import get_db
-from app.models import Stock, StockPriceCache
+from app.models import AiAnalysis, Stock, StockPriceCache, User
+from app.schemas.analysis import AiAnalysisData, AnalysisNewsItem
 from app.schemas.candle import Candle
 from app.schemas.common import ApiResponse
 from app.schemas.news import NewsItem
 from app.schemas.orderbook import Orderbook, OrderbookLevel
-from app.schemas.ranking import StockRankingItem
+from app.schemas.ranking import RankingAiInsight, RankingAiSummary, StockRankingItem
 from app.schemas.stock import StockDetail, StockListItem
 from app.schemas.stock_info import StockInfo
 
@@ -58,6 +61,41 @@ def _apply_cache(item: StockListItem, cache: StockPriceCache | None) -> None:
         item.change_rate = float(cache.change_rate) if cache.change_rate is not None else None
 
 
+def _to_ranking_ai(analysis: AiAnalysis) -> RankingAiSummary | None:
+    insights: list[RankingAiInsight] = []
+    for bot, result, rec in (
+        ("Gemini", analysis.gemini_result, analysis.gemini_recommendation),
+        ("Claude", analysis.claude_result, analysis.claude_recommendation),
+        ("CLOVA", analysis.clova_result, analysis.clova_recommendation),
+    ):
+        if result and rec in ("BUY", "HOLD", "SELL"):
+            insights.append(RankingAiInsight(bot=bot, recommendation=rec, summary=result))
+    if not insights:
+        return None
+    return RankingAiSummary(
+        sentiment=analysis.sentiment,
+        is_matched=analysis.is_matched,
+        analyzed_at=analysis.analyzed_at,
+        insights=insights,
+    )
+
+
+def _latest_analyses_by_stock(db: Session, stock_ids: list[int]) -> dict[int, AiAnalysis]:
+    """종목별 최신 ai_analyses 1건. id DESC 기준."""
+    if not stock_ids:
+        return {}
+    latest_id = (
+        select(func.max(AiAnalysis.id).label("id"))
+        .where(AiAnalysis.stock_id.in_(stock_ids))
+        .group_by(AiAnalysis.stock_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(AiAnalysis).where(AiAnalysis.id.in_(select(latest_id.c.id)))
+    ).scalars().all()
+    return {row.stock_id: row for row in rows}
+
+
 @router.get("", response_model=ApiResponse[list[StockListItem]])
 async def list_stocks(db: Session = Depends(get_db)):
     data = []
@@ -75,6 +113,7 @@ async def get_stock_rankings(db: Session = Depends(get_db)):
     rows = _load_stocks_with_cache(
         db, order_by=(StockPriceCache.market_rank.is_(None), StockPriceCache.market_rank, Stock.id)
     )
+    analyses = _latest_analyses_by_stock(db, [stock.id for stock, _ in rows])
     data = [
         StockRankingItem(
             rank=cache.market_rank if cache else None,
@@ -87,6 +126,7 @@ async def get_stock_rankings(db: Session = Depends(get_db)):
             change_rate=float(cache.change_rate) if cache and cache.change_rate is not None else None,
             trading_volume=cache.trading_volume if cache else None,
             trading_amount=cache.trading_amount if cache else None,
+            ai=_to_ranking_ai(analyses[stock.id]) if stock.id in analyses else None,
         )
         for stock, cache in rows
     ]
@@ -247,3 +287,69 @@ async def get_stock_news(stock_id: int, limit: int = 10, db: Session = Depends(g
 
     data = [NewsItem(id=i + 1, **item) for i, item in enumerate(items)]
     return ApiResponse(success=True, data=data, message="요청 성공")
+
+
+def _to_analysis_data(db: Session, analysis: AiAnalysis) -> AiAnalysisData:
+    news = related_news_for(db, analysis.id)
+    return AiAnalysisData(
+        id=analysis.id,
+        stock_id=analysis.stock_id,
+        gemini_result=analysis.gemini_result,
+        claude_result=analysis.claude_result,
+        clova_result=analysis.clova_result,
+        gemini_recommendation=analysis.gemini_recommendation,
+        claude_recommendation=analysis.claude_recommendation,
+        clova_recommendation=analysis.clova_recommendation,
+        is_matched=analysis.is_matched,
+        sentiment=analysis.sentiment,
+        price_at_analysis=analysis.price_at_analysis,
+        analyzed_at=analysis.analyzed_at,
+        related_news=[
+            AnalysisNewsItem(
+                id=n.id,
+                title=n.title,
+                source=n.source,
+                published_at=n.published_at,
+                url=n.url,
+            )
+            for n in news
+        ],
+    )
+
+
+@router.get("/{stock_id}/analysis", response_model=ApiResponse[AiAnalysisData])
+def get_stock_analysis(stock_id: int, db: Session = Depends(get_db)):
+    stock = db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    analysis = get_latest_analysis(db, stock_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="분석 결과가 없습니다")
+
+    return ApiResponse(success=True, data=_to_analysis_data(db, analysis), message="요청 성공")
+
+
+@router.post("/{stock_id}/analysis", response_model=ApiResponse[AiAnalysisData], status_code=201)
+async def create_stock_analysis(
+    stock_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    stock = db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        analysis = await run_analysis(db, stock)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=502, detail="AI 분석에 실패했습니다") from None
+
+    return ApiResponse(
+        success=True,
+        data=_to_analysis_data(db, analysis),
+        message="분석이 완료되었습니다",
+    )

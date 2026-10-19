@@ -79,8 +79,10 @@ CREATE TABLE ai_analyses (
     stock_id                BIGINT          NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
     gemini_result           TEXT            NULL,
     claude_result           TEXT            NULL,
+    clova_result            TEXT            NULL,
     gemini_recommendation   VARCHAR(20)     NULL,
     claude_recommendation   VARCHAR(20)     NULL,
+    clova_recommendation    VARCHAR(20)     NULL,
     is_matched              BOOLEAN         NULL,
     sentiment               VARCHAR(20)     NULL,
     price_at_analysis       BIGINT          NULL,
@@ -88,6 +90,7 @@ CREATE TABLE ai_analyses (
 
     CONSTRAINT chk_gemini_recommendation CHECK (gemini_recommendation IN ('BUY', 'HOLD', 'SELL')),
     CONSTRAINT chk_claude_recommendation CHECK (claude_recommendation IN ('BUY', 'HOLD', 'SELL')),
+    CONSTRAINT chk_clova_recommendation CHECK (clova_recommendation IN ('BUY', 'HOLD', 'SELL')),
     CONSTRAINT chk_sentiment CHECK (sentiment IN ('POSITIVE', 'NEUTRAL', 'NEGATIVE'))
 );
 

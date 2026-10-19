@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
@@ -23,6 +23,16 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('access_token'));
   const [nickname, setNickname] = useState(() => localStorage.getItem('nickname') || '');
+
+  // api.ts가 401에서 토큰을 지우면 로그인 상태를 맞춘다.
+  useEffect(() => {
+    const onCleared = () => {
+      setIsAuthenticated(false);
+      setNickname('');
+    };
+    window.addEventListener('moigo:auth-cleared', onCleared);
+    return () => window.removeEventListener('moigo:auth-cleared', onCleared);
+  }, []);
 
   const loginWithEmail = async (email: string, password: string) => {
     const res = await apiPost<LoginResponse>('/auth/login', { email, password });
