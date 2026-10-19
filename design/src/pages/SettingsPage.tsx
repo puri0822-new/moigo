@@ -117,13 +117,41 @@ export default function SettingsPage() {
   };
 
   const joined = new Date(profile.created_at);
+  const joinedDays = Math.floor((Date.now() - joined.getTime()) / 86_400_000) + 1;
+
+  const badgeStyle = {
+    padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+    background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.textMuted,
+  };
 
   return (
     <div style={{ padding: 24, maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <div style={{ fontSize: 20, fontWeight: 800 }}>회원 설정</div>
-        <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 3 }}>
-          {joined.getFullYear()}.{joined.getMonth() + 1}.{joined.getDate()} 가입 · {profile.login_type === 'GOOGLE' ? '구글 계정' : '이메일 계정'}
+      <div style={{ fontSize: 20, fontWeight: 800 }}>회원 설정</div>
+
+      <div style={{
+        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+        padding: 20, display: 'flex', alignItems: 'center', gap: 16,
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%', background: theme.ai, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 26, color: theme.aiText, fontWeight: 700,
+        }}>
+          {profile.nickname[0]?.toUpperCase() ?? '?'}
+        </div>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile.nickname}
+          </div>
+          <div style={{ fontSize: 13, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile.email}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+            <span style={badgeStyle}>{profile.login_type === 'GOOGLE' ? 'Google' : '이메일'}</span>
+            <span style={badgeStyle}>
+              {joined.getFullYear()}.{joined.getMonth() + 1}.{joined.getDate()} 가입 · {joinedDays}일째
+            </span>
+          </div>
         </div>
       </div>
 
