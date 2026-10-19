@@ -11,3 +11,12 @@ export function timeAgo(isoString: string): string {
   const days = Math.floor(hours / 24);
   return `${days}일 전`;
 }
+
+/** 오늘부터 그 날짜까지 남은 날 수. 오늘이면 0, 지났으면 음수 */
+export function daysUntil(dateString: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateString);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}

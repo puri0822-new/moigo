@@ -5,11 +5,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core import http
 from app.core.order_matching import order_matching_loop
 from app.core.price_sync import price_sync_loop
-from app.routers import auth, orders, portfolio, account, stocks, market, community
+from app.core.uploads import UPLOAD_DIR, UPLOAD_URL_PREFIX
+from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai, users
 
 
 @asynccontextmanager
@@ -67,4 +69,10 @@ app.include_router(portfolio.router, prefix="/v1")
 app.include_router(account.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")
 app.include_router(market.router, prefix="/v1")
+app.include_router(ranking.router, prefix="/v1")
 app.include_router(community.router, prefix="/v1")
+app.include_router(ai.router, prefix="/v1")
+app.include_router(users.router, prefix="/v1")
+
+UPLOAD_DIR.mkdir(exist_ok=True)
+app.mount(UPLOAD_URL_PREFIX, StaticFiles(directory=UPLOAD_DIR), name="uploads")

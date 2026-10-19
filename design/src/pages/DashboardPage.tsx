@@ -121,7 +121,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {[
-                { label: '포트폴리오', path: '/portfolio' },
+                { label: 'AI 포트폴리오 보러가기', path: '/ai-analysis' },
                 { label: '랭킹 보기', path: '/ranking' },
               ].map(item => (
                 <div

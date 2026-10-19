@@ -62,7 +62,6 @@ async def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 종목 확인
     stock = db.query(Stock).filter(Stock.id == body.stock_id).first()
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")

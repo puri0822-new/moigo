@@ -113,6 +113,7 @@ export default function StockDetailPage() {
   // 종목 정보·차트·호가·종목정보·뉴스·주문·내 모의매매는 실제 API, AI 인사이트는 아직 목업
   const [stock, setStock] = useState<ApiStockDetail | null>(null);
   const [stockStatus, setStockStatus] = useState<'loading' | 'ready' | 'notFound' | 'error'>('loading');
+  const [orderbookExpanded, setOrderbookExpanded] = useState(false);
   const [candles, setCandles] = useState<ChartCandle[]>([]);
   // 폴링으로 받은 마지막 막대. 차트를 다시 그리지 않고 마지막 막대만 갱신한다
   const [liveBar, setLiveBar] = useState<ChartCandle | null>(null);
@@ -434,6 +435,52 @@ export default function StockDetailPage() {
     setQty(Math.max(1, Math.floor(base * ratio)));
   };
 
+  // 호가 목록. 패널에는 5단계, 크게 보기에서는 10단계를 큰 글씨로 보여준다
+  const renderOrderbook = (levelCount: number, large: boolean) => {
+    if (!orderbook) {
+      return (
+        <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
+          {orderbookStatus === 'error' ? '호가를 불러오지 못했습니다' : '호가를 불러오는 중...'}
+        </div>
+      );
+    }
+    // 위에서부터 높은 가격순: 매도호가(현재가에서 먼 것부터) → 매수호가(현재가에 가까운 것부터)
+    const asks = orderbook.asks.slice(0, levelCount).reverse();
+    const bids = orderbook.bids.slice(0, levelCount);
+    if (asks.length === 0 && bids.length === 0) {
+      return <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>표시할 호가가 없습니다</div>;
+    }
+    const maxVolume = Math.max(1, ...asks.map(l => l.volume), ...bids.map(l => l.volume));
+    const row = (l: { price: number; volume: number }, side: 'ask' | 'bid') => {
+      const color = side === 'ask' ? theme.down : theme.up;
+      return (
+        <div
+          key={`${side}-${l.price}`}
+          // 호가를 누르면 그 가격으로 지정가 주문을 넣을 수 있게 채워준다
+          onClick={() => { setOrderType('limit'); setInputPrice(l.price); setOrderbookExpanded(false); }}
+          style={{
+            position: 'relative', display: 'flex', justifyContent: 'space-between',
+            fontSize: large ? 14 : 12, padding: large ? '7px 10px' : '3px 6px',
+            borderRadius: 4, cursor: 'pointer', overflow: 'hidden',
+          }}
+        >
+          {/* 잔량 막대 */}
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0, right: 0,
+            width: `${(l.volume / maxVolume) * 100}%`, background: color, opacity: 0.12,
+          }} />
+          <span style={{ position: 'relative', fontWeight: 600, color }}>{l.price.toLocaleString()}원</span>
+          <span style={{ position: 'relative', color: theme.textMuted }}>{l.volume.toLocaleString()}</span>
+        </div>
+      );
+    };
+    return <>
+      {asks.map(l => row(l, 'ask'))}
+      <div style={{ height: 1, background: theme.border, margin: '2px 0' }} />
+      {bids.map(l => row(l, 'bid'))}
+    </>;
+  };
+
   if (stockStatus !== 'ready' || !stock) {
     return (
       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -624,50 +671,24 @@ export default function StockDetailPage() {
               flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
               borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 6,
             }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>호가</div>
-              {(() => {
-                if (!orderbook) {
-                  return (
-                    <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
-                      {orderbookStatus === 'error' ? '호가를 불러오지 못했습니다' : '호가를 불러오는 중...'}
-                    </div>
-                  );
-                }
-                // 위에서부터 높은 가격순: 매도호가(현재가에서 먼 것부터) → 매수호가(현재가에 가까운 것부터)
-                const asks = orderbook.asks.slice(0, ORDERBOOK_LEVELS).reverse();
-                const bids = orderbook.bids.slice(0, ORDERBOOK_LEVELS);
-                if (asks.length === 0 && bids.length === 0) {
-                  return <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>표시할 호가가 없습니다</div>;
-                }
-                const maxVolume = Math.max(1, ...asks.map(l => l.volume), ...bids.map(l => l.volume));
-                const row = (l: { price: number; volume: number }, side: 'ask' | 'bid') => {
-                  const color = side === 'ask' ? theme.down : theme.up;
-                  return (
-                    <div
-                      key={`${side}-${l.price}`}
-                      // 호가를 누르면 그 가격으로 지정가 주문을 넣을 수 있게 채워준다
-                      onClick={() => { setOrderType('limit'); setInputPrice(l.price); }}
-                      style={{
-                        position: 'relative', display: 'flex', justifyContent: 'space-between',
-                        fontSize: 12, padding: '3px 6px', borderRadius: 4, cursor: 'pointer', overflow: 'hidden',
-                      }}
-                    >
-                      {/* 잔량 막대 */}
-                      <div style={{
-                        position: 'absolute', top: 0, bottom: 0, right: 0,
-                        width: `${(l.volume / maxVolume) * 100}%`, background: color, opacity: 0.12,
-                      }} />
-                      <span style={{ position: 'relative', fontWeight: 600, color }}>{l.price.toLocaleString()}원</span>
-                      <span style={{ position: 'relative', color: theme.textMuted }}>{l.volume.toLocaleString()}</span>
-                    </div>
-                  );
-                };
-                return <>
-                  {asks.map(l => row(l, 'ask'))}
-                  <div style={{ height: 1, background: theme.border, margin: '2px 0' }} />
-                  {bids.map(l => row(l, 'bid'))}
-                </>;
-              })()}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>호가</div>
+                <div
+                  onClick={() => setOrderbookExpanded(true)}
+                  title="호가 크게 보기"
+                  style={{
+                    width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: theme.textMuted,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                </div>
+              </div>
+              {renderOrderbook(ORDERBOOK_LEVELS, false)}
             </div>
 
           {/* 주문 내역 (서버에 저장된 이 종목의 주문. 미체결 주문은 취소할 수 있다) */}
@@ -768,12 +789,27 @@ export default function StockDetailPage() {
             {newsStatus === 'ready' && news.length === 0 && <div style={{ fontSize: 12, color: theme.textMuted }}>관련 뉴스가 없습니다</div>}
             {news.map(n => (
               <a key={n.id} href={n.url} target="_blank" rel="noopener noreferrer" style={{
-                display: 'flex', flexDirection: 'column', gap: 2,
-                padding: '10px 0', borderBottom: `1px solid ${theme.border}`,
+                display: 'flex', alignItems: 'center', gap: 14,
+                padding: '12px 0', borderBottom: `1px solid ${theme.border}`,
                 color: 'inherit', textDecoration: 'none',
               }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{n.title}</div>
-                <div style={{ fontSize: 11, color: theme.textMuted }}>{n.source ?? ''} · {timeAgo(n.published_at)}</div>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{
+                    fontSize: 13, fontWeight: 600, lineHeight: 1.45,
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  }}>{n.title}</div>
+                  <div style={{ fontSize: 11, color: theme.textMuted }}>{n.source ?? ''} · {timeAgo(n.published_at)}</div>
+                </div>
+                {n.image_url && (
+                  <img
+                    src={n.image_url} alt="" loading="lazy" referrerPolicy="no-referrer"
+                    onError={e => { e.currentTarget.style.display = 'none'; }}
+                    style={{
+                      width: 96, height: 64, flexShrink: 0, objectFit: 'cover',
+                      borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.panel2,
+                    }}
+                  />
+                )}
               </a>
             ))}
           </div>
@@ -1126,6 +1162,11 @@ export default function StockDetailPage() {
                   지금 호가로 체결되지 않으면 미체결로 남아 지정가에 닿을 때 체결돼요 (당일 장 마감까지 유효)
                 </span>
               )}
+              {orderType === 'limit' && inputPrice > 0 && inputPrice < priceNum * 0.9 && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: theme.down }}>
+                  ⚠ 현재가({priceNum.toLocaleString()}원)보다 10% 이상 낮은 가격입니다
+                </span>
+              )}
             </div>
 
             {/* 수량 입력 */}
@@ -1192,6 +1233,45 @@ export default function StockDetailPage() {
           color: theme.bg, boxShadow: '0 8px 24px rgba(0,0,0,.3)', zIndex: 50, whiteSpace: 'nowrap',
         }}>
           {toast.msg}
+        </div>
+      )}
+
+      {/* 호가 크게 보기 */}
+      {orderbookExpanded && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setOrderbookExpanded(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: 420, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 48px)',
+            background: theme.panel, border: `1px solid ${theme.border}`,
+            borderRadius: 16, padding: 20,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column', gap: 12,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <StockLogo name={stock.name} code={stock.code} size={28} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 800 }}>{stock.name} 호가</div>
+                <div style={{ fontSize: 11, color: theme.textMuted }}>현재가 {priceNum.toLocaleString()}원 · 호가를 누르면 지정가로 입력</div>
+              </div>
+              <div
+                onClick={() => setOrderbookExpanded(false)}
+                style={{
+                  marginLeft: 'auto', width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                  border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: theme.textMuted, fontSize: 13,
+                }}
+              >✕</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, color: theme.textMuted, padding: '0 10px 6px', borderBottom: `1px solid ${theme.border}` }}>
+              <span>호가</span><span>잔량</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
+              {renderOrderbook(10, true)}
+            </div>
+          </div>
         </div>
       )}
     </div>
