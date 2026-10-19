@@ -208,6 +208,32 @@ const features = [
   },
 ];
 
+// AI 분석 페이지 캡처(라이트 테마). 추천·성적표가 아직 더미 데이터라 API가 붙으면 다시 찍어 교체한다
+const aiPreviews = [
+  {
+    src: '/screenshots/ai-stats.webp',
+    label: 'AI 성적',
+    title: 'AI 성적을 숫자로 공개합니다',
+    desc: 'AI마다 적중률과 평균 수익, 최근 결과를 보여주고 주별 적중률 추이까지 비교할 수 있어요.',
+    alt: 'AI별 적중률 카드와 적중률 추이 차트',
+  },
+  {
+    src: '/screenshots/ai-picks.webp',
+    label: '추천 종목',
+    title: '매일 새로운 추천 종목',
+    desc: 'AI가 뉴스를 분석해 매수·매도 종목을 고르고, 근거와 추천가, 결과 공개일을 함께 알려줘요.',
+    alt: 'AI별 추천 종목 카드',
+  },
+  {
+    src: '/screenshots/ai-history.webp',
+    label: '성적표',
+    title: '지난 추천도 결과까지 확인',
+    desc: '1주·1달 뒤 실제 가격으로 적중 여부를 가려, 지난 추천의 수익률을 모두 남겨둬요.',
+    alt: '지난 추천 성적표',
+    fade: true,
+  },
+];
+
 export default function LandingPage() {
   const { theme, mode, toggle } = useTheme();
   const { isAuthenticated } = useAuth();
@@ -370,6 +396,58 @@ export default function LandingPage() {
               <circle cx="146" cy="4" r="9" fill="#fca5a5" opacity="0.2" />
             </svg>
           </div>
+        </div>
+      </div>
+
+      {/* AI 분석 화면 미리보기 */}
+      <div style={{ padding: '72px 40px 8px', maxWidth: 1120, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 56 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: theme.ai, letterSpacing: '0.1em', marginBottom: 12 }}>AI ANALYSIS</div>
+          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>AI가 고르고, 결과로 증명합니다</div>
+          <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 10 }}>아래 화면의 추천 종목과 성적은 예시입니다</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 72 }}>
+          {aiPreviews.map((p, i) => (
+            <div key={p.src} style={{
+              display: 'flex', alignItems: 'center', gap: 48,
+              flexDirection: i % 2 === 1 ? 'row-reverse' : 'row',
+            }}>
+              <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{
+                  alignSelf: 'flex-start', fontSize: 12, fontWeight: 700, color: theme.ai,
+                  background: theme.aiSoft, borderRadius: 999, padding: '4px 10px',
+                }}>
+                  {String(i + 1).padStart(2, '0')} · {p.label}
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.35, letterSpacing: '-0.02em' }}>{p.title}</div>
+                <div style={{ fontSize: 14, color: theme.textMuted, lineHeight: 1.7 }}>{p.desc}</div>
+              </div>
+              <div style={{
+                flex: 1, minWidth: 0, borderRadius: 16, overflow: 'hidden',
+                border: `1px solid ${theme.border}`, background: theme.panel,
+                boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
+              }}>
+                <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderBottom: `1px solid ${theme.border}` }}>
+                  {['#ff5f57', '#febc2e', '#28c840'].map(c => (
+                    <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
+                  ))}
+                </div>
+                <img
+                  src={p.src}
+                  alt={p.alt}
+                  loading="lazy"
+                  style={{
+                    display: 'block', width: '100%', height: 'auto',
+                    // 성적표는 중간에서 잘리므로 아래를 흐리게 해 목록이 이어지는 것처럼 보이게 한다
+                    ...(p.fade && {
+                      maskImage: 'linear-gradient(to bottom, #000 70%, transparent)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, #000 70%, transparent)',
+                    }),
+                  }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
