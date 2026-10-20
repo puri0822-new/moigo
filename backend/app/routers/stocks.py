@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import naver_client, toss_client
 from app.core.candle_agg import aggregate_daily
 from app.core.candle_store import get_daily_bars
+from app.core.prev_close import get_prev_closes
 from app.core.database import get_db
 from app.models import Stock
 from app.schemas.candle import Candle
@@ -35,19 +36,8 @@ async def _fetch_prices_safe(codes: list[str]) -> dict[str, dict]:
 
 
 async def _fetch_prev_closes_safe(codes: list[str]) -> dict[str, float]:
-    """등락률 계산용 전일 종가. 일봉 2개(전일/당일)를 조회해 앞쪽(전일)의 종가를 사용."""
-
-    async def fetch_one(code: str) -> tuple[str, float | None]:
-        try:
-            candles = await toss_client.get_candles(code, "1d", 2)
-        except httpx.HTTPError:
-            return code, None
-        if len(candles) < 2:
-            return code, None
-        return code, float(candles[-2]["closePrice"])
-
-    results = await asyncio.gather(*[fetch_one(c) for c in codes])
-    return {code: close for code, close in results if close is not None}
+    """등락률 계산용 공식 전일 종가 (토스 앱·네이버와 같은 기준). prev_close 참고."""
+    return await get_prev_closes(codes)
 
 
 def _apply_change_rate(item: StockListItem, prev_close: float | None) -> None:
