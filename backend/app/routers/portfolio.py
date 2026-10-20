@@ -82,6 +82,27 @@ async def get_portfolio(
     }
 
 
+def _realized_pnl(orders: list[Order]) -> dict[int, tuple[int, int, float]]:
+    """매도 주문마다 (그때 평균 매수가, 실현 손익, 수익률%)를 구한다.
+    주문에는 평균 매수가가 저장돼 있지 않아서, 주문 처리(orders.py)와 같은 방식으로 오래된 주문부터 다시 계산한다:
+    매수하면 평균 매수가를 가중 평균(원 아래 버림)으로 바꾸고, 매도는 수량만 줄이며, 다 팔면 처음부터 다시 쌓는다."""
+    position: dict[int, tuple[int, int]] = {}  # stock_id → (수량, 평균 매수가)
+    result: dict[int, tuple[int, int, float]] = {}
+    for o in sorted(orders, key=lambda o: (o.ordered_at, o.id)):
+        qty, avg = position.get(o.stock_id, (0, 0))
+        if o.order_type == "BUY":
+            total = qty + o.quantity
+            avg = (avg * qty + o.price * o.quantity) // total
+            position[o.stock_id] = (total, avg)
+        elif o.order_type == "SELL":
+            # 기록상 산 적이 없는 매도(초기화 전 데이터 등)는 계산하지 않는다
+            if qty > 0 and avg > 0:
+                result[o.id] = (avg, (o.price - avg) * o.quantity, (o.price - avg) / avg * 100)
+            left = qty - o.quantity
+            position[o.stock_id] = (left, avg) if left > 0 else (0, 0)
+    return result
+
+
 @router.get("/history")
 def get_history(
     db: Session = Depends(get_db),
@@ -90,10 +111,13 @@ def get_history(
     orders = db.query(Order).filter(
         Order.user_id == current_user.id
     ).order_by(Order.ordered_at.desc()).all()
+    stocks = {s.id: s for s in db.query(Stock).filter(Stock.id.in_({o.stock_id for o in orders})).all()} if orders else {}
+    realized = _realized_pnl(orders)
 
     data = []
     for o in orders:
-        stock = db.query(Stock).filter(Stock.id == o.stock_id).first()
+        stock = stocks.get(o.stock_id)
+        pnl = realized.get(o.id)
         data.append({
             "id": o.id,
             "stock_name": stock.name if stock else "",
@@ -103,6 +127,10 @@ def get_history(
             "price": o.price,
             "total_amount": o.total_amount,
             "ordered_at": o.ordered_at,
+            # 매도에만 있다 (매수·계산 불가면 None)
+            "avg_buy_price": pnl[0] if pnl else None,
+            "realized_profit": pnl[1] if pnl else None,
+            "realized_profit_rate": round(pnl[2], 2) if pnl else None,
         })
 
     return {"success": True, "data": data, "message": "요청 성공"}

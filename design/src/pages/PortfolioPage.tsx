@@ -35,7 +35,13 @@ interface HistoryItem {
   price: number;
   total_amount: number;
   ordered_at: string;
+  // 매도에만 있다: 그때 평균 매수가 대비 실현 손익
+  avg_buy_price: number | null;
+  realized_profit: number | null;
+  realized_profit_rate: number | null;
 }
+
+const HISTORY_COLUMNS = '110px 50px 1fr 60px 100px 110px 150px';
 
 export default function PortfolioPage() {
   const { theme } = useTheme();
@@ -247,13 +253,28 @@ export default function PortfolioPage() {
 
       {/* 거래 내역 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>거래 내역</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>거래 내역</div>
+          {(() => {
+            const sells = history.filter(t => t.realized_profit !== null);
+            if (sells.length === 0) return null;
+            const total = sells.reduce((sum, t) => sum + t.realized_profit!, 0);
+            return (
+              <div style={{ fontSize: 12, color: theme.textMuted }}>
+                실현 손익 합계{' '}
+                <span style={{ fontWeight: 700, color: total >= 0 ? theme.up : theme.down }}>
+                  {total >= 0 ? '+' : '-'}{Math.abs(total).toLocaleString()}원
+                </span>
+              </div>
+            );
+          })()}
+        </div>
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
           borderRadius: 12, overflow: 'hidden',
         }}>
           <div style={{
-            display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px',
+            display: 'grid', gridTemplateColumns: HISTORY_COLUMNS,
             padding: '10px 16px', borderBottom: `1px solid ${theme.border}`,
             fontSize: 12, fontWeight: 700, color: theme.textMuted,
           }}>
@@ -263,6 +284,7 @@ export default function PortfolioPage() {
             <span style={{ textAlign: 'right' }}>수량</span>
             <span style={{ textAlign: 'right' }}>단가</span>
             <span style={{ textAlign: 'right' }}>거래금액</span>
+            <span style={{ textAlign: 'right' }}>실현 손익</span>
           </div>
           {history.length === 0 && (
             <div style={{ padding: '20px 16px', fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
@@ -276,7 +298,7 @@ export default function PortfolioPage() {
             const isBuy = t.order_type === 'BUY';
             return (
               <div key={t.id} style={{
-                display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px',
+                display: 'grid', gridTemplateColumns: HISTORY_COLUMNS,
                 padding: '11px 16px', borderBottom: `1px solid ${theme.border}`,
                 fontSize: 13, alignItems: 'center',
               }}>
@@ -291,6 +313,16 @@ export default function PortfolioPage() {
                 <span style={{ textAlign: 'right' }}>{t.quantity}주</span>
                 <span style={{ textAlign: 'right' }}>{t.price.toLocaleString()}원</span>
                 <span style={{ textAlign: 'right', fontWeight: 600 }}>{t.total_amount.toLocaleString()}원</span>
+                {t.realized_profit === null ? (
+                  <span style={{ textAlign: 'right', color: theme.textMuted }}>-</span>
+                ) : (
+                  <span
+                    title={`평균 매수가 ${t.avg_buy_price!.toLocaleString()}원`}
+                    style={{ textAlign: 'right', fontWeight: 700, color: t.realized_profit >= 0 ? theme.up : theme.down }}
+                  >
+                    {t.realized_profit >= 0 ? '+' : '-'}{Math.abs(t.realized_profit).toLocaleString()}원 ({Math.abs(t.realized_profit_rate!).toFixed(2)}%)
+                  </span>
+                )}
               </div>
             );
           })}
