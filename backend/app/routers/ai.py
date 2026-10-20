@@ -1,14 +1,14 @@
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core import llm
+from app.core import llm, stock_reason
 from app.database import get_db
 from app.models.ai_recommendation import AiModel, AiRecommendation, AiRecommendationEvidence, AiRecommendationResult
 from app.models.stock import Stock
-from app.schemas.ai import AiEvidenceItem, AiModelItem, AiRecommendationItem, AiResultItem
+from app.schemas.ai import AiEvidenceItem, AiModelItem, AiRecommendationItem, AiResultItem, StockAiReasonItem
 from app.schemas.common import ApiResponse
 
 router = APIRouter(prefix="/ai", tags=["AI"])
@@ -59,4 +59,15 @@ def list_recommendations(db: Session = Depends(get_db)):
         )
         for rec, stock, result in rows
     ]
+    return ApiResponse(success=True, data=data, message="요청 성공")
+
+
+@router.get("/stocks/{code}/reason", response_model=ApiResponse[StockAiReasonItem | None])
+async def get_stock_reason(code: str, db: Session = Depends(get_db)):
+    """종목 상세의 AI 등락 이유. 없거나 오래됐으면 이 요청에서 AI가 새로 쓴다 (몇 초 걸릴 수 있음)."""
+    stock = db.query(Stock).filter(Stock.code == code).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+    row = await stock_reason.get_reason(db, stock)
+    data = StockAiReasonItem.model_validate(row) if row else None
     return ApiResponse(success=True, data=data, message="요청 성공")

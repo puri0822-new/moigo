@@ -263,3 +263,16 @@ CREATE INDEX idx_ai_rec_model_period ON ai_recommendations(ai_model, period_type
 CREATE INDEX idx_ai_rec_stock_id ON ai_recommendations(stock_id);
 CREATE INDEX idx_ai_rec_evaluate_at ON ai_recommendations(evaluate_at);
 CREATE INDEX idx_ai_rec_evidence_rec_id ON ai_recommendation_evidence(recommendation_id);
+
+-- stock_ai_reasons (종목 상세의 AI 등락 이유. 종목·거래일마다 한 줄, 장중에는 1시간마다 새로 씀)
+CREATE TABLE stock_ai_reasons (
+    id           BIGSERIAL     PRIMARY KEY,
+    stock_id     BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    trade_date   DATE          NOT NULL,
+    ai_model     VARCHAR(30)   NOT NULL REFERENCES ai_models(code),
+    change_rate  NUMERIC(6,2)  NOT NULL,
+    reason       TEXT          NOT NULL,
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (stock_id, trade_date)
+);

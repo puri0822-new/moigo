@@ -2,11 +2,13 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { stocks, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
 import AiRecCard from '../components/AiRecCard';
-import { addWatchlist, apiGet, createOrder, fetchStockByCode, fetchStockCandles, fetchStockNews, fetchStockOrderbook, fetchWatchlist, removeWatchlist, setWatchAlert } from '../lib/api';
-import type { ApiCandle, ApiNewsItem, ApiOrderbook, ApiStock } from '../lib/api';
+import AiIcon from '../components/AiIcon';
+import { useAiRecommendations } from '../lib/aiRecommendations';
+import { findAiProfile, useAiModels } from '../lib/aiModels';
+import { addWatchlist, apiGet, createOrder, fetchSimilarStocks, fetchStockAiReason, fetchStockByCode, fetchStockCandles, fetchStockNews, fetchStockOrderbook, fetchWatchlist, removeWatchlist, setWatchAlert } from '../lib/api';
+import type { ApiCandle, ApiNewsItem, ApiOrderbook, ApiStock, ApiStockAiReason } from '../lib/api';
 import { timeAgo } from '../lib/time';
 import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
 import CandleChart from '../components/CandleChart';
@@ -81,6 +83,36 @@ export default function StockDetailPage() {
     shares_outstanding: number | null; nxt_supported: boolean | null; trading_suspended: boolean | null;
   } | null>(null);
   const [stockInfoStatus, setStockInfoStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [aiReason, setAiReason] = useState<ApiStockAiReason | null>(null);
+  const [aiReasonStatus, setAiReasonStatus] = useState<'loading' | 'ready'>('loading');
+  const [similarStocks, setSimilarStocks] = useState<ApiStock[]>([]);
+  const aiModels = useAiModels();
+  const { current: currentAiRecs } = useAiRecommendations();
+  // 이 종목에 대한, 아직 결과가 나오지 않은 실제 AI 추천 (AI 표시 순서대로)
+  const stockRecs = currentAiRecs
+    .filter(r => r.stockCode === code)
+    .sort((a, b) => aiModels.findIndex(m => m.model === a.aiModel) - aiModels.findIndex(m => m.model === b.aiModel));
+
+  // 등락 이유는 처음 만들 때 AI 호출로 몇 초 걸리므로 다른 데이터와 따로 불러온다
+  useEffect(() => {
+    if (!code) return;
+    let cancelled = false;
+    setAiReason(null);
+    setAiReasonStatus('loading');
+    fetchStockAiReason(code)
+      .then(res => { if (!cancelled) setAiReason(res.data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setAiReasonStatus('ready'); });
+    return () => { cancelled = true; };
+  }, [code]);
+
+  useEffect(() => {
+    if (stockId === null) return;
+    let cancelled = false;
+    setSimilarStocks([]);
+    fetchSimilarStocks(stockId).then(res => { if (!cancelled) setSimilarStocks(res.data); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [stockId]);
 
   useEffect(() => {
     setFloatPos({ x: window.innerWidth - 316, y: window.innerHeight - 540 });
@@ -236,8 +268,6 @@ export default function StockDetailPage() {
   }, [portfolio, code, side]);
 
 
-  // 이름·코드·업종·거래량은 API 값. AI 등락 이유와 유사 종목만 아직 목업이라, 목업에 없는 종목은 비워 둔다.
-  const mockStock = stocks.find(s => s.code === code);
   const stock = {
     name: apiStock?.name ?? '',
     code: apiStock?.code ?? code ?? '',
@@ -245,8 +275,6 @@ export default function StockDetailPage() {
     volume: apiStock?.volume != null
       ? (apiStock.volume >= 1_000_000 ? `${(apiStock.volume / 1_000_000).toFixed(1)}M` : `${(apiStock.volume / 1_000).toFixed(0)}K`)
       : '-',
-    aiReason: mockStock?.aiReason ?? null,
-    similar: mockStock?.similar ?? [],
   };
   const priceNum = livePrice ?? 0;
   const changeRate = liveChangeRate !== null ? liveChangeRate * 100 : 0;
@@ -666,111 +694,110 @@ export default function StockDetailPage() {
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* AI 인사이트 탭 */}
           {rightTab === 'insight' && <>
-            {/* 등락 이유 */}
+            {/* 등락 이유 (AI가 오늘 등락률·시장 지수·최신 뉴스로 쓴 것) */}
             <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>등락 이유</div>
-              <div style={{ fontSize: 13, lineHeight: 1.6, color: stock.aiReason ? undefined : theme.textMuted }}>{stock.aiReason ?? 'AI 분석 준비 중입니다'}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>오늘 등락 이유</div>
+              <div style={{ fontSize: 13, lineHeight: 1.6, color: aiReason ? undefined : theme.textMuted }}>
+                {aiReasonStatus === 'loading' ? 'AI가 오늘 뉴스와 시장 흐름을 읽고 있어요…' : aiReason?.reason ?? 'AI 분석 준비 중입니다'}
+              </div>
+              {aiReason && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: theme.textMuted }}>
+                  <AiIcon model={aiReason.ai_model} size={12} />
+                  {findAiProfile(aiModels, aiReason.ai_model).name} · {new Date(aiReason.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
+                </div>
+              )}
             </div>
 
-            {/* AI 종합 게이지 */}
-            {(() => {
-              const insights = stockAiInsights.filter(i => i.stockName === stock.name);
-              if (insights.length === 0) return null;
-              const buyCount = insights.filter(i => i.signal === '매수').length;
-              const neutralCount = insights.filter(i => i.signal === '중립').length;
-              const sellCount = insights.filter(i => i.signal === '매도').length;
-              const total = insights.length;
-              // -1(매도) ~ +1(매수) 평균 스코어
-              const score = (buyCount - sellCount) / total;
-              // 0%=매도, 50%=중립, 100%=매수
-              const pct = ((score + 1) / 2) * 100;
-              const gaugeColor = score > 0.2 ? theme.up : score < -0.2 ? theme.down : theme.textMuted;
-              const gaugeLabel = score > 0.2 ? '매수 우세' : score < -0.2 ? '매도 우세' : '중립';
-
-              return (
-                <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>AI 종합 의견</div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: gaugeColor }}>{gaugeLabel}</div>
-                  </div>
-
-                  {/* 게이지 바 */}
-                  <div style={{ position: 'relative' }}>
-                    {/* 배경 그라디언트 바 */}
-                    <div style={{
-                      height: 8, borderRadius: 99,
-                      background: `linear-gradient(to right, ${theme.down}, ${theme.textMuted} 50%, ${theme.up})`,
-                      opacity: 0.35,
-                    }} />
-                    {/* 포인터 */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: `${pct}%`,
-                      transform: 'translate(-50%, -50%)',
-                      width: 16, height: 16,
-                      borderRadius: '50%',
-                      background: gaugeColor,
-                      border: `3px solid ${theme.panel2}`,
-                      boxShadow: `0 0 0 2px ${gaugeColor}`,
-                      transition: 'left 0.4s ease',
-                    }} />
-                  </div>
-
-                  {/* 라벨 + 카운트 */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600 }}>
-                    <span style={{ color: theme.down }}>매도 {sellCount}</span>
-                    <span style={{ color: theme.textMuted }}>중립 {neutralCount}</span>
-                    <span style={{ color: theme.up }}>매수 {buyCount}</span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* AI별 추천 코멘트 */}
-            {(() => {
-              const insights = stockAiInsights.filter(i => i.stockName === stock.name);
-              if (insights.length === 0) return null;
-              return <>
-                <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>AI별 코멘트</div>
-
-                {insights.map((ins, idx) => {
-                  const signalColor = ins.signal === '매수' ? theme.up : ins.signal === '매도' ? theme.down : theme.textMuted;
-                  return (
-                    <div key={idx} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 6, background: theme.aiSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                          <img src={ins.icon} alt={ins.bot} width={16} height={16} style={{ objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                        </div>
-                        <span style={{ fontSize: 12, fontWeight: 700 }}>{ins.bot}</span>
-                        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>{ins.signal}</span>
-                      </div>
-                      <div style={{ fontSize: 12, lineHeight: 1.6, color: theme.text }}>{ins.comment}</div>
-
-                      {ins.sources.length > 0 && (
-                        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.03em' }}>근거 뉴스</div>
-                          {ins.sources.map((src, si) => (
-                            <div key={si} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              <div style={{ fontSize: 11, fontWeight: 500, color: theme.text, lineHeight: 1.4 }}>· {src.title}</div>
-                              <div style={{ fontSize: 10, color: theme.textMuted }}>{src.source} · {src.time}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+            {stockRecs.length === 0 ? (
+              <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+                아직 이 종목을 추천한 AI가 없어요. AI 추천은 평일 장 마감 뒤(16시)에 새로 나옵니다.
+              </div>
+            ) : <>
+              {/* AI 종합 의견 (이 종목에 대한, 아직 결과가 나오지 않은 실제 추천) */}
+              {(() => {
+                const buyCount = stockRecs.filter(r => r.opinion === 'BUY').length;
+                const sellCount = stockRecs.length - buyCount;
+                // -1(전부 매도) ~ +1(전부 매수)
+                const score = (buyCount - sellCount) / stockRecs.length;
+                const pct = ((score + 1) / 2) * 100;
+                const gaugeColor = score > 0.2 ? theme.up : score < -0.2 ? theme.down : theme.textMuted;
+                const gaugeLabel = score > 0.2 ? '매수 우세' : score < -0.2 ? '매도 우세' : '의견 갈림';
+                return (
+                  <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>AI 종합 의견</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: gaugeColor }}>{gaugeLabel}</div>
                     </div>
-                  );
-                })}
-              </>;
-            })()}
+                    <div style={{ position: 'relative' }}>
+                      <div style={{
+                        height: 8, borderRadius: 99,
+                        background: `linear-gradient(to right, ${theme.down}, ${theme.textMuted} 50%, ${theme.up})`,
+                        opacity: 0.35,
+                      }} />
+                      <div style={{
+                        position: 'absolute', top: '50%', left: `${pct}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: 16, height: 16, borderRadius: '50%',
+                        background: gaugeColor, border: `3px solid ${theme.panel2}`, boxShadow: `0 0 0 2px ${gaugeColor}`,
+                        transition: 'left 0.4s ease',
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600 }}>
+                      <span style={{ color: theme.down }}>매도 {sellCount}</span>
+                      <span style={{ color: theme.textMuted }}>AI {stockRecs.length}개 추천</span>
+                      <span style={{ color: theme.up }}>매수 {buyCount}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
-            {/* 유사 종목 */}
-            {stock.similar.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>유사 종목</div>}
+              {/* AI별 코멘트 (추천 이유와 실제 근거 뉴스) */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>AI별 코멘트</div>
+              {stockRecs.map(rec => {
+                const signalColor = rec.opinion === 'BUY' ? theme.up : theme.down;
+                return (
+                  <div key={rec.id} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <AiIcon model={rec.aiModel} size={20} />
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>{findAiProfile(aiModels, rec.aiModel).name}</span>
+                      <span style={{ fontSize: 10, color: theme.textMuted }}>{rec.periodType === 'WEEKLY' ? '1주' : '1달'} 추천</span>
+                      <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>
+                        {rec.opinion === 'BUY' ? '매수' : '매도'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, lineHeight: 1.6, color: theme.text }}>{rec.reason}</div>
+
+                    {rec.evidence.length > 0 && (
+                      <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.03em' }}>근거 뉴스</div>
+                        {rec.evidence.map((ev, i) => (
+                          <a
+                            key={i}
+                            href={ev.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ display: 'flex', flexDirection: 'column', gap: 1, textDecoration: 'none', color: 'inherit', cursor: ev.url ? 'pointer' : 'default' }}
+                          >
+                            <div style={{ fontSize: 11, fontWeight: 500, color: theme.text, lineHeight: 1.4 }}>· {ev.title}</div>
+                            <div style={{ fontSize: 10, color: theme.textMuted }}>
+                              {ev.source} · {new Date(ev.publishedAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>}
+
+            {/* 유사 종목 (같은 업종) */}
+            {similarStocks.length > 0 && <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>같은 업종 종목</div>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {stock.similar.map(name => (
-                <div key={name} style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted, cursor: 'pointer' }}
-                  onClick={() => { const s = stocks.find(s => s.name === name); if (s) navigate(`/stock/${s.code}`); }}>
-                  {name}
+              {similarStocks.map(s => (
+                <div key={s.code} style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted, cursor: 'pointer' }}
+                  onClick={() => navigate(`/stock/${s.code}`)}>
+                  {s.name}
                 </div>
               ))}
             </div>

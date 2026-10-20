@@ -15,6 +15,7 @@ psql -d moigo -f docs/migrations/003_post_image.sql
 psql -d moigo -f docs/migrations/004_ai_recommendations.sql
 psql -d moigo -f docs/migrations/005_watchlist_notifications.sql
 psql -d moigo -f docs/migrations/006_ai_model_clova.sql
+psql -d moigo -f docs/migrations/007_stock_ai_reasons.sql
 ```
 
 | 파일 | 내용 | 실행하지 않으면 |
@@ -23,7 +24,8 @@ psql -d moigo -f docs/migrations/006_ai_model_clova.sql
 | `003_post_image.sql` | 피드 글 사진 칸 (`posts.image_url`) | 피드 목록·글쓰기 오류 |
 | `004_ai_recommendations.sql` | AI 모델·추천·결과·근거 테이블 | AI 관련 API 오류 |
 | `005_watchlist_notifications.sql` | 관심 종목·알림 테이블, `users.price_alert_enabled` | **회원 설정 페이지(`/users/me`)가 열리지 않음**, 관심 종목·알림 API 오류 |
-| `006_ai_model_clova.sql` | AI 모델 목록에 CLOVA 추가 | CLOVA 추천이 만들어지지 않음 |
+| `006_ai_model_clova.sql` | AI 모델 목록에 CLOVA 추가, 추천 한 줄 요약(`summary`) | AI 추천 API 오류 |
+| `007_stock_ai_reasons.sql` | 종목 상세 AI 등락 이유 저장 | 종목 상세의 등락 이유가 "준비 중"으로만 나옴 |
 
 ### `.env` 키 확인 (`backend/.env`)
 
@@ -108,8 +110,8 @@ NAVER_CLIENT_SECRET=
   venv/bin/python -m app.jobs.ai_jobs evaluate                       # 채점
   ```
 - 새 API: `GET /v1/ai/recommendations` (모든 추천과 근거 뉴스, 채점 결과)
+- **종목 상세 AI 인사이트**: 등락 이유는 상세 페이지를 열 때 AI(Claude, 없으면 Gemini→CLOVA)가 오늘 등락률·코스피/코스닥·최신 뉴스로 씁니다. 종목·거래일마다 저장하고 장중에는 1시간마다만 새로 씁니다 (`GET /v1/ai/stocks/{code}/reason`). AI 종합 의견·AI별 코멘트는 그 종목의 채점 전 추천, 유사 종목은 같은 업종 (`GET /v1/stocks/{id}/similar`)
 
 ## 5. 아직 임시인 것
 
 - **랜딩 페이지**의 AI 분석 화면 캡처(`design/public/screenshots/ai-*.webp`)는 예전 더미 데이터로 찍었습니다. 그래서 "예시입니다" 안내를 붙였습니다. 실제 추천과 채점 결과가 쌓이면 다시 찍어 교체해야 합니다
-- 종목 상세의 AI 인사이트(등락 이유, AI별 코멘트)와 대시보드·오른쪽 패널의 AI 추천 카드는 아직 목업입니다

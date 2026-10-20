@@ -120,6 +120,21 @@ async def get_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
     return ApiResponse(success=True, data=await _build_stock_detail(stock, db), message="요청 성공")
 
 
+@router.get("/{stock_id}/similar", response_model=ApiResponse[list[StockListItem]])
+async def get_similar_stocks(stock_id: int, db: AsyncSession = Depends(get_db)):
+    """같은 업종 종목 (시세 없이 이름·코드만). 종목 상세 AI 인사이트의 유사 종목."""
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+    if not stock.sector:
+        return ApiResponse(success=True, data=[], message="요청 성공")
+    result = await db.execute(
+        select(Stock).where(Stock.sector == stock.sector, Stock.id != stock.id).order_by(Stock.id)
+    )
+    data = [StockListItem.model_validate(s) for s in result.scalars().all()]
+    return ApiResponse(success=True, data=data, message="요청 성공")
+
+
 @router.get("/{stock_id}/candles", response_model=ApiResponse[list[Candle]])
 async def get_stock_candles(
     stock_id: int,

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -51,3 +51,13 @@ class AiRecommendationItem(BaseModel):
     evidence: list[AiEvidenceItem]
     # 검증 전이면 None
     result: AiResultItem | None
+
+
+class StockAiReasonItem(BaseModel):
+    ai_model: str
+    trade_date: date
+    change_rate: float
+    reason: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

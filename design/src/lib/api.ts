@@ -341,3 +341,23 @@ export function deleteNotification(id: number) {
 export function deleteAllNotifications() {
   return apiDelete<null>('/notifications');
 }
+
+// ── 종목 상세 AI 인사이트 ──
+
+export interface ApiStockAiReason {
+  ai_model: string;
+  trade_date: string;
+  change_rate: number;
+  reason: string;
+  created_at: string;
+}
+
+/** 오늘 등락 이유. 없거나 오래됐으면 서버가 이 요청에서 AI로 새로 써서 몇 초 걸릴 수 있다 */
+export function fetchStockAiReason(code: string) {
+  return apiGet<ApiStockAiReason | null>(`/ai/stocks/${code}/reason`);
+}
+
+/** 같은 업종 종목 (이름·코드만) */
+export function fetchSimilarStocks(stockId: number) {
+  return apiGet<ApiStock[]>(`/stocks/${stockId}/similar`);
+}

@@ -41,7 +41,7 @@ def _parse_json(text: str) -> dict:
         raise LlmError(f"JSON 해석 실패: {e}") from e
 
 
-async def _clova(system: str, user: str, max_tokens: int) -> dict:
+async def _clova(system: str, user: str, max_tokens: int, effort: str) -> dict:
     url = f"https://clovastudio.stream.ntruss.com/v3/chat-completions/{settings.CLOVA_MODEL}"
     payload = {
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -65,7 +65,7 @@ async def _clova(system: str, user: str, max_tokens: int) -> dict:
     return _parse_json(((data.get("result") or {}).get("message") or {}).get("content") or "")
 
 
-async def _gemini(system: str, user: str, max_tokens: int) -> dict:
+async def _gemini(system: str, user: str, max_tokens: int, effort: str) -> dict:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent"
     payload = {
         "systemInstruction": {"parts": [{"text": system}]},
@@ -90,7 +90,7 @@ async def _gemini(system: str, user: str, max_tokens: int) -> dict:
     return _parse_json("".join(p.get("text", "") for p in parts))
 
 
-async def _claude(system: str, user: str, max_tokens: int) -> dict:
+async def _claude(system: str, user: str, max_tokens: int, effort: str) -> dict:
     # 공식 SDK를 쓴다. SDK가 429·5xx를 알아서 재시도하므로 여기서는 상태 코드를 넘기지 않아 이중 재시도를 막는다
     client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=TIMEOUT_SECONDS * 2)
     try:
@@ -98,7 +98,7 @@ async def _claude(system: str, user: str, max_tokens: int) -> dict:
             model=settings.ANTHROPIC_MODEL,
             # 생각(thinking)이 항상 켜져 있고 그 토큰도 max_tokens에 들어가므로 넉넉히 준다
             max_tokens=max(max_tokens, 16000),
-            output_config={"effort": "high"},
+            output_config={"effort": effort},
             # 안전 분류기가 거절하면 서버가 권장 모델로 다시 돌린다
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
@@ -119,7 +119,7 @@ async def _claude(system: str, user: str, max_tokens: int) -> dict:
 
 
 # ai_models.code → (호출 함수, 키)
-_PROVIDERS: dict[str, tuple[Callable[[str, str, int], Awaitable[dict]], Callable[[], str]]] = {
+_PROVIDERS: dict[str, tuple[Callable[[str, str, int, str], Awaitable[dict]], Callable[[], str]]] = {
     "CLOVA": (_clova, lambda: settings.CLOVA_API_KEY),
     "GEMINI": (_gemini, lambda: settings.GEMINI_API_KEY),
     "CLAUDE": (_claude, lambda: settings.ANTHROPIC_API_KEY),
@@ -131,14 +131,15 @@ def is_available(model_code: str) -> bool:
     return bool(provider and provider[1]().strip())
 
 
-async def complete_json(model_code: str, system: str, user: str, max_tokens: int = 4000) -> dict:
-    """모델에게 JSON 객체 하나를 받아 온다. 실패하면 LlmError."""
+async def complete_json(model_code: str, system: str, user: str, max_tokens: int = 4000, effort: str = "high") -> dict:
+    """모델에게 JSON 객체 하나를 받아 온다. 실패하면 LlmError.
+    effort(low/medium/high)는 생각 깊이를 고를 수 있는 모델(Claude)에만 쓰인다."""
     if not is_available(model_code):
         raise LlmError(f"{model_code}: 사용할 수 없는 모델입니다 (키가 없거나 연결되지 않음)")
     call, _ = _PROVIDERS[model_code]
     for delay in (*RETRY_DELAYS_SECONDS, None):
         try:
-            return await call(system, user, max_tokens)
+            return await call(system, user, max_tokens, effort)
         except httpx.HTTPError as e:
             raise LlmError(f"{model_code} 호출 실패: {type(e).__name__} {e}") from e
         except LlmError as e:
