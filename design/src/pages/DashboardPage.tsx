@@ -7,6 +7,7 @@ import { findAiProfile, useAiModels } from '../lib/aiModels';
 import { apiGet } from '../lib/api';
 import type { ApiStock } from '../lib/api';
 import StockLogo from '../components/StockLogo';
+import BannerStrikeChart from '../components/BannerStrikeChart';
 
 interface DisplayStock {
   name: string;
@@ -91,6 +92,9 @@ export default function DashboardPage() {
           <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
           <div style={{ position: 'absolute', right: 80, bottom: -60, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
           <div style={{ position: 'absolute', left: '45%', top: -20, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+
+          {/* 배경 차트: 문구와 지수 카드 사이 빈 공간에 우상향 선이 번개 치듯 그려진다 */}
+          <BannerStrikeChart style={{ position: 'absolute', left: 300, right: 270, top: 22, bottom: 18 }} />
 
           {/* 텍스트 */}
           <div style={{ position: 'relative', zIndex: 1 }}>
