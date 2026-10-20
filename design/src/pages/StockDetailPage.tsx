@@ -30,6 +30,9 @@ const PERIOD_PARAMS: Record<Period, { interval: ChartInterval; count: number; vi
   '년': { interval: '1y', count: 30, visibleBars: 30 },
 };
 
+// 현재가 옆 등락 문구의 기준. 분·일은 전일 종가, 주·월·년은 바로 앞 주·달·해 마지막 거래일 종가
+const COMPARE_LABEL: Record<Period, string> = { '분': '어제보다', '일': '어제보다', '주': '지난주보다', '월': '지난달보다', '년': '작년보다' };
+
 // 차트 라이브러리는 시각을 UTC로 표시하므로, 분봉은 한국 시간(UTC+9)만큼 더해서 넣어야 축과 십자선에 한국 시각이 보인다
 const KST_OFFSET_SECONDS = 9 * 60 * 60;
 
@@ -100,6 +103,8 @@ export default function StockDetailPage() {
   const [candles, setCandles] = useState<ChartCandle[]>([]);
   const [liveBar, setLiveBar] = useState<ChartCandle | null>(null);
   const [candlesStatus, setCandlesStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // candles가 어느 탭 데이터인지. 탭을 바꾼 직후 이전 탭 막대로 등락을 잘못 계산하지 않게 한다
+  const [candlesPeriod, setCandlesPeriod] = useState<Period | null>(null);
   const [candlesReloadKey, setCandlesReloadKey] = useState(0);
   const [orderbook, setOrderbook] = useState<ApiOrderbook | null>(null);
   const [orderbookStatus, setOrderbookStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -223,6 +228,7 @@ export default function StockDetailPage() {
     fetchStockCandles(stockId, interval, count).then(raw => {
       if (cancelled) return;
       setCandles(raw.map(c => toChartCandle(c, interval)));
+      setCandlesPeriod(period);
       setCandlesStatus('ready');
     }).catch(() => {
       if (cancelled) return;
@@ -520,13 +526,27 @@ export default function StockDetailPage() {
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
           <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.01em' }}>{priceNum.toLocaleString()}원</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: changeRate >= 0 ? theme.up : theme.down }}>
-            {(() => {
-              const changeWon = Math.round(priceNum * changeRate / (100 + changeRate));
-              const sign = changeRate >= 0 ? '+' : '';
-              return `어제보다 ${sign}${changeWon.toLocaleString()}원 (${Math.abs(changeRate).toFixed(2)}%)`;
-            })()}
-          </div>
+          {(() => {
+            // 기본은 전일 대비. 주·월·년 탭이면 바로 앞 막대(지난주·지난달·작년)의 종가와 비교한다
+            let changeWon = Math.round(priceNum * changeRate / (100 + changeRate));
+            let rate = changeRate;
+            let label = COMPARE_LABEL['일'];
+            if ((period === '주' || period === '월' || period === '년') && candlesPeriod === period && priceNum > 0) {
+              const last = candles[candles.length - 1];
+              // 실시간 막대가 새 주·달·해로 넘어갔으면 받아 둔 마지막 막대가 바로 앞 기간이다
+              const prev = liveBar && last && liveBar.time !== last.time ? last : candles[candles.length - 2];
+              if (prev && prev.close > 0) {
+                changeWon = priceNum - prev.close;
+                rate = (changeWon / prev.close) * 100;
+                label = COMPARE_LABEL[period];
+              }
+            }
+            return (
+              <div style={{ fontSize: 14, fontWeight: 700, color: rate >= 0 ? theme.up : theme.down }}>
+                {`${label} ${rate >= 0 ? '+' : ''}${Math.round(changeWon).toLocaleString()}원 (${Math.abs(rate).toFixed(2)}%)`}
+              </div>
+            );
+          })()}
           <div style={{ fontSize: 12, color: theme.textMuted }}>거래량 {stock.volume}</div>
         </div>
 
