@@ -404,7 +404,7 @@ export default function LandingPage() {
         <div style={{ textAlign: 'center', marginBottom: 56 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.ai, letterSpacing: '0.1em', marginBottom: 12 }}>AI ANALYSIS</div>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>AI가 고르고, 결과로 증명합니다</div>
-          <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 10 }}>아래 화면의 추천 종목과 성적은 예시입니다</div>
+          <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 10 }}>01~03 화면의 추천 종목과 성적은 예시이고, 04는 실제 AI 추천 화면입니다</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 72 }}>
           {aiPreviews.map((p, i) => (
@@ -448,6 +448,43 @@ export default function LandingPage() {
               </div>
             </div>
           ))}
+
+          {/* 04: 추천 상세 오버레이와 종목 AI 인사이트. 세로로 긴 화면이라 브라우저 틀 없이 카드 두 장을 나란히 띄운다 (실제 추천으로 캡처) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 48, flexDirection: 'row-reverse' }}>
+            <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{
+                alignSelf: 'flex-start', fontSize: 12, fontWeight: 700, color: theme.ai,
+                background: theme.aiSoft, borderRadius: 999, padding: '4px 10px',
+              }}>
+                04 · 판단 근거
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.35, letterSpacing: '-0.02em' }}>왜 그렇게 봤는지까지 공개합니다</div>
+              <div style={{ fontSize: 14, color: theme.textMuted, lineHeight: 1.7 }}>
+                추천을 누르면 AI가 읽은 실제 뉴스와 판단 이유가 나오고, 종목마다 오늘 왜 올랐는지·내렸는지와 AI들의 의견을 한눈에 볼 수 있어요.
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 20 }}>
+              {[
+                { src: '/screenshots/ai-detail.webp', alt: 'AI 추천 상세: 추천 이유와 근거 뉴스', fade: false },
+                { src: '/screenshots/ai-insight.webp', alt: '종목 AI 인사이트: 오늘 등락 이유와 AI별 코멘트', fade: true },
+              ].map(img => (
+                <img
+                  key={img.src}
+                  src={img.src}
+                  alt={img.alt}
+                  loading="lazy"
+                  style={{
+                    display: 'block', height: 480, width: 'auto', maxWidth: '100%', borderRadius: 16,
+                    border: `1px solid ${theme.border}`, boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
+                    ...(img.fade && {
+                      maskImage: 'linear-gradient(to bottom, #000 75%, transparent)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, #000 75%, transparent)',
+                    }),
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
