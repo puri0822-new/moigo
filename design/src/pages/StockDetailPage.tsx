@@ -30,10 +30,15 @@ const PERIOD_PARAMS: Record<Period, { interval: ChartInterval; count: number; vi
   '년': { interval: '1y', count: 30, visibleBars: 30 },
 };
 
+// 차트 라이브러리는 시각을 UTC로 표시하므로, 분봉은 한국 시간(UTC+9)만큼 더해서 넣어야 축과 십자선에 한국 시각이 보인다
+const KST_OFFSET_SECONDS = 9 * 60 * 60;
+
 // 분봉은 시각(초)으로, 나머지는 날짜 문자열로 차트에 넣는다
 function toChartCandle(c: ApiCandle, interval: ChartInterval): ChartCandle {
   return {
-    time: interval === '1m' ? (Math.floor(new Date(c.timestamp).getTime() / 1000) as UTCTimestamp) : c.timestamp.slice(0, 10),
+    time: interval === '1m'
+      ? (Math.floor(new Date(c.timestamp).getTime() / 1000) + KST_OFFSET_SECONDS) as UTCTimestamp
+      : c.timestamp.slice(0, 10),
     open: c.open, high: c.high, low: c.low, close: c.close,
   };
 }
