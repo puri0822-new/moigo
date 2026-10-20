@@ -248,7 +248,7 @@ export default function DashboardPage() {
             )
             .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
-            const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(1) + '%';
+            const changeLabel = (s.changePct >= 0 ? '▲' : '▼') + Math.abs(s.changePct).toFixed(2) + '%';
             const insights = s.insights;
             const aiRec = insights.length
               ? insights[(stockRecIndices[s.code] ?? 0) % insights.length]

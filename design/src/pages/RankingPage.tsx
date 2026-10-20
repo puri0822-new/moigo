@@ -30,7 +30,7 @@ const medalColors = ['#F5A623', '#A8A8A8', '#CD7F32'];
 const medalLabels = ['🥇', '🥈', '🥉'];
 
 function profitLabel(amount: number, rate: number) {
-  return `${amount >= 0 ? '+' : '-'}${Math.abs(amount).toLocaleString()}원 (${Math.abs(rate).toFixed(1)}%)`;
+  return `${amount >= 0 ? '+' : '-'}${Math.abs(amount).toLocaleString()}원 (${Math.abs(rate).toFixed(2)}%)`;
 }
 
 export default function RankingPage() {

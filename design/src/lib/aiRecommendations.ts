@@ -47,6 +47,8 @@ export interface AiRecommendation {
   // 이 날짜에 그때 가격과 비교해 적중 여부를 검증한다 (주간은 1주 뒤, 월간은 1달 뒤)
   evaluateAt: string;
   result?: AiRecommendationResult;
+  // 검증 전 추천의 중간 집계: 지금 현재가와 추천가 대비 수익률 (0.0123 = +1.23%)
+  live?: { price: number; returnRate: number };
 }
 
 interface ApiAiRecommendation {
@@ -71,6 +73,8 @@ interface ApiAiRecommendation {
     failure_reason: string | null;
     evaluated_at: string;
   } | null;
+  live_price: number | null;
+  live_return_rate: number | null;
 }
 
 function fromApi(r: ApiAiRecommendation): AiRecommendation {
@@ -103,6 +107,9 @@ function fromApi(r: ApiAiRecommendation): AiRecommendation {
       failureReason: r.result.failure_reason ?? undefined,
       evaluatedAt: r.result.evaluated_at,
     } : undefined,
+    live: r.live_price != null && r.live_return_rate != null
+      ? { price: r.live_price, returnRate: r.live_return_rate }
+      : undefined,
   };
 }
 
@@ -160,10 +167,34 @@ export function hitRateOf(past: AiRecommendation[], model: AiModel, period: Peri
   return done.filter(r => r.result!.isHit).length / done.length;
 }
 
-/** 추천 방향 기준 수익률. 매도 추천은 떨어진 만큼을 수익으로 본다 */
+/** 추천 방향 기준 수익률. 매도 추천은 떨어진 만큼을 수익으로 본다 (검증 전이면 지금 가격 기준 중간 수익률) */
 export function directionalReturn(r: AiRecommendation): number {
-  if (!r.result) return 0;
-  return r.opinion === 'BUY' ? r.result.returnRate : -r.result.returnRate;
+  const rate = r.result?.returnRate ?? r.live?.returnRate;
+  if (rate == null) return 0;
+  return r.opinion === 'BUY' ? rate : -rate;
+}
+
+export interface AiLiveStats {
+  total: number;
+  // 지금 가격으로 보면 맞히고 있는 추천 수
+  winning: number;
+  avgReturn: number;
+  best: AiRecommendation | null;
+}
+
+/** 아직 결과가 나오지 않은 추천을 지금 가격으로 중간 집계한다 (정식 적중률이 아니다) */
+export function liveStatsOf(current: AiRecommendation[], model: AiModel): AiLiveStats {
+  const recs = current.filter(r => r.aiModel === model && r.live);
+  const winning = recs.filter(r => directionalReturn(r) > 0).length;
+  const best = recs.reduce<AiRecommendation | null>(
+    (acc, r) => (!acc || directionalReturn(r) > directionalReturn(acc) ? r : acc), null,
+  );
+  return {
+    total: recs.length,
+    winning,
+    avgReturn: recs.length ? recs.reduce((sum, r) => sum + directionalReturn(r), 0) / recs.length : 0,
+    best: best && directionalReturn(best) > 0 ? best : null,
+  };
 }
 
 export interface AiStats {

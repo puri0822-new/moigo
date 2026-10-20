@@ -172,7 +172,7 @@ export default function Header() {
                       fontSize: 11, fontWeight: 600,
                       color: s.change_rate >= 0 ? theme.up : theme.down,
                     }}>
-                      {s.change_rate >= 0 ? '▲' : '▼'}{Math.abs(s.change_rate * 100).toFixed(1)}%
+                      {s.change_rate >= 0 ? '▲' : '▼'}{Math.abs(s.change_rate * 100).toFixed(2)}%
                     </div>
                   )}
                 </div>

@@ -48,7 +48,7 @@ export default function MyTradingTab({ portfolio }: MyTradingTabProps) {
       )}
       {portfolio.holdings.map(h => {
         const changeColor = h.profit_loss_rate >= 0 ? theme.up : theme.down;
-        const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(1) + '%';
+        const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(2) + '%';
         return (
           <div key={h.stock_id} onClick={() => navigate(`/stock/${h.stock_code}`)} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
             <StockLogo name={h.stock_name} code={h.stock_code} size={30} />

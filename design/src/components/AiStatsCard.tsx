@@ -3,7 +3,7 @@ import { useTheme } from '../context/ThemeContext';
 import AiIcon from './AiIcon';
 import StockLogo from './StockLogo';
 import { formatDate, formatReturn } from './AiRecommendationModal';
-import { directionalReturn, statsOf, useAiRecommendations } from '../lib/aiRecommendations';
+import { directionalReturn, liveStatsOf, statsOf, useAiRecommendations } from '../lib/aiRecommendations';
 import type { AiRecommendation } from '../lib/aiRecommendations';
 import type { AiProfile } from '../lib/aiModels';
 
@@ -45,9 +45,13 @@ interface AiStatsCardProps {
 
 export default function AiStatsCard({ ai, onSelect }: AiStatsCardProps) {
   const { theme } = useTheme();
-  const { past } = useAiRecommendations();
+  const { past, current } = useAiRecommendations();
   const stats = statsOf(past, ai.model);
-  const rate = stats.total ? stats.hits / stats.total : null;
+  // 정식 채점 결과가 아직 없으면, 결과가 나오기 전 추천을 지금 가격으로 본 중간 집계를 보여준다
+  const live = liveStatsOf(current, ai.model);
+  const showLive = stats.total === 0 && live.total > 0;
+  const rate = showLive ? live.winning / live.total : stats.total ? stats.hits / stats.total : null;
+  const best = showLive ? live.best : stats.best;
   const [hovered, setHovered] = useState<AiRecommendation | null>(null);
 
   return (
@@ -59,19 +63,34 @@ export default function AiStatsCard({ ai, onSelect }: AiStatsCardProps) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <AiIcon model={ai.model} size={20} />
         <div style={{ fontSize: 15, fontWeight: 700 }}>{ai.name}</div>
+        {showLive && (
+          <span
+            title="1주·1달 뒤 정식 채점 전, 추천 후 지금까지의 가격 변화로 본 중간 집계입니다"
+            style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: theme.ai, background: theme.aiSoft, borderRadius: 999, padding: '3px 9px' }}
+          >
+            중간 집계 · 실시간
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <HitRing rate={rate} color={ai.color} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {showLive ? (
+            <div style={{ fontSize: 13, color: theme.textMuted }}>
+              진행 중 <span style={{ color: theme.text, fontWeight: 700 }}>{live.total}건</span> 중{' '}
+              <span style={{ color: theme.text, fontWeight: 700 }}>{live.winning}건</span> 맞히는 중
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: theme.textMuted }}>
+              <span style={{ color: theme.text, fontWeight: 700 }}>{stats.total}건</span> 중{' '}
+              <span style={{ color: theme.text, fontWeight: 700 }}>{stats.hits}건</span> 적중
+            </div>
+          )}
           <div style={{ fontSize: 13, color: theme.textMuted }}>
-            <span style={{ color: theme.text, fontWeight: 700 }}>{stats.total}건</span> 중{' '}
-            <span style={{ color: theme.text, fontWeight: 700 }}>{stats.hits}건</span> 적중
-          </div>
-          <div style={{ fontSize: 13, color: theme.textMuted }}>
-            평균 수익{' '}
-            <span style={{ fontWeight: 700, color: stats.avgReturn >= 0 ? theme.up : theme.down }}>
-              {stats.total ? formatReturn(stats.avgReturn) : '-'}
+            {showLive ? '현재 평균 수익' : '평균 수익'}{' '}
+            <span style={{ fontWeight: 700, color: (showLive ? live.avgReturn : stats.avgReturn) >= 0 ? theme.up : theme.down }}>
+              {showLive ? formatReturn(live.avgReturn) : stats.total ? formatReturn(stats.avgReturn) : '-'}
             </span>
           </div>
         </div>
@@ -121,27 +140,29 @@ export default function AiStatsCard({ ai, onSelect }: AiStatsCardProps) {
         </div>
       )}
 
-      {stats.best && (
+      {best && (
         <div
-          onClick={() => onSelect(stats.best!)}
+          onClick={() => onSelect(best)}
           style={{
             display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
             padding: '10px 12px', borderRadius: 10, background: theme.panel2,
           }}
         >
           <span style={{ fontSize: 15 }}>🏆</span>
-          <StockLogo name={stats.best.stockName} code={stats.best.stockCode} size={24} />
+          <StockLogo name={best.stockName} code={best.stockCode} size={24} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: theme.textMuted }}>베스트 적중</div>
+            <div style={{ fontSize: 11, color: theme.textMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {showLive ? '현재 베스트' : '베스트 적중'}
+            </div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>
-              {stats.best.stockName}{' '}
+              {best.stockName}{' '}
               <span style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600 }}>
-                {stats.best.opinion === 'BUY' ? '매수' : '매도'}
+                {best.opinion === 'BUY' ? '매수' : '매도'}
               </span>
             </div>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: 14, fontWeight: 800, color: HIT_COLOR }}>
-            {formatReturn(directionalReturn(stats.best))}
+            {formatReturn(directionalReturn(best))}
           </div>
         </div>
       )}

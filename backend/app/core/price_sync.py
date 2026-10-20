@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core import toss_client
+from app.core.prev_close import get_prev_closes
 from app.database import SessionLocal
 from app.models import Stock, StockPriceCache
 
@@ -30,7 +31,9 @@ async def _fetch_rankings_safe() -> dict[str, dict]:
 
 
 async def _fetch_unranked(codes: list[str]) -> dict[str, dict]:
-    """랭킹 100위 밖 종목은 현재가(다건 1회) + 일봉(종목별)으로 등락률과 거래량을 직접 계산한다."""
+    """랭킹 100위 밖 종목은 현재가(다건 1회) + 일봉(종목별)으로 등락률과 거래량을 직접 계산한다.
+    토스 일봉 종가는 넥스트레이드 애프터마켓까지 합친 값이라, 등락률의 기준은 공식 전일 종가(prev_close)를 쓰고
+    그걸 못 구한 종목만 일봉 종가로 계산한다."""
     if not codes:
         return {}
 
@@ -41,6 +44,7 @@ async def _fetch_unranked(codes: list[str]) -> dict[str, dict]:
         return {}
 
     snapshots = await asyncio.gather(*[toss_client.get_daily_snapshot(c) for c in codes], return_exceptions=True)
+    official_prev = await get_prev_closes(codes)
 
     result: dict[str, dict] = {}
     failed: list[str] = []
@@ -53,7 +57,8 @@ async def _fetch_unranked(codes: list[str]) -> dict[str, dict]:
         if not price:
             continue
         current_price = int(float(price["lastPrice"]))
-        prev_close, volume = snapshot
+        candle_prev_close, volume = snapshot
+        prev_close = official_prev.get(code) or candle_prev_close
         result[code] = {
             "current_price": current_price,
             "change_rate": (current_price - prev_close) / prev_close if prev_close else None,
