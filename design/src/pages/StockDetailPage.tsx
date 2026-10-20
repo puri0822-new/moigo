@@ -10,9 +10,20 @@ import { timeAgo } from '../lib/time';
 import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
 import CandleChart from '../components/CandleChart';
 import PostFeed from '../components/PostFeed';
-import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
+import type { CandlestickData } from 'lightweight-charts';
 
-const periods = ['1일', '1주', '1개월', '1년'] as const;
+// 탭 이름은 막대 하나의 단위다. 일 = 일봉, 주 = 주봉, 월 = 월봉, 년 = 년봉.
+// count는 서버에서 가져올 막대 개수, visibleBars는 처음 화면에 보여줄 최근 막대 개수.
+const periods = ['일', '주', '월', '년'] as const;
+type Period = (typeof periods)[number];
+type ChartCandle = CandlestickData<string>;
+
+const PERIOD_PARAMS: Record<Period, { interval: '1d' | '1w' | '1mo' | '1y'; count: number; visibleBars: number }> = {
+  '일': { interval: '1d', count: 2000, visibleBars: 60 },
+  '주': { interval: '1w', count: 500, visibleBars: 52 },
+  '월': { interval: '1mo', count: 150, visibleBars: 36 },
+  '년': { interval: '1y', count: 30, visibleBars: 30 },
+};
 
 // 호가를 다시 받아오는 주기. 백엔드의 호가 캐시는 2초다.
 const POLL_INTERVAL_MS = 3000;
@@ -47,7 +58,7 @@ export default function StockDetailPage() {
   const [orderType, setOrderType] = useState<'limit' | 'market'>('limit');
   const [inputPrice, setInputPrice] = useState(0);
   const [qty, setQty] = useState(1);
-  const [period, setPeriod] = useState<(typeof periods)[number]>('1일');
+  const [period, setPeriod] = useState<Period>('일');
   const [liked, setLiked] = useState(false);
   // 회원 설정에서 급등락 알림을 껐으면 하트를 눌러도 알림 여부를 묻지 않는다
   const [priceAlertEnabled, setPriceAlertEnabled] = useState(true);
@@ -68,7 +79,10 @@ export default function StockDetailPage() {
   const [confirmOrder, setConfirmOrder] = useState<{ side: 'buy' | 'sell'; price: number; qty: number; total: number } | null>(null);
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [liveChangeRate, setLiveChangeRate] = useState<number | null>(null);
-  const [candles, setCandles] = useState<CandlestickData<UTCTimestamp>[]>([]);
+  const [candles, setCandles] = useState<ChartCandle[]>([]);
+  const [liveBar, setLiveBar] = useState<ChartCandle | null>(null);
+  const [candlesStatus, setCandlesStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [candlesReloadKey, setCandlesReloadKey] = useState(0);
   const [orderbook, setOrderbook] = useState<ApiOrderbook | null>(null);
   const [orderbookStatus, setOrderbookStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [news, setNews] = useState<ApiNewsItem[]>([]);
@@ -152,26 +166,67 @@ export default function StockDetailPage() {
     return () => { cancelled = true; };
   }, [code]);
 
-  const periodToParams: Record<string, { interval: '1m' | '1d'; count: number }> = {
-    '1일': { interval: '1m', count: 200 },
-    '1주': { interval: '1d', count: 5 },
-    '1개월': { interval: '1d', count: 22 },
-    '1년': { interval: '1d', count: 200 },
-  };
-
   useEffect(() => {
     if (stockId === null) return;
-    const { interval, count } = periodToParams[period];
+    let cancelled = false;
+    const { interval, count } = PERIOD_PARAMS[period];
+    setCandlesStatus('loading');
+    setLiveBar(null);
     fetchStockCandles(stockId, interval, count).then(raw => {
+      if (cancelled) return;
       setCandles(raw.map((c: ApiCandle) => ({
-        time: (interval === '1m' ? Math.floor(new Date(c.timestamp).getTime() / 1000) : c.timestamp.slice(0, 10)) as UTCTimestamp,
+        time: c.timestamp.slice(0, 10),
         open: c.open,
         high: c.high,
         low: c.low,
         close: c.close,
       })));
-    }).catch(() => setCandles([]));
-  }, [stockId, period]);
+      setCandlesStatus('ready');
+    }).catch(() => {
+      if (cancelled) return;
+      setCandles([]);
+      setCandlesStatus('error');
+    });
+    return () => { cancelled = true; };
+  }, [stockId, period, candlesReloadKey]);
+
+  useEffect(() => {
+    if (!code || stockId === null) return;
+    const { interval } = PERIOD_PARAMS[period];
+    let inFlight = false;
+    let cancelled = false;
+
+    const tick = async () => {
+      if (document.visibilityState !== 'visible' || inFlight) return;
+      inFlight = true;
+      try {
+        const [found, bars] = await Promise.all([
+          fetchStockByCode(code),
+          fetchStockCandles(stockId, interval, 1),
+        ]);
+        if (cancelled) return;
+        if (found) {
+          setApiStock(found);
+          if (found.current_price) setLivePrice(found.current_price);
+          if (found.change_rate !== null) setLiveChangeRate(found.change_rate);
+        }
+        const last = bars[bars.length - 1];
+        if (last) {
+          setLiveBar({ time: last.timestamp.slice(0, 10), open: last.open, high: last.high, low: last.low, close: last.close });
+        }
+      } catch {
+        // 일시적인 실패는 다음 주기에 다시 시도한다
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const timer = setInterval(tick, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [code, stockId, period]);
 
   useEffect(() => {
     if (stockId === null) return;
@@ -487,11 +542,27 @@ export default function StockDetailPage() {
               ))}
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
-              {candles.length > 0 ? (
-                <CandleChart data={candles} theme={theme} />
+              {candlesStatus === 'ready' && candles.length > 0 ? (
+                <CandleChart data={candles} theme={theme} visibleBars={PERIOD_PARAMS[period].visibleBars} liveBar={liveBar} />
               ) : (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: 13 }}>
-                  차트 데이터를 불러오는 중...
+                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: 13 }}>
+                  {candlesStatus === 'loading' && '차트 데이터를 불러오는 중...'}
+                  {candlesStatus === 'ready' && '표시할 차트 데이터가 없습니다'}
+                  {candlesStatus === 'error' && (
+                    <>
+                      <span>차트 데이터를 불러오지 못했습니다</span>
+                      <button
+                        onClick={() => setCandlesReloadKey(k => k + 1)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 6, border: `1px solid ${theme.border}`,
+                          fontSize: 12, fontWeight: 600, color: theme.ai,
+                          cursor: 'pointer', background: 'transparent', fontFamily: 'inherit',
+                        }}
+                      >
+                        다시 시도
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

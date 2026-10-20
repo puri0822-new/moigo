@@ -109,6 +109,25 @@ async def get_candles(symbol: str, interval: str, count: int) -> list[dict]:
     return candles
 
 
+async def iter_daily_pages(symbol: str, first_count: int = 200, before: str | None = None):
+    """일봉을 최신순 페이지 단위로 과거 방향으로 내보낸다(각 페이지도 최신순).
+    토스는 한 번에 최대 200개라 응답의 nextBefore를 다음 요청의 before로 넘겨 이어 받는다."""
+    count = first_count
+    while True:
+        params: dict = {"symbol": symbol, "interval": "1d", "count": count}
+        if before:
+            params["before"] = before
+        data = await _api_get("/api/v1/candles", params)
+        result = data["result"]
+        if not result["candles"]:
+            return
+        yield result["candles"]
+        before = result.get("nextBefore")
+        if not before:
+            return
+        count = 200
+
+
 async def get_orderbook(symbol: str) -> dict:
     """종목의 호가(매도/매수 각 10단계)를 조회. asks는 낮은 가격부터, bids는 높은 가격부터
     (둘 다 현재가에 가까운 순서)이며 가격·잔량은 문자열로 온다."""

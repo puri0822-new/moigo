@@ -1,16 +1,21 @@
 import { useEffect, useRef } from 'react';
-import { createChart, CandlestickSeries, type IChartApi, type CandlestickData, type UTCTimestamp } from 'lightweight-charts';
+import { createChart, CandlestickSeries, type IChartApi, type ISeriesApi, type CandlestickData, type UTCTimestamp } from 'lightweight-charts';
 import type { Theme } from '../types';
 import { toRgb } from '../lib/color';
 
 interface Props {
   data: CandlestickData<UTCTimestamp | string>[];
   theme: Theme;
+  // 처음 화면에 보여줄 최근 막대 개수. 전체 데이터는 다 들어 있고, 드래그로 과거로 이동하거나 휠로 확대·축소하면 나머지가 보인다.
+  visibleBars?: number;
+  // 폴링으로 받은 최신 막대. 차트를 다시 만들지 않고 마지막 막대만 갱신해서 사용자의 확대·이동 상태가 유지된다.
+  liveBar?: CandlestickData<UTCTimestamp | string> | null;
 }
 
-export default function CandleChart({ data, theme }: Props) {
+export default function CandleChart({ data, theme, visibleBars, liveBar }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -23,14 +28,17 @@ export default function CandleChart({ data, theme }: Props) {
     const down = toRgb(theme.down);
 
     const chart = createChart(el, {
-      width: el.clientWidth,
-      height: el.clientHeight,
+      autoSize: true,
       layout: { background: { color: 'transparent' }, textColor: textMuted },
       grid: {
         vertLines: { color: border },
         horzLines: { color: border },
       },
-      timeScale: { borderColor: border },
+      timeScale: {
+        borderColor: border, timeVisible: typeof data[0]?.time === 'number', secondsVisible: false,
+        fixLeftEdge: true, minBarSpacing: 0.1,
+      },
+      localization: { priceFormatter: (price: number) => Math.round(price).toLocaleString() },
       rightPriceScale: { borderColor: border },
     });
     chartRef.current = chart;
@@ -42,19 +50,28 @@ export default function CandleChart({ data, theme }: Props) {
       wickUpColor: up,
       wickDownColor: down,
     });
+    seriesRef.current = series;
     series.setData(data);
-    chart.timeScale().fitContent();
-
-    const handleResize = () => {
-      if (el) chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
-    };
-    window.addEventListener('resize', handleResize);
+    if (visibleBars && data.length > visibleBars) {
+      chart.timeScale().setVisibleLogicalRange({ from: data.length - visibleBars, to: data.length - 1 });
+    } else {
+      chart.timeScale().fitContent();
+    }
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      seriesRef.current = null;
       chart.remove();
     };
-  }, [data, theme]);
+  }, [data, theme, visibleBars]);
+
+  useEffect(() => {
+    if (!liveBar || !seriesRef.current) return;
+    try {
+      seriesRef.current.update(liveBar);
+    } catch {
+      // 이미 그려진 마지막 막대보다 오래된 시각이면 차트 라이브러리가 거절한다. 다음 폴링에서 다시 맞춰진다.
+    }
+  }, [liveBar]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 }
