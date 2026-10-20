@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -9,3 +11,43 @@ class AiModelItem(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class AiEvidenceItem(BaseModel):
+    title: str
+    source: str | None
+    url: str | None
+    published_at: datetime | None
+    insight: str
+
+    model_config = {"from_attributes": True}
+
+
+class AiResultItem(BaseModel):
+    price_at_evaluation: int
+    # (검증가 - 추천가) / 추천가. 0.0123 = +1.23%
+    return_rate: float
+    is_hit: bool
+    failure_reason: str | None
+    evaluated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AiRecommendationItem(BaseModel):
+    id: int
+    ai_model: str
+    period_type: str
+    stock_code: str
+    stock_name: str
+    sector: str | None
+    opinion: str
+    reason: str
+    summary: str | None
+    confidence: int | None
+    price_at_recommendation: int
+    recommended_at: datetime
+    evaluate_at: datetime
+    evidence: list[AiEvidenceItem]
+    # 검증 전이면 None
+    result: AiResultItem | None

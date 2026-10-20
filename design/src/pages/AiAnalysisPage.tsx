@@ -6,8 +6,8 @@ import AiIcon from '../components/AiIcon';
 import AiStatsCard from '../components/AiStatsCard';
 import AiHitRateTrendChart from '../components/AiHitRateTrendChart';
 import AiRecommendationModal, { HitBadge, formatDate, formatReturn, resultLabel } from '../components/AiRecommendationModal';
-import { AI_PAST_RECOMMENDATIONS, AI_RECOMMENDATIONS, hitRateOf } from '../data/aiRecommendations';
-import type { AiRecommendation, PeriodType } from '../data/aiRecommendations';
+import { hitRateOf, useAiRecommendations } from '../lib/aiRecommendations';
+import type { AiRecommendation, PeriodType } from '../lib/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
 import type { AiModel } from '../lib/aiModels';
 
@@ -20,12 +20,13 @@ export default function AiAnalysisPage() {
   const [selected, setSelected] = useState<AiRecommendation | null>(null);
   const [pastAi, setPastAi] = useState<'ALL' | AiModel>('ALL');
   const models = useAiModels();
+  const { status, current, past } = useAiRecommendations();
   // 새 추천과 성적 카드는 지금 쓰는 모델만, 성적표 필터는 지난 추천이 있는 모델(중단된 모델 포함)
   const activeModels = models.filter(m => m.isActive);
-  const pastModels = models.filter(m => AI_PAST_RECOMMENDATIONS.some(r => r.aiModel === m.model));
+  const pastModels = models.filter(m => past.some(r => r.aiModel === m.model));
 
   // 최근에 검증된 것부터
-  const pastRecs = AI_PAST_RECOMMENDATIONS
+  const pastRecs = past
     .filter(r => r.result && (period === 'ALL' || r.periodType === period) && (pastAi === 'ALL' || r.aiModel === pastAi))
     .sort((a, b) => b.result!.evaluatedAt.localeCompare(a.result!.evaluatedAt));
 
@@ -71,11 +72,33 @@ export default function AiAnalysisPage() {
         </div>
       </div>
 
+      {status !== 'ready' && (
+        <div style={{ fontSize: 13, color: theme.textMuted }}>
+          {status === 'loading' ? 'AI 추천을 불러오는 중…' : 'AI 추천을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}
+        </div>
+      )}
+      {status === 'ready' && current.length === 0 && past.length === 0 && (
+        <div style={{
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+          padding: '24px', fontSize: 13, color: theme.textMuted, lineHeight: 1.6, textAlign: 'center',
+        }}>
+          아직 AI 추천이 없습니다. 평일 장 마감 뒤(16시)에 AI가 그날 뉴스를 분석해 첫 추천을 올립니다.
+        </div>
+      )}
+
       {/* AI별 성적 */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {activeModels.map(ai => <AiStatsCard key={ai.model} ai={ai} onSelect={setSelected} />)}
       </div>
-      <AiHitRateTrendChart />
+      {past.length > 0 ? <AiHitRateTrendChart /> : status === 'ready' && current.length > 0 && (
+        <div style={{
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+          padding: '20px 24px', fontSize: 13, color: theme.textMuted, lineHeight: 1.6,
+        }}>
+          아직 검증이 끝난 추천이 없어 적중률 추이가 없습니다. 첫 결과는{' '}
+          <b style={{ color: theme.text }}>{formatDate(current.reduce((min, r) => (r.evaluateAt < min ? r.evaluateAt : min), current[0].evaluateAt))}</b>에 나옵니다.
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 6 }}>
         {PERIOD_FILTERS.map(([key, label]) => (
@@ -95,10 +118,10 @@ export default function AiAnalysisPage() {
       </div>
 
       {activeModels.map(ai => {
-        const recs = AI_RECOMMENDATIONS.filter(
+        const recs = current.filter(
           r => r.aiModel === ai.model && (period === 'ALL' || r.periodType === period),
         );
-        const hitRate = hitRateOf(ai.model);
+        const hitRate = hitRateOf(past, ai.model);
         return (
           <section key={ai.model} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

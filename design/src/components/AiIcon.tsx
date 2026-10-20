@@ -30,6 +30,19 @@ export default function AiIcon({ model, size = 28 }: AiIconProps) {
     );
   }
 
+  if (model === 'CLOVA') {
+    // 로고 이미지 배경이 흰색이라 다크 테마에서도 어색하지 않게 앱 아이콘처럼 모서리를 둥글린다
+    return (
+      <img
+        src="/ai/clova.png"
+        alt="CLOVA"
+        width={size}
+        height={size}
+        style={{ flexShrink: 0, borderRadius: Math.round(size * 0.28), display: 'block' }}
+      />
+    );
+  }
+
   if (model !== 'GEMINI') {
     // 전용 로고가 없는 모델은 모델 색 바탕에 이름 첫 글자를 쓴다
     const ai = findAiProfile(models, model);

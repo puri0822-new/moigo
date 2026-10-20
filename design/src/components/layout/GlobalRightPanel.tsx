@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { stocks, aiRecs } from '../../data/mockData';
 import StockLogo from '../StockLogo';
+import AiRecCard from '../AiRecCard';
 import { apiGet, fetchWatchlist } from '../../lib/api';
 import type { ApiWatchItem } from '../../lib/api';
 import { usePolling, PORTFOLIO_POLL_MS } from '../../lib/usePolling';
@@ -33,8 +33,6 @@ export default function GlobalRightPanel() {
   const { theme } = useTheme();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [activeRec, setActiveRec] = useState(0);
-  const [showRec, setShowRec] = useState(true);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [watchlist, setWatchlist] = useState<ApiWatchItem[]>([]);
 
@@ -47,16 +45,6 @@ export default function GlobalRightPanel() {
     fetchWatchlist().then(res => setWatchlist(res.data.items)).catch(() => {});
   }, PORTFOLIO_POLL_MS, isAuthenticated);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveRec(prev => (prev + 1) % aiRecs.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const rec = aiRecs[activeRec];
-  const recStock = stocks.find(s => s.name === rec.stockName) || stocks[0];
-  const recChangeLabel = (recStock.changePct >= 0 ? '▲' : '▼') + Math.abs(recStock.changePct).toFixed(1) + '%';
 
   return (
     <div style={{
@@ -67,37 +55,8 @@ export default function GlobalRightPanel() {
       display: 'flex', flexDirection: 'column', gap: 14,
       overflowY: 'auto',
     }}>
-      {/* AI 추천 카드 */}
-      {showRec && (
-        <div
-          onClick={() => navigate(`/stock/${recStock.code}`)}
-          style={{
-            background: theme.ai, borderRadius: 14, padding: '20px 18px',
-            display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer',
-            position: 'relative', overflow: 'hidden', minHeight: 180,
-          }}
-        >
-          <div style={{ position: 'absolute', right: -20, top: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
-          <div style={{ position: 'absolute', right: 20, bottom: -30, width: 70, height: 70, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
-
-          <div key={`rec-header-${activeRec}`} className="ai-rec-slide" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src={rec.icon} alt={rec.bot} width={20} height={20} style={{ objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>{rec.bot}</span>
-            <div onClick={e => { e.stopPropagation(); setShowRec(false); }} style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}>✕</div>
-          </div>
-
-          <div key={`rec-body-${activeRec}`} className="ai-rec-slide">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <StockLogo name={recStock.name} code={recStock.code} size={20} />
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: recStock.changePct >= 0 ? '#fca5a5' : '#93c5fd' }}>{recChangeLabel}</span>
-            </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, wordBreak: 'keep-all' }}>{rec.reason}</div>
-          </div>
-        </div>
-      )}
+      {/* AI 추천 카드 (아직 결과가 나오지 않은 실제 추천) */}
+      <AiRecCard />
 
       <div style={{ fontSize: 13, fontWeight: 700, color: theme.ai, background: theme.aiSoft, borderRadius: 8, padding: '7px 12px', display: 'inline-flex', alignItems: 'center', gap: 6, border: `1px solid ${theme.ai}` }}>
         ✦ 내 모의매매

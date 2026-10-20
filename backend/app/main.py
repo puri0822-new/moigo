@@ -1,12 +1,26 @@
+import asyncio
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.core import ai_scheduler
+from app.core.config import settings
 from app.core.uploads import UPLOAD_DIR, UPLOAD_URL_PREFIX
 from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai, users, watchlist, notifications
 
 app = FastAPI(title="모이고 API", version="1.0.0")
+
+_background_tasks: set[asyncio.Task] = set()
+
+
+@app.on_event("startup")
+async def start_ai_scheduler():
+    if settings.AI_SCHEDULER_ENABLED:
+        task = asyncio.create_task(ai_scheduler.loop())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
 
 app.add_middleware(
     CORSMiddleware,

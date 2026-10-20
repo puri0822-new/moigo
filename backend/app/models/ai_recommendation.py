@@ -31,6 +31,8 @@ class AiRecommendation(Base):
     # BUY는 오르면 적중, SELL은 떨어지면 적중
     opinion: Mapped[str] = mapped_column(String(10), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
+    # 대시보드 종목명 옆에 보여줄 25자 안팎 한 줄 요약
+    summary: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confidence: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     price_at_recommendation: Mapped[int] = mapped_column(BigInteger, nullable=False)
     recommended_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

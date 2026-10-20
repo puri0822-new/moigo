@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { aiRecs } from '../data/mockData';
+import AiIcon from '../components/AiIcon';
+import { useAiRecommendations } from '../lib/aiRecommendations';
+import { findAiProfile, useAiModels } from '../lib/aiModels';
 import { apiGet } from '../lib/api';
 import type { ApiStock } from '../lib/api';
 import StockLogo from '../components/StockLogo';
@@ -49,6 +51,9 @@ export default function DashboardPage() {
   }, []);
 
   const stocks = liveStocks;
+  const models = useAiModels();
+  // 종목명 옆 AI 요약: 아직 결과가 나오지 않은 실제 추천 (최근 것부터)
+  const { current: aiRecs } = useAiRecommendations();
 
   useEffect(() => {
     if (stocks.length === 0) return;
@@ -56,7 +61,7 @@ export default function DashboardPage() {
       setStockRecIndices(prev => {
         const next = { ...prev };
         stocks.forEach(s => {
-          const recs = aiRecs.filter(r => r.stockName === s.name);
+          const recs = aiRecs.filter(r => r.stockCode === s.code);
           if (recs.length > 1) {
             next[s.name] = ((prev[s.name] ?? 0) + 1) % recs.length;
           }
@@ -65,7 +70,7 @@ export default function DashboardPage() {
       });
     }, 4000);
     return () => clearInterval(timer);
-  }, [stocks]);
+  }, [stocks, aiRecs.length]);
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', minHeight: '100%' }}>
@@ -195,9 +200,9 @@ export default function DashboardPage() {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeAmt = Math.round(s.priceRaw - s.priceRaw / (1 + s.changePct / 100));
             const changeLabel = `${s.changePct >= 0 ? '+' : '-'}${Math.abs(changeAmt).toLocaleString()}원 (${Math.abs(s.changePct).toFixed(1)}%)`;
-            const stockRecs = aiRecs.filter(r => r.stockName === s.name);
+            const stockRecs = aiRecs.filter(r => r.stockCode === s.code);
             const aiRec = stockRecs[(stockRecIndices[s.name] ?? 0) % stockRecs.length];
-            const signalColor = aiRec?.signal === '매수' ? theme.up : aiRec?.signal === '매도' ? theme.down : theme.textMuted;
+            const signalColor = aiRec?.opinion === 'BUY' ? theme.up : theme.down;
             return (
               <div
                 key={s.code}
@@ -217,19 +222,19 @@ export default function DashboardPage() {
                       <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.name}</span>
                       {aiRec && (
                         <div
-                          key={`${s.name}-${aiRec.bot}-${aiRec.signal}`}
+                          key={`${s.name}-${aiRec.id}`}
                           className="ai-rec-slide"
                           style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}
                         >
-                          <img src={aiRec.icon} alt={aiRec.bot} width={12} height={12} style={{ borderRadius: 3, flexShrink: 0 }} />
-                          <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, flexShrink: 0 }}>{aiRec.bot}</span>
-                          <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {aiRec.reason}</span>
+                          <AiIcon model={aiRec.aiModel} size={12} />
+                          <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, flexShrink: 0 }}>{findAiProfile(models, aiRec.aiModel).name}</span>
+                          <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {aiRec.summary ?? aiRec.reason}</span>
                           <span style={{
                             flexShrink: 0,
                             fontSize: 10, fontWeight: 700, color: signalColor,
                             border: `1px solid ${signalColor}`, borderRadius: 4,
                             padding: '1px 5px',
-                          }}>{aiRec.signal}</span>
+                          }}>{aiRec.opinion === 'BUY' ? '매수' : '매도'}</span>
                         </div>
                       )}
                     </div>

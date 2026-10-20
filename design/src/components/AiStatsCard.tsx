@@ -3,8 +3,8 @@ import { useTheme } from '../context/ThemeContext';
 import AiIcon from './AiIcon';
 import StockLogo from './StockLogo';
 import { formatDate, formatReturn } from './AiRecommendationModal';
-import { directionalReturn, statsOf } from '../data/aiRecommendations';
-import type { AiRecommendation } from '../data/aiRecommendations';
+import { directionalReturn, statsOf, useAiRecommendations } from '../lib/aiRecommendations';
+import type { AiRecommendation } from '../lib/aiRecommendations';
 import type { AiProfile } from '../lib/aiModels';
 
 const HIT_COLOR = '#16a34a';
@@ -45,7 +45,8 @@ interface AiStatsCardProps {
 
 export default function AiStatsCard({ ai, onSelect }: AiStatsCardProps) {
   const { theme } = useTheme();
-  const stats = statsOf(ai.model);
+  const { past } = useAiRecommendations();
+  const stats = statsOf(past, ai.model);
   const rate = stats.total ? stats.hits / stats.total : null;
   const [hovered, setHovered] = useState<AiRecommendation | null>(null);
 

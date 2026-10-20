@@ -14,6 +14,7 @@ psql -d moigo -f docs/migrations/002_community.sql
 psql -d moigo -f docs/migrations/003_post_image.sql
 psql -d moigo -f docs/migrations/004_ai_recommendations.sql
 psql -d moigo -f docs/migrations/005_watchlist_notifications.sql
+psql -d moigo -f docs/migrations/006_ai_model_clova.sql
 ```
 
 | 파일 | 내용 | 실행하지 않으면 |
@@ -22,6 +23,7 @@ psql -d moigo -f docs/migrations/005_watchlist_notifications.sql
 | `003_post_image.sql` | 피드 글 사진 칸 (`posts.image_url`) | 피드 목록·글쓰기 오류 |
 | `004_ai_recommendations.sql` | AI 모델·추천·결과·근거 테이블 | AI 관련 API 오류 |
 | `005_watchlist_notifications.sql` | 관심 종목·알림 테이블, `users.price_alert_enabled` | **회원 설정 페이지(`/users/me`)가 열리지 않음**, 관심 종목·알림 API 오류 |
+| `006_ai_model_clova.sql` | AI 모델 목록에 CLOVA 추가 | CLOVA 추천이 만들어지지 않음 |
 
 ### `.env` 키 확인 (`backend/.env`)
 
@@ -89,7 +91,25 @@ NAVER_CLIENT_SECRET=
 | DELETE | `/v1/notifications` | 알림 전체 삭제 |
 | DELETE | `/v1/notifications/{id}` | 알림 하나 삭제 |
 
-## 4. 아직 임시인 것
+## 4. AI 추천 (AI 분석 페이지)
 
-- **AI 분석 페이지**의 추천 종목·성적표는 `design/src/data/aiRecommendations.ts`의 더미 데이터입니다. 뉴스 제목과 언론사도 지어낸 것입니다
-- **랜딩 페이지**의 AI 분석 화면 캡처(`design/public/screenshots/ai-*.webp`)도 이 더미 데이터로 찍었습니다. 그래서 화면에 "예시입니다" 안내를 붙였습니다. AI 추천 API가 붙으면 다시 찍어 교체해야 합니다
+- **Claude(Opus 5.5), Gemini, CLOVA(HCX-005)**가 추천을 만듭니다. 키가 없는 모델은 추천을 만들지 않고 AI 분석 화면에서도 숨깁니다
+- 키는 `backend/.env`의 `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `CLOVA_API_KEY`에 넣습니다 (`.env.example` 참고). 키는 따로 전달합니다
+- Claude는 공식 SDK(`anthropic`)를 씁니다. **`pip install -r requirements.txt`를 다시 실행하세요**
+- **언제**: 서버 안의 스케줄러가 10분마다 확인해서, 평일 16시(KST) 이후이고 그날 장이 열렸으면 모델마다 하루 한 번 추천을 만듭니다. 주말·휴장일에는 만들지 않습니다
+- **무엇을**: 30개 종목의 최신 네이버 뉴스를 보고 1주 추천 3개와 1달 추천 2개를 냅니다. 근거 뉴스는 실제 수집한 기사 중에서만 고르게 해서, 지어낸 기사가 나오지 않습니다
+- **채점**: 1주/1달 뒤 종가로 채점합니다(주말이면 직전 거래일 종가). 매수는 오르면, 매도는 내리면 적중입니다. 틀린 추천은 같은 AI가 실패 이유를 씁니다
+- 결과는 DB에 저장됩니다. 화면은 저장된 것을 읽기만 하므로, 새로고침해도 AI를 다시 부르지 않습니다
+- **같은 DB를 여러 서버가 쓰면** 한 서버만 `AI_SCHEDULER_ENABLED=true`로 두세요
+- 손으로 실행할 때 (backend 폴더에서):
+  ```bash
+  venv/bin/python -m app.jobs.ai_jobs generate                       # 오늘 추천이 없는 모델만
+  venv/bin/python -m app.jobs.ai_jobs generate --model CLOVA --force # 다시 만들기 (장중이면 그 순간 가격이 추천가가 됨)
+  venv/bin/python -m app.jobs.ai_jobs evaluate                       # 채점
+  ```
+- 새 API: `GET /v1/ai/recommendations` (모든 추천과 근거 뉴스, 채점 결과)
+
+## 5. 아직 임시인 것
+
+- **랜딩 페이지**의 AI 분석 화면 캡처(`design/public/screenshots/ai-*.webp`)는 예전 더미 데이터로 찍었습니다. 그래서 "예시입니다" 안내를 붙였습니다. 실제 추천과 채점 결과가 쌓이면 다시 찍어 교체해야 합니다
+- 종목 상세의 AI 인사이트(등락 이유, AI별 코멘트)와 대시보드·오른쪽 패널의 AI 추천 카드는 아직 목업입니다

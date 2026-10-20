@@ -219,7 +219,8 @@ CREATE TABLE ai_models (
 
 INSERT INTO ai_models (code, display_name, provider, color, sort_order) VALUES
     ('CLAUDE', 'Claude', 'ANTHROPIC', '#D4714F', 1),
-    ('GEMINI', 'Gemini', 'GOOGLE', '#4285F4', 2);
+    ('GEMINI', 'Gemini', 'GOOGLE', '#4285F4', 2),
+    ('CLOVA', 'CLOVA', 'NAVER', '#03C75A', 3);
 
 CREATE TABLE ai_recommendations (
     id                       BIGSERIAL     PRIMARY KEY,
@@ -228,6 +229,7 @@ CREATE TABLE ai_recommendations (
     stock_id                 BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
     opinion                  VARCHAR(10)   NOT NULL,                     -- BUY: 오르면 적중, SELL: 떨어지면 적중
     reason                   TEXT          NOT NULL,                     -- AI가 밝힌 추천 근거
+    summary                  VARCHAR(100)  NULL,                          -- 대시보드용 25자 안팎 한 줄 요약
     confidence               SMALLINT      NULL CHECK (confidence BETWEEN 0 AND 100),
     price_at_recommendation  BIGINT        NOT NULL CHECK (price_at_recommendation > 0),
     recommended_at           TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,

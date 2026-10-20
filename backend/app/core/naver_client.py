@@ -40,6 +40,19 @@ NEWS_ALIASES: dict[str, list[str]] = {
     "KB금융": ["KB금융지주"],
 }
 
+# 제목에 종목명이 들어 있어도 다른 대상을 가리키는 말. 이 말이 제목에 있으면 그 종목 기사로 보지 않는다
+# (이름이 겹치는 단어, 같은 이름의 스포츠 구단, 이름이 비슷한 다른 상장사)
+NEWS_EXCLUDES: dict[str, list[str]] = {
+    "하이브": ["하이브리드"],
+    "기아": ["타이거즈"],
+    "현대모비스": ["피버스"],
+    "대한항공": ["점보스"],
+    "한국전력": ["빅스톰", "한전KPS", "한전기술", "한전산업"],
+    "삼성화재": ["블루팡스"],
+    "삼성생명": ["블루밍스"],
+    "현대차": ["현대차증권"],
+}
+
 
 def _clean(text: str) -> str:
     return html.unescape(_TAG_RE.sub("", text))
@@ -84,9 +97,10 @@ async def _search(client: httpx.AsyncClient, query: str) -> list[dict]:
     ]
 
 
-async def search_news(stock_name: str, display: int = 10) -> list[dict]:
+async def search_news(stock_name: str, display: int = 10, with_images: bool = True) -> list[dict]:
     """종목 관련 뉴스를 최신순으로 검색. 본문에 이름만 스친 기사를 빼려고 제목에 종목명(또는 별칭)이
-    들어간 기사만 남긴다. 결과는 5분간 캐시."""
+    들어간 기사만 남긴다. 결과는 5분간 캐시.
+    with_images=False면 썸네일(og:image)을 읽지 않는다 (AI 추천처럼 여러 종목을 한꺼번에 볼 때). 이때는 캐시에 넣지 않는다."""
     now = time.monotonic()
     cached = _cache.get(stock_name)
     if cached and now - cached[1] < CACHE_TTL_SECONDS and len(cached[0]) >= min(display, cached[2]):
@@ -94,9 +108,14 @@ async def search_news(stock_name: str, display: int = 10) -> list[dict]:
 
     aliases = NEWS_ALIASES.get(stock_name, [])
     keywords = [k.lower() for k in (stock_name, *aliases)]
+    excludes = [x.lower() for x in NEWS_EXCLUDES.get(stock_name, [])]
 
     def matched(found: list[dict]) -> list[dict]:
-        return [item for item in found if any(k in item["title"].lower() for k in keywords)]
+        return [
+            item for item in found
+            if any(k in item["title"].lower() for k in keywords)
+            and not any(x in item["title"].lower() for x in excludes)
+        ]
 
     async with httpx.AsyncClient(timeout=5) as client:
         items = matched(await _search(client, stock_name))
@@ -110,6 +129,8 @@ async def search_news(stock_name: str, display: int = 10) -> list[dict]:
     items.sort(key=lambda item: item["published_at"], reverse=True)
     total = len(items)
     items = items[:display]
+    if not with_images:
+        return items
 
     async with httpx.AsyncClient(
         timeout=IMAGE_TIMEOUT_SECONDS, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}

@@ -12,3 +12,4 @@ python-dotenv==1.0.1
 python-multipart==0.0.9
 httpx
 firebase-admin==7.6.0
+anthropic==1.15.0
