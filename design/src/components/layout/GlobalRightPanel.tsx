@@ -56,6 +56,7 @@ export default function GlobalRightPanel() {
   const [portfolio, setPortfolio] = useState<ApiPortfolio | null>(null);
   const [portfolioError, setPortfolioError] = useState(false);
   const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
+  const [rankingsError, setRankingsError] = useState(false);
 
   // 패널은 페이지를 옮겨도 계속 떠 있으므로, 다른 페이지에서 주문하고 돌아왔을 때도 반영되게 경로가 바뀔 때마다 다시 불러온다
   useEffect(() => {
@@ -65,8 +66,8 @@ export default function GlobalRightPanel() {
         .then(res => { if (!cancelled) { setPortfolio(res.data); setPortfolioError(false); } })
         .catch(() => { if (!cancelled) setPortfolioError(true); });
       fetchStockRankings()
-        .then(data => { if (!cancelled) setRankings(data); })
-        .catch(() => {});
+        .then(data => { if (!cancelled) { setRankings(data); setRankingsError(false); } })
+        .catch(() => { if (!cancelled) setRankingsError(true); });
     };
     load();
     const timer = setInterval(load, REFRESH_MS);
@@ -150,7 +151,9 @@ export default function GlobalRightPanel() {
             background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '16px 14px',
             fontSize: 12, color: theme.textMuted, lineHeight: 1.5,
           }}>
-            아직 저장된 AI 뉴스 분석이 없습니다. 종목 상세에서 뉴스 분석을 실행하면 여기에 표시됩니다.
+            {rankingsError
+              ? 'AI 뉴스 분석을 불러오지 못했습니다. 잠시 후 다시 시도합니다.'
+              : '아직 저장된 AI 뉴스 분석이 없습니다. 종목 상세에서 뉴스 분석을 실행하면 여기에 표시됩니다.'}
           </div>
         )
       )}

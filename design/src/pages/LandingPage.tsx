@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useViewport } from '../lib/useViewport';
 
 function LoginModal({ onClose }: { onClose: () => void }) {
   const { theme } = useTheme();
@@ -210,6 +211,7 @@ const features = [
 
 export default function LandingPage() {
   const { theme, mode, toggle } = useTheme();
+  const { isMobile } = useViewport();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [showLogin, setShowLogin] = useState(false);
@@ -223,7 +225,7 @@ export default function LandingPage() {
       {/* 상단 네비 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 40px', height: 64,
+        padding: isMobile ? '0 16px' : '0 40px', height: 64,
         borderBottom: `1px solid ${theme.border}`,
         background: theme.panel,
       }}>
@@ -251,12 +253,12 @@ export default function LandingPage() {
             }}
           >
             <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
-            <span>{mode === 'dark' ? '다크' : '라이트'}</span>
+            {!isMobile && <span>{mode === 'dark' ? '다크' : '라이트'}</span>}
           </div>
           <div
             onClick={() => setShowLogin(true)}
             style={{
-              padding: '8px 20px', borderRadius: 10,
+              padding: isMobile ? '8px 16px' : '8px 20px', borderRadius: 10,
               background: 'linear-gradient(135deg, #4F6EF7, #7B5EA7)',
               color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
             }}
@@ -269,8 +271,9 @@ export default function LandingPage() {
       {/* 히어로 섹션 */}
       <div style={{
         background: 'linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)',
-        padding: '80px 40px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: isMobile ? '44px 20px' : '80px 40px',
+        display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between',
+        flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 32 : 24,
         position: 'relative', overflow: 'hidden',
       }}>
         <div style={{ position: 'absolute', right: -60, top: -60, width: 320, height: 320, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
@@ -281,17 +284,17 @@ export default function LandingPage() {
           <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 16 }}>
             ✦ AI-Powered Mock Trading Platform
           </div>
-          <div style={{ fontSize: 42, fontWeight: 800, color: '#fff', lineHeight: 1.25, marginBottom: 20, letterSpacing: '-0.02em' }}>
+          <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 800, color: '#fff', lineHeight: 1.25, marginBottom: 20, letterSpacing: '-0.02em' }}>
             AI가 분석하고,<br />내가 결정하는<br />모의매매
           </div>
-          <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, marginBottom: 36 }}>
+          <div style={{ fontSize: isMobile ? 14 : 16, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, marginBottom: isMobile ? 28 : 36 }}>
             실제 시장 데이터 기반으로 AI와 함께<br />리스크 없이 투자 전략을 연습해보세요.
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <div
               onClick={() => setShowLogin(true)}
               style={{
-                padding: '14px 32px', borderRadius: 12,
+                padding: isMobile ? '13px 24px' : '14px 32px', borderRadius: 12,
                 background: '#fff', color: '#4F6EF7',
                 fontSize: 15, fontWeight: 800, cursor: 'pointer',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
@@ -302,7 +305,7 @@ export default function LandingPage() {
             <div
               onClick={() => setShowLogin(true)}
               style={{
-                padding: '14px 28px', borderRadius: 12,
+                padding: isMobile ? '13px 22px' : '14px 28px', borderRadius: 12,
                 background: 'rgba(255,255,255,0.15)',
                 border: '1px solid rgba(255,255,255,0.3)',
                 color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer',
@@ -320,12 +323,12 @@ export default function LandingPage() {
             background: 'rgba(255,255,255,0.08)',
             backdropFilter: 'blur(8px)',
             border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 14, padding: '20px 22px',
-            width: 190,
+            borderRadius: 14, padding: isMobile ? '16px' : '20px 22px',
+            ...(isMobile ? { flex: '1 1 0', minWidth: 0 } : { width: 190 }),
           }}>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>일반 매매</div>
             <div style={{ fontSize: 26, fontWeight: 800, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>+8.2%</div>
-            <svg width="146" height="80" viewBox="0 0 146 80" fill="none" style={{ display: 'block' }}>
+            <svg width={isMobile ? '100%' : 146} height="80" viewBox="0 0 146 80" preserveAspectRatio="none" fill="none" style={{ display: 'block' }}>
               <line x1="0" y1="60" x2="146" y2="60" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
               <line x1="0" y1="40" x2="146" y2="40" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
               <line x1="0" y1="20" x2="146" y2="20" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
@@ -346,15 +349,15 @@ export default function LandingPage() {
             background: 'rgba(252,165,165,0.12)',
             backdropFilter: 'blur(8px)',
             border: '1px solid rgba(252,165,165,0.3)',
-            borderRadius: 14, padding: '20px 22px',
-            width: 190,
+            borderRadius: 14, padding: isMobile ? '16px' : '20px 22px',
+            ...(isMobile ? { flex: '1 1 0', minWidth: 0 } : { width: 190 }),
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: '0.06em' }}>모이고 사용 시</div>
               <div style={{ fontSize: 9, fontWeight: 700, color: '#fca5a5', background: 'rgba(252,165,165,0.2)', border: '1px solid rgba(252,165,165,0.4)', borderRadius: 4, padding: '1px 5px' }}>✦ moigo</div>
             </div>
             <div style={{ fontSize: 26, fontWeight: 800, color: '#fca5a5', marginBottom: 14 }}>+24.3%</div>
-            <svg width="146" height="80" viewBox="0 0 146 80" fill="none" style={{ display: 'block' }}>
+            <svg width={isMobile ? '100%' : 146} height="80" viewBox="0 0 146 80" preserveAspectRatio="none" fill="none" style={{ display: 'block' }}>
               <line x1="0" y1="60" x2="146" y2="60" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
               <line x1="0" y1="40" x2="146" y2="40" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
               <line x1="0" y1="20" x2="146" y2="20" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
@@ -374,12 +377,12 @@ export default function LandingPage() {
       </div>
 
       {/* 기능 소개 */}
-      <div style={{ padding: '64px 40px', maxWidth: 960, margin: '0 auto' }}>
+      <div style={{ padding: isMobile ? '48px 16px' : '64px 40px', maxWidth: 960, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: theme.ai, letterSpacing: '0.1em', marginBottom: 12 }}>FEATURES</div>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>모이고가 특별한 이유</div>
         </div>
-        <div style={{ display: 'flex', gap: 20 }}>
+        <div style={{ display: 'flex', gap: isMobile ? 12 : 20, flexDirection: isMobile ? 'column' : 'row' }}>
           {features.map(f => (
             <div key={f.title} style={{
               flex: 1,
@@ -403,9 +406,9 @@ export default function LandingPage() {
 
       {/* 하단 CTA */}
       <div style={{
-        margin: '0 40px 64px',
+        margin: isMobile ? '0 16px 48px' : '0 40px 64px',
         background: 'linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 100%)',
-        borderRadius: 20, padding: '48px 40px',
+        borderRadius: 20, padding: isMobile ? '36px 20px' : '48px 40px',
         textAlign: 'center', position: 'relative', overflow: 'hidden',
       }}>
         <div style={{ position: 'absolute', left: -40, top: -40, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />

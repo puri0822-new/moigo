@@ -10,12 +10,14 @@ import { AI_PAST_RECOMMENDATIONS, AI_RECOMMENDATIONS, hitRateOf } from '../data/
 import type { AiRecommendation, PeriodType } from '../data/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
 import type { AiModel } from '../lib/aiModels';
+import { useViewport } from '../lib/useViewport';
 
 type PeriodFilter = 'ALL' | PeriodType;
 const PERIOD_FILTERS: [PeriodFilter, string][] = [['ALL', '전체'], ['WEEKLY', '주간'], ['MONTHLY', '월간']];
 
 export default function AiAnalysisPage() {
   const { theme } = useTheme();
+  const { isMobile } = useViewport();
   const [period, setPeriod] = useState<PeriodFilter>('ALL');
   const [selected, setSelected] = useState<AiRecommendation | null>(null);
   const [pastAi, setPastAi] = useState<'ALL' | AiModel>('ALL');
@@ -30,11 +32,11 @@ export default function AiAnalysisPage() {
     .sort((a, b) => b.result!.evaluatedAt.localeCompare(a.result!.evaluatedAt));
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 28 }}>
       {/* 소개 배너 */}
       <div style={{
         background: `linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)`,
-        borderRadius: 16, padding: '26px 32px',
+        borderRadius: 16, padding: isMobile ? '22px 20px' : '26px 32px',
         position: 'relative', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', gap: 16,
       }}>
@@ -44,7 +46,7 @@ export default function AiAnalysisPage() {
           <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 8 }}>
             ✦ AI 추천 성적표
           </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1.45 }}>
+          <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: '#fff', lineHeight: 1.45 }}>
             AI가 뉴스를 분석해 종목을 추천하고,<br />1주·1달 뒤 실제 결과로 성적을 공개합니다
           </div>
         </div>
@@ -77,7 +79,7 @@ export default function AiAnalysisPage() {
       </div>
       <AiHitRateTrendChart />
 
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {PERIOD_FILTERS.map(([key, label]) => (
           <div
             key={key}

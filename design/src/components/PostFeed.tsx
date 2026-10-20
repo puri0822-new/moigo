@@ -35,6 +35,7 @@ export default function PostFeed({ stockId, stockName }: Props) {
   const [draft, setDraft] = useState('');
   const [taggedStockId, setTaggedStockId] = useState<number | ''>('');
   const [stocks, setStocks] = useState<ApiStock[]>([]);
+  const [stocksError, setStocksError] = useState(false);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
   // 글쓰기 창. 닫아도 쓰던 내용은 남겨 두고, 글을 올렸을 때만 비운다
@@ -75,7 +76,9 @@ export default function PostFeed({ stockId, stockName }: Props) {
   // 전체 피드에서만 종목을 골라 붙일 수 있다
   useEffect(() => {
     if (stockId != null) return;
-    fetchStocks().then(setStocks).catch(() => {});
+    fetchStocks()
+      .then(data => { setStocks(data); setStocksError(false); })
+      .catch(() => setStocksError(true));
   }, [stockId]);
 
   const patchPost = (id: number, patch: Partial<ApiPost>) =>
@@ -373,6 +376,7 @@ export default function PostFeed({ stockId, stockName }: Props) {
                   style={{ ...inputStyle, width: 'auto', padding: '7px 10px', fontSize: 12 }}
                 >
                   <option value="">종목 선택 안 함</option>
+                  {stocksError && <option value="" disabled>종목 목록을 불러오지 못했습니다</option>}
                   {stocks.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               )}

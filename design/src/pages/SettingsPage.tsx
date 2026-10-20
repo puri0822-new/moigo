@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPatch, apiPost, apiPut } from '../lib/api';
+import { useViewport } from '../lib/useViewport';
 
 interface MyProfile {
   email: string;
@@ -23,6 +24,7 @@ const errorText = (err: unknown) => (err instanceof Error ? err.message : '요�
 
 export default function SettingsPage() {
   const { theme } = useTheme();
+  const { isMobile } = useViewport();
   const { updateNickname, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -119,7 +121,7 @@ export default function SettingsPage() {
   const joined = new Date(profile.created_at);
 
   return (
-    <div style={{ padding: 24, maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ padding: isMobile ? 16 : 24, maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <div style={{ fontSize: 20, fontWeight: 800 }}>회원 설정</div>
         <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 3 }}>

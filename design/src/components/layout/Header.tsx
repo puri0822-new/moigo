@@ -3,9 +3,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchStocks, type ApiStock } from '../../lib/api';
+import { useViewport } from '../../lib/useViewport';
 
 export default function Header() {
   const { theme, mode, toggle } = useTheme();
+  const { isMobile, isCompact } = useViewport();
   const { logout, nickname } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,14 +16,16 @@ export default function Header() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const [stocks, setStocks] = useState<ApiStock[]>([]);
+  const [stocksStatus, setStocksStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   // 검색은 서버의 실제 종목 목록에서 한다. 검색창을 열 때마다 다시 받아 시세도 최신으로 보여준다
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     fetchStocks()
-      .then(data => { if (!cancelled) setStocks(data); })
-      .catch(() => {});
+      .then(data => { if (!cancelled) { setStocks(data); setStocksStatus('ready'); } })
+      // 전에 받아 둔 목록이 있으면 그걸로 계속 검색한다
+      .catch(() => { if (!cancelled) setStocksStatus(prev => (prev === 'ready' ? prev : 'error')); });
     return () => { cancelled = true; };
   }, [open]);
 
@@ -31,9 +35,12 @@ export default function Header() {
     .slice(0, 6);
 
   return (
+    // 휴대폰에서는 메뉴를 둘째 줄로 내려 가로 스크롤로 보여준다
     <div style={{
-      height: 64, flexShrink: 0,
-      display: 'flex', alignItems: 'center', gap: 20, padding: '0 24px',
+      minHeight: 64, flexShrink: 0,
+      display: 'flex', alignItems: 'center', flexWrap: isMobile ? 'wrap' : 'nowrap',
+      gap: isMobile ? 10 : isCompact ? 12 : 20,
+      padding: isMobile ? '10px 16px 0' : '0 24px',
       borderBottom: `1px solid ${theme.border}`,
       background: theme.panel,
     }}>
@@ -58,11 +65,14 @@ export default function Header() {
             <line x1="51" y1="15" x2="48" y2="18" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.8"/>
           </svg>
         </div>
-        <span>모이고</span>
+        {!isMobile && <span>모이고</span>}
       </div>
 
       {/* 네비게이션 */}
-      <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <nav className="hide-scrollbar" style={{
+        display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+        ...(isMobile ? { order: 10, width: '100%', overflowX: 'auto', padding: '2px 0 8px' } : {}),
+      }}>
         {[
           { label: '홈', path: '/dashboard' },
           { label: 'AI 분석', path: '/ai-analysis' },
@@ -76,7 +86,7 @@ export default function Header() {
               key={label}
               onClick={() => navigate(path)}
               style={{
-                padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+                padding: isCompact ? '6px 10px' : '6px 14px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap',
                 fontSize: 14, fontWeight: active ? 700 : 500,
                 color: active ? theme.ai : theme.textMuted,
                 background: active ? theme.aiSoft : 'transparent',
@@ -88,7 +98,7 @@ export default function Header() {
         })}
       </nav>
 
-      <div style={{ flex: 1, maxWidth: 420, position: 'relative' }}>
+      <div style={{ flex: 1, minWidth: 0, maxWidth: isMobile ? 'none' : 420, position: 'relative' }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
           background: theme.panel2, border: `1px solid ${theme.border}`,
@@ -99,9 +109,9 @@ export default function Header() {
             value={query}
             onChange={e => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
-            placeholder="종목명 또는 코드 검색"
+            placeholder={isMobile ? '종목 검색' : '종목명 또는 코드 검색'}
             style={{
-              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
               fontSize: 13, color: theme.text, fontFamily: 'inherit',
             }}
           />
@@ -118,6 +128,17 @@ export default function Header() {
             onClick={() => setOpen(false)}
             style={{ position: 'fixed', inset: 0, zIndex: 15 }}
           />
+        )}
+
+        {open && keyword && results.length === 0 && stocksStatus !== 'loading' && (
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+            background: theme.panel, border: `1px solid ${theme.border}`,
+            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+            padding: '14px', fontSize: 13, color: theme.textMuted, zIndex: 20,
+          }}>
+            {stocksStatus === 'error' ? '종목 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' : '검색 결과가 없습니다'}
+          </div>
         )}
 
         {open && results.length > 0 && (
@@ -160,7 +181,7 @@ export default function Header() {
         )}
       </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, flexShrink: 0 }}>
         <div
           onClick={toggle}
           style={{
@@ -170,9 +191,10 @@ export default function Header() {
           }}
         >
           <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
-          <span>{mode === 'dark' ? '다크' : '라이트'}</span>
+          {!isCompact && <span>{mode === 'dark' ? '다크' : '라이트'}</span>}
         </div>
-        <div style={{
+        {/* 알림은 아직 기능이 없어 휴대폰에서는 자리만 차지하므로 숨긴다 */}
+        {!isMobile && <div style={{
           width: 34, height: 34, borderRadius: 9, border: `1px solid ${theme.border}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', color: theme.textMuted, flexShrink: 0,
@@ -181,7 +203,7 @@ export default function Header() {
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
-        </div>
+        </div>}
         <div style={{ position: 'relative' }}>
           <div
             onClick={() => setProfileOpen(prev => !prev)}

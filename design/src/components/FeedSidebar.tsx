@@ -21,7 +21,7 @@ function useLoaded<T>(load: () => Promise<{ data: T[] }>): Loaded<T> {
   return state;
 }
 
-export default function FeedSidebar() {
+export default function FeedSidebar({ fullWidth = false }: { fullWidth?: boolean }) {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const popular = useLoaded<ApiPost>(() => fetchPopularPosts(5));
@@ -48,7 +48,7 @@ export default function FeedSidebar() {
   );
 
   return (
-    <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ width: fullWidth ? '100%' : 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
       {box('인기 글', '최근 7일', list(popular, '아직 글이 없습니다', (post, i) => (
         <div key={post.id} style={{ display: 'flex', gap: 8 }}>
           {rankNumber(i + 1)}

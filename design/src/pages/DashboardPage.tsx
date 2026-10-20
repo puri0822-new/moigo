@@ -4,6 +4,12 @@ import { useTheme } from '../context/ThemeContext';
 import StockLogo from '../components/StockLogo';
 import BannerStrikeChart from '../components/BannerStrikeChart';
 import { fetchMarketIndices, fetchStockRankings, type ApiMarketIndex, type ApiStockRanking } from '../lib/api';
+import { useViewport } from '../lib/useViewport';
+
+// 배너 배경 차트는 문구(약 300px)와 지수 카드(약 270px) 사이에 그리므로, 본문이 이만큼은 넓어야 보인다
+const BANNER_CHART_MIN_WIDTH = 900;
+// 넓은 화면에서 우측 패널이 차지하는 폭 (GlobalRightPanel)
+const RIGHT_PANEL_WIDTH = 300;
 
 // 백엔드가 시세 캐시를 30초마다 갱신하므로 같은 주기로 다시 받아온다
 const RANKINGS_REFRESH_MS = 30_000;
@@ -36,20 +42,23 @@ function shortAiLine(text: string, max = 28) {
 
 export default function DashboardPage() {
   const { theme } = useTheme();
+  const { width, isMobile, isCompact } = useViewport();
+  const mainWidth = width - (isCompact ? 0 : RIGHT_PANEL_WIDTH);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'거래량' | '급상승' | '급하락'>('거래량');
   const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
   const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
   const [rankingsStatus, setRankingsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [marketIndices, setMarketIndices] = useState<ApiMarketIndex[]>([]);
+  const [indicesError, setIndicesError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      // 지수를 못 받아와도 이미 받아 둔 값은 그대로 둔다 (한 번도 못 받았으면 지수 카드만 빠진다)
+      // 지수를 못 받아와도 이미 받아 둔 값은 그대로 둔다 (한 번도 못 받았으면 카드 자리에 안내를 띄운다)
       fetchMarketIndices()
-        .then(data => { if (!cancelled) setMarketIndices(data); })
-        .catch(() => {});
+        .then(data => { if (!cancelled) { setMarketIndices(data); setIndicesError(false); } })
+        .catch(() => { if (!cancelled) setIndicesError(true); });
       fetchStockRankings()
         .then(data => {
           if (cancelled) return;
@@ -97,14 +106,15 @@ export default function DashboardPage() {
 
       {/* 가운데: 메인 콘텐츠 */}
       <div style={{
-        flex: 1, minWidth: 0, padding: 24,
+        flex: 1, minWidth: 0, padding: isMobile ? 16 : 24,
         display: 'flex', flexDirection: 'column', gap: 14,
       }}>
-        {/* 소개 배너 */}
+        {/* 소개 배너 (휴대폰에서는 문구 아래로 지수 카드를 쌓는다) */}
         <div style={{
           background: `linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)`,
-          borderRadius: 16, padding: '28px 32px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderRadius: 16, padding: isMobile ? '22px 20px' : '28px 32px',
+          display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between',
+          flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 18 : 16,
           position: 'relative', overflow: 'hidden', minHeight: 140,
         }}>
           {/* 배경 장식 */}
@@ -113,17 +123,19 @@ export default function DashboardPage() {
           <div style={{ position: 'absolute', left: '45%', top: -20, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
 
           {/* 배경 차트: 문구와 지수 카드 사이 빈 공간에 우상향 선이 번개 치듯 그려진다 */}
-          <BannerStrikeChart style={{ position: 'absolute', left: 300, right: 270, top: 22, bottom: 18 }} />
+          {mainWidth >= BANNER_CHART_MIN_WIDTH && (
+            <BannerStrikeChart style={{ position: 'absolute', left: 300, right: 270, top: 22, bottom: 18 }} />
+          )}
 
           {/* 텍스트 */}
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 10 }}>
               ✦ AI-Powered Mock Trading
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1.4, marginBottom: 14 }}>
+            <div style={{ fontSize: isMobile ? 19 : 22, fontWeight: 800, color: '#fff', lineHeight: 1.4, marginBottom: 14 }}>
               AI가 분석하고,<br />내가 결정하는 모의매매
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {[
                 { label: 'AI 포트폴리오 보러가기', path: '/ai-analysis' },
                 { label: '랭킹 보기', path: '/ranking' },
@@ -146,7 +158,18 @@ export default function DashboardPage() {
           </div>
 
           {/* 우측 지수 플로팅 카드 (그래프 포함) */}
-          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+          <div style={{
+            position: 'relative', zIndex: 1, display: 'flex', gap: 8, flexShrink: 0,
+            flexDirection: isMobile ? 'row' : 'column', flexWrap: 'wrap',
+          }}>
+            {marketIndices.length === 0 && indicesError && (
+              <div style={{
+                background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 12, padding: '12px 16px', fontSize: 12, color: 'rgba(255,255,255,0.8)',
+              }}>
+                지수를 불러오지 못했습니다
+              </div>
+            )}
             {marketIndices.map(idx => {
               const changePct = idx.change_rate * 100;
               const isUp = changePct >= 0;
@@ -168,7 +191,7 @@ export default function DashboardPage() {
                   border: '1px solid rgba(255,255,255,0.2)',
                   borderRadius: 12, padding: '10px 16px',
                   display: 'flex', alignItems: 'center', gap: 12,
-                  minWidth: 200,
+                  ...(isMobile ? { flex: '1 1 150px', minWidth: 0 } : { minWidth: 200 }),
                 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginBottom: 3 }}>{idx.name}</div>
@@ -188,7 +211,7 @@ export default function DashboardPage() {
         </div>
 
         {/* 거래량 차트 헤더 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 16, fontWeight: 800 }}>실시간 거래량 차트</div>
           <div style={{ display: 'flex', gap: 6 }}>
             {(['거래량', '급상승', '급하락'] as const).map(tab => (
@@ -238,7 +261,7 @@ export default function DashboardPage() {
                 onClick={() => navigate(`/stock/${s.code}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '13px 18px', background: theme.panel, cursor: 'pointer',
+                  padding: isMobile ? '12px 14px' : '13px 18px', background: theme.panel, cursor: 'pointer',
                 }}
               >
                 <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
@@ -265,7 +288,10 @@ export default function DashboardPage() {
                             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           />
                           <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, flexShrink: 0 }}>{aiRec.bot}</span>
-                          <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {shortAiLine(aiRec.summary)}</span>
+                          {/* 휴대폰에서는 종목명·가격 자리가 모자라 요약은 빼고 의견만 보인다 */}
+                          {!isMobile && (
+                            <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {shortAiLine(aiRec.summary)}</span>
+                          )}
                           <span style={{
                             flexShrink: 0,
                             fontSize: 10, fontWeight: 700, color: signalColor,

@@ -4,8 +4,11 @@ import StockLogo from '../components/StockLogo';
 import AssetTrendChart from '../components/AssetTrendChart';
 import HoldingsDonut from '../components/HoldingsDonut';
 import { apiGet, getAssetHistory, type ApiAssetHistory } from '../lib/api';
+import { useViewport } from '../lib/useViewport';
 
 const TREND_PERIODS = [['1개월', 30], ['3개월', 90], ['1년', 365]] as const;
+// 평가금액·체결 내역을 다시 받는 주기 (다른 화면의 실시간 폴링과 같은 3초)
+const REFRESH_MS = 3000;
 
 interface HoldingItem {
   stock_id: number;
@@ -40,22 +43,37 @@ interface HistoryItem {
 
 export default function PortfolioPage() {
   const { theme } = useTheme();
+  const { isMobile } = useViewport();
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [reloadKey, setReloadKey] = useState(0);
   const [trendDays, setTrendDays] = useState<number>(90);
   const [assetHistory, setAssetHistory] = useState<ApiAssetHistory | null>(null);
   const [assetHistoryStatus, setAssetHistoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
-    Promise.all([
-      apiGet<PortfolioData>('/portfolio'),
-      apiGet<HistoryItem[]>('/portfolio/history'),
-    ]).then(([pRes, hRes]) => {
-      setPortfolio(pRes.data);
-      setHistory(hRes.data);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    const load = () => {
+      Promise.all([
+        apiGet<PortfolioData>('/portfolio'),
+        apiGet<HistoryItem[]>('/portfolio/history'),
+      ]).then(([pRes, hRes]) => {
+        if (cancelled) return;
+        setPortfolio(pRes.data);
+        setHistory(hRes.data);
+        setStatus('ready');
+      }).catch(() => {
+        // 이미 받아 둔 값이 있으면 일시적인 실패로 화면을 0원으로 바꾸지 않는다
+        if (!cancelled) setStatus(prev => (prev === 'ready' ? prev : 'error'));
+      });
+    };
+    load();
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, REFRESH_MS);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,9 +88,24 @@ export default function PortfolioPage() {
     return () => { cancelled = true; };
   }, [trendDays]);
 
-  if (loading) {
+  if (status === 'loading') {
     return (
       <div style={{ padding: 24, color: '#888', fontSize: 14 }}>불러오는 중...</div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ fontSize: 14, color: theme.textMuted }}>포트폴리오를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>
+        <div
+          onClick={() => { setStatus('loading'); setReloadKey(k => k + 1); }}
+          style={{
+            fontSize: 13, fontWeight: 600, padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+            background: theme.ai, color: theme.aiText,
+          }}
+        >다시 시도</div>
+      </div>
     );
   }
 
@@ -82,11 +115,11 @@ export default function PortfolioPage() {
   const profitColor = totalProfit >= 0 ? theme.up : theme.down;
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', height: '100%' }}>
+    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', height: '100%' }}>
       <div style={{ fontSize: 18, fontWeight: 800 }}>내 포트폴리오</div>
 
-      {/* 자산 요약 */}
-      <div style={{ display: 'flex', gap: 12 }}>
+      {/* 자산 요약 (좁으면 두 줄로 내려간다) */}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {[
           { label: '총 평가자산', value: totalAsset.toLocaleString() + '원', color: undefined },
           {
@@ -98,8 +131,8 @@ export default function PortfolioPage() {
           { label: '평가금액', value: (portfolio?.total_eval_amount ?? 0).toLocaleString() + '원', color: undefined },
         ].map(card => (
           <div key={card.label} style={{
-            flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 12, padding: '16px 20px',
+            flex: '1 1 150px', minWidth: 0, background: theme.panel, border: `1px solid ${theme.border}`,
+            borderRadius: 12, padding: isMobile ? '14px 16px' : '16px 20px',
             display: 'flex', flexDirection: 'column', gap: 6,
           }}>
             <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600 }}>{card.label}</div>
@@ -156,10 +189,10 @@ export default function PortfolioPage() {
         <div style={{ fontSize: 15, fontWeight: 700 }}>보유 종목</div>
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 12, overflow: 'hidden',
+          borderRadius: 12, overflowX: 'auto', overflowY: 'hidden',
         }}>
           <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 80px 110px 110px 90px',
+            display: 'grid', gridTemplateColumns: '1fr 80px 110px 110px 90px', minWidth: 520,
             padding: '10px 16px', borderBottom: `1px solid ${theme.border}`,
             fontSize: 12, fontWeight: 700, color: theme.textMuted,
           }}>
@@ -179,7 +212,7 @@ export default function PortfolioPage() {
             const changeLabel = (h.profit_loss_rate >= 0 ? '▲' : '▼') + Math.abs(h.profit_loss_rate).toFixed(2) + '%';
             return (
               <div key={h.stock_id} style={{
-                display: 'grid', gridTemplateColumns: '1fr 80px 110px 110px 90px',
+                display: 'grid', gridTemplateColumns: '1fr 80px 110px 110px 90px', minWidth: 520,
                 padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
                 fontSize: 13, alignItems: 'center',
               }}>
@@ -205,10 +238,10 @@ export default function PortfolioPage() {
         <div style={{ fontSize: 15, fontWeight: 700 }}>거래 내역</div>
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 12, overflow: 'hidden',
+          borderRadius: 12, overflowX: 'auto', overflowY: 'hidden',
         }}>
           <div style={{
-            display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px',
+            display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px', minWidth: 560,
             padding: '10px 16px', borderBottom: `1px solid ${theme.border}`,
             fontSize: 12, fontWeight: 700, color: theme.textMuted,
           }}>
@@ -231,7 +264,7 @@ export default function PortfolioPage() {
             const isBuy = t.order_type === 'BUY';
             return (
               <div key={t.id} style={{
-                display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px',
+                display: 'grid', gridTemplateColumns: '110px 50px 1fr 60px 100px 110px', minWidth: 560,
                 padding: '11px 16px', borderBottom: `1px solid ${theme.border}`,
                 fontSize: 13, alignItems: 'center',
               }}>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { apiGet } from '../lib/api';
 import StockLogo from '../components/StockLogo';
+import { useViewport } from '../lib/useViewport';
 
 interface ApiRankUser {
   rank: number;
@@ -34,6 +35,7 @@ function profitLabel(amount: number, rate: number) {
 
 export default function RankingPage() {
   const { theme } = useTheme();
+  const { isMobile } = useViewport();
   const navigate = useNavigate();
   const [users, setUsers] = useState<RankUser[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -69,7 +71,7 @@ export default function RankingPage() {
 
   if (status !== 'ready' || users.length === 0) {
     return (
-      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 800 }}>랭킹</div>
           <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 3 }}>총 자산 기준 실시간 순위</div>
@@ -85,7 +87,7 @@ export default function RankingPage() {
   }
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* 헤더 */}
       <div>
         <div style={{ fontSize: 20, fontWeight: 800 }}>랭킹</div>
@@ -123,13 +125,13 @@ export default function RankingPage() {
       </div>}
 
       {/* TOP 3 */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: isMobile ? 8 : 12, alignItems: 'flex-end' }}>
         {podium.map(({ user, rank: realRank }) => {
           const isCenter = realRank === 1;
           return (
             <div key={user.id} style={{
-              flex: 1, background: theme.panel, border: `2px solid ${isCenter ? medalColors[0] : theme.border}`,
-              borderRadius: 14, padding: '18px 14px',
+              flex: 1, minWidth: 0, background: theme.panel, border: `2px solid ${isCenter ? medalColors[0] : theme.border}`,
+              borderRadius: 14, padding: isMobile ? '14px 8px' : '18px 14px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
               minHeight: realRank === 1 ? 190 : realRank === 2 ? 160 : 150,
               justifyContent: 'center',
@@ -173,10 +175,10 @@ export default function RankingPage() {
       </div>
 
       {/* 4위 이하 리스트 */}
-      {rest.length > 0 && <div style={{ background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14, overflow: 'hidden' }}>
+      {rest.length > 0 && <div style={{ background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14, overflowX: 'auto', overflowY: 'hidden' }}>
         {/* 컬럼 헤더 */}
         <div style={{
-          display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr',
+          display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr', minWidth: 620,
           padding: '10px 20px', borderBottom: `1px solid ${theme.border}`,
           fontSize: 11, fontWeight: 700, color: theme.textMuted,
         }}>
@@ -192,7 +194,7 @@ export default function RankingPage() {
           const isMe = user.isMe;
           return (
             <div key={user.id} style={{
-              display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr',
+              display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr', minWidth: 620,
               padding: '13px 20px', borderBottom: `1px solid ${theme.border}`,
               alignItems: 'center', fontSize: 13,
               background: isMe ? theme.aiSoft : 'transparent',
