@@ -39,6 +39,8 @@ export interface AiRecommendation {
   reason: string;
   // 대시보드 종목명 옆에 쓰는 25자 안팎 한 줄 요약 (없으면 reason을 쓴다)
   summary?: string;
+  // AI가 매긴 확신도 (0~100)
+  confidence?: number;
   evidence: AiEvidence[];
   priceAtRecommendation: number;
   recommendedAt: string;
@@ -82,6 +84,7 @@ function fromApi(r: ApiAiRecommendation): AiRecommendation {
     opinion: r.opinion,
     reason: r.reason,
     summary: r.summary ?? undefined,
+    confidence: r.confidence ?? undefined,
     evidence: r.evidence.map(e => ({
       title: e.title,
       // 언론사 대신 기사 주소의 도메인이 온다 (www.는 뺀다)
@@ -209,4 +212,46 @@ export function hitRateTrend(past: AiRecommendation[]): { week: string; rates: P
     }
     return { week, rates };
   });
+}
+
+export interface AiConsensusPick {
+  stockCode: string;
+  stockName: string;
+  // 이 종목을 고른 AI (중복 없이)
+  models: AiModel[];
+  buy: number;
+  sell: number;
+  verdict: 'BUY' | 'SELL' | 'SPLIT';
+}
+
+/** 2개 이상의 AI가 고른 종목. 고른 AI가 많은 순, 같으면 의견이 모인 것부터 */
+export function consensusPicks(current: AiRecommendation[], limit = 3): AiConsensusPick[] {
+  const byStock = new Map<string, AiRecommendation[]>();
+  for (const r of current) byStock.set(r.stockCode, [...(byStock.get(r.stockCode) ?? []), r]);
+  return [...byStock.values()]
+    .map(recs => {
+      const buy = recs.filter(r => r.opinion === 'BUY').length;
+      const sell = recs.length - buy;
+      return {
+        stockCode: recs[0].stockCode,
+        stockName: recs[0].stockName,
+        models: [...new Set(recs.map(r => r.aiModel))],
+        buy,
+        sell,
+        verdict: sell === 0 ? 'BUY' : buy === 0 ? 'SELL' : 'SPLIT',
+      } as AiConsensusPick;
+    })
+    .filter(p => p.models.length >= 2)
+    .sort((a, b) => b.models.length - a.models.length || Number(a.verdict === 'SPLIT') - Number(b.verdict === 'SPLIT'))
+    .slice(0, limit);
+}
+
+/** AI마다 확신도가 가장 높은 추천 하나 (공통 종목이 없을 때 대신 보여준다) */
+export function topPickPerModel(current: AiRecommendation[]): AiRecommendation[] {
+  const best = new Map<AiModel, AiRecommendation>();
+  for (const r of current) {
+    const prev = best.get(r.aiModel);
+    if (!prev || (r.confidence ?? 0) > (prev.confidence ?? 0)) best.set(r.aiModel, r);
+  }
+  return [...best.values()];
 }

@@ -5,6 +5,7 @@ import HorizontalScroll from '../components/HorizontalScroll';
 import AiIcon from '../components/AiIcon';
 import AiStatsCard from '../components/AiStatsCard';
 import AiHitRateTrendChart from '../components/AiHitRateTrendChart';
+import AiConsensusPanel from '../components/AiConsensusPanel';
 import AiRecommendationModal, { HitBadge, formatDate, formatReturn, resultLabel } from '../components/AiRecommendationModal';
 import { hitRateOf, useAiRecommendations } from '../lib/aiRecommendations';
 import type { AiRecommendation, PeriodType } from '../lib/aiRecommendations';
@@ -37,39 +38,44 @@ export default function AiAnalysisPage() {
         background: `linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)`,
         borderRadius: 16, padding: '26px 32px',
         position: 'relative', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', gap: 16,
+        display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
       }}>
         <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ position: 'absolute', right: 120, bottom: -70, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 8 }}>
-            ✦ AI 추천 성적표
-          </div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1.45 }}>
-            AI가 뉴스를 분석해 종목을 추천하고,<br />1주·1달 뒤 실제 결과로 성적을 공개합니다
-          </div>
-        </div>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {['뉴스 수집·분석', '매수/매도 추천', '결과 검증'].map((step, i) => (
-            <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {i > 0 && <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>→</span>}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 20,
-                background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
-                fontSize: 12, fontWeight: 600, color: '#fff',
-              }}>
-                <span style={{
-                  width: 16, height: 16, borderRadius: '50%', background: '#fff', color: '#4F6EF7',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
-                }}>
-                  {i + 1}
-                </span>
-                {step}
-              </div>
+        <div style={{ position: 'relative', flex: 1, minWidth: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 8 }}>
+              ✦ AI 추천 성적표
             </div>
-          ))}
+            <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1.45 }}>
+              AI가 뉴스를 분석해 종목을 추천하고,<br />1주·1달 뒤 실제 결과로 성적을 공개합니다
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {['뉴스 수집·분석', '매수/매도 추천', '결과 검증'].map((step, i) => (
+              <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {i > 0 && <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>→</span>}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 20,
+                  background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
+                  fontSize: 12, fontWeight: 600, color: '#fff',
+                }}>
+                  <span style={{
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff', color: '#4F6EF7',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
+                  }}>
+                    {i + 1}
+                  </span>
+                  {step}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* 여러 AI가 함께 고른 종목 (없으면 AI별 주목 종목) */}
+        <AiConsensusPanel current={current} />
       </div>
 
       {status !== 'ready' && (
