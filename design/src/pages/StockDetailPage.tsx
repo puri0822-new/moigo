@@ -4,9 +4,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { stocks, aiRecs, stockAiInsights } from '../data/mockData';
 import StockLogo from '../components/StockLogo';
-import { createOrder, fetchStockByCode, fetchStockCandles, fetchStockNews, fetchStockOrderbook, apiGet } from '../lib/api';
+import { addWatchlist, apiGet, createOrder, fetchStockByCode, fetchStockCandles, fetchStockNews, fetchStockOrderbook, fetchWatchlist, removeWatchlist, setWatchAlert } from '../lib/api';
 import type { ApiCandle, ApiNewsItem, ApiOrderbook, ApiStock } from '../lib/api';
 import { timeAgo } from '../lib/time';
+import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
 import CandleChart from '../components/CandleChart';
 import PostFeed from '../components/PostFeed';
 import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
@@ -48,7 +49,9 @@ export default function StockDetailPage() {
   const [qty, setQty] = useState(1);
   const [period, setPeriod] = useState<(typeof periods)[number]>('1일');
   const [liked, setLiked] = useState(false);
-  const [alerted, setAlerted] = useState(false);
+  // 회원 설정에서 급등락 알림을 껐으면 하트를 눌러도 알림 여부를 묻지 않는다
+  const [priceAlertEnabled, setPriceAlertEnabled] = useState(true);
+  const [askAlert, setAskAlert] = useState(false);
   const [mainTab, setMainTab] = useState<'chart' | 'info' | 'news' | 'community'>('chart');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [rightTab, setRightTab] = useState<'insight' | 'portfolio'>('insight');
@@ -87,7 +90,45 @@ export default function StockDetailPage() {
     apiGet<PortfolioData>('/portfolio').then(res => setPortfolio(res.data)).catch(() => {});
   }, [isAuthenticated]);
 
-  useEffect(() => { loadPortfolio(); }, [loadPortfolio]);
+  usePolling(loadPortfolio, PORTFOLIO_POLL_MS, isAuthenticated);
+
+  useEffect(() => {
+    if (!isAuthenticated || stockId === null) return;
+    setLiked(false);
+    fetchWatchlist()
+      .then(res => {
+        setLiked(res.data.items.some(w => w.stock_id === stockId));
+        setPriceAlertEnabled(res.data.price_alert_enabled);
+      })
+      .catch(() => {});
+  }, [isAuthenticated, stockId]);
+
+  const toggleLike = async () => {
+    if (stockId === null) return;
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) {
+        await addWatchlist(stockId);
+        if (priceAlertEnabled) setAskAlert(true);
+      } else {
+        await removeWatchlist(stockId);
+      }
+    } catch {
+      setLiked(!next);
+      showToast('관심 종목을 바꾸지 못했습니다', false);
+    }
+  };
+
+  const answerAlert = async (enable: boolean) => {
+    setAskAlert(false);
+    if (!enable || stockId === null) return;
+    try {
+      await setWatchAlert(stockId, true);
+    } catch {
+      showToast('알림을 켜지 못했습니다', false);
+    }
+  };
 
   useEffect(() => {
     if (!code) return;
@@ -366,27 +407,10 @@ export default function StockDetailPage() {
               <span style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</span>
               <span style={{ fontSize: 13, color: theme.textMuted, fontWeight: 500 }}>{stock.code}</span>
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* 알림 아이콘 */}
+                {/* 관심 종목 (하트) */}
                 <div
-                  onClick={() => setAlerted(v => !v)}
-                  style={{
-                    width: 34, height: 34, borderRadius: 10,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: 17,
-                    background: alerted ? theme.aiSoft : theme.panel2,
-                    border: `1px solid ${alerted ? theme.ai : theme.border}`,
-                    color: alerted ? theme.ai : theme.textMuted,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                  </svg>
-                </div>
-                {/* 즐겨찾기 아이콘 */}
-                <div
-                  onClick={() => setLiked(v => !v)}
+                  onClick={toggleLike}
+                  title={liked ? '관심 종목에서 빼기' : '관심 종목에 추가'}
                   style={{
                     width: 34, height: 34, borderRadius: 10,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1144,6 +1168,51 @@ export default function StockDetailPage() {
                   color: theme.bg, fontWeight: 700, fontSize: 13, cursor: 'pointer',
                 }}
               >{confirmOrder.side === 'buy' ? '매수 확인' : '매도 확인'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 관심 종목 추가 후 급등락 알림 여부 */}
+      {askAlert && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => answerAlert(false)}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width: 340, background: theme.panel,
+            border: `1px solid ${theme.border}`,
+            borderRadius: 16, padding: '24px 20px',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+            display: 'flex', flexDirection: 'column', gap: 16,
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
+              <StockLogo name={stock.name} code={stock.code} size={44} />
+              <div style={{ fontSize: 16, fontWeight: 800 }}>관심 종목에 추가했어요</div>
+              <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+                <b>{stock.name}</b> 주가가 <b>5% 이상</b> 오르거나 내리면<br />알려드릴까요?
+              </div>
+              <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+                전일 종가 대비 5%, 10%, 15%… 를 넘을 때마다<br />오른쪽 위 알림에 표시돼요. 회원 설정에서 끌 수 있어요.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div
+                onClick={() => answerAlert(false)}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 8,
+                  border: `1px solid ${theme.border}`, fontSize: 13, fontWeight: 600,
+                  color: theme.textMuted, cursor: 'pointer',
+                }}
+              >괜찮아요</div>
+              <div
+                onClick={() => answerAlert(true)}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 8,
+                  background: theme.ai, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                }}
+              >알림 받기</div>
             </div>
           </div>
         </div>

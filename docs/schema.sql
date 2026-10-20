@@ -19,6 +19,7 @@ CREATE TABLE users (
     login_type          VARCHAR(20)     NOT NULL DEFAULT 'LOCAL',
     social_id           VARCHAR(255)    NULL,
     marketing_agreed    BOOLEAN         NOT NULL DEFAULT FALSE,
+    price_alert_enabled BOOLEAN         NOT NULL DEFAULT TRUE,   -- 회원 설정의 급등락 알림 전체 스위치
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -171,6 +172,35 @@ CREATE TABLE post_comments (
 
 CREATE INDEX idx_posts_stock_id ON posts(stock_id);
 CREATE INDEX idx_post_comments_post_id ON post_comments(post_id);
+
+-- watchlist / notifications (관심 종목, 급등락 알림)
+CREATE TABLE watchlist (
+    id             BIGSERIAL    PRIMARY KEY,
+    user_id        BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stock_id       BIGINT       NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    alert_enabled  BOOLEAN      NOT NULL DEFAULT FALSE,   -- 이 종목의 급등락 알림을 받을지
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (user_id, stock_id)
+);
+
+CREATE TABLE notifications (
+    id           BIGSERIAL     PRIMARY KEY,
+    user_id      BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stock_id     BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    direction    VARCHAR(4)    NOT NULL CHECK (direction IN ('UP', 'DOWN')),
+    level        INT           NOT NULL,                 -- 넘은 단계(5, 10, 15...). 같은 날 같은 단계는 한 번만 알린다
+    change_rate  NUMERIC(6,2)  NOT NULL,                 -- 알림을 만든 순간의 전일 대비 등락률(%)
+    price        BIGINT        NOT NULL,
+    trade_date   DATE          NOT NULL,
+    read_at      TIMESTAMPTZ   NULL,
+    deleted_at   TIMESTAMPTZ   NULL,                     -- 사용자가 지운 알림. 행을 남겨야 같은 날 같은 단계 알림이 다시 생기지 않는다
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (user_id, stock_id, trade_date, direction, level)
+);
+
+CREATE INDEX idx_notifications_user_id ON notifications(user_id, created_at DESC);
 
 -- ai_models / ai_recommendations / ai_recommendation_results / ai_recommendation_evidence (AI 모델, 종목 추천, 결과 검증, 근거 뉴스)
 -- 추천을 내는 AI 모델 목록. 모델을 추가·중단할 때 코드를 고치지 않고 이 테이블만 바꾼다

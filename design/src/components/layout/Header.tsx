@@ -4,6 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { apiGet } from '../../lib/api';
 import type { ApiStock } from '../../lib/api';
+import NotificationBell from './NotificationBell';
 
 interface SearchStock {
   name: string;
@@ -177,16 +178,7 @@ export default function Header() {
           <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
           <span>{mode === 'dark' ? '다크' : '라이트'}</span>
         </div>
-        <div style={{
-          width: 34, height: 34, borderRadius: 9, border: `1px solid ${theme.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', color: theme.textMuted, flexShrink: 0,
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-        </div>
+        <NotificationBell />
         <div style={{ position: 'relative' }}>
           <div
             onClick={() => setProfileOpen(prev => !prev)}

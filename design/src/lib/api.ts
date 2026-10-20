@@ -277,3 +277,67 @@ export interface ApiWeeklyRanker {
 export function fetchWeeklyRanking(limit = 5) {
   return apiGet<ApiWeeklyRanker[]>(`/ranking/weekly?limit=${limit}`);
 }
+
+// ── 관심 종목 · 급등락 알림 ──
+
+export interface ApiWatchItem {
+  stock_id: number;
+  stock_code: string;
+  stock_name: string;
+  alert_enabled: boolean;
+  /** 토스 조회에 실패하면 null */
+  current_price: number | null;
+  change: number | null;
+  change_rate: number | null;
+}
+
+export interface ApiWatchlist {
+  /** 회원 설정의 급등락 알림 전체 스위치 */
+  price_alert_enabled: boolean;
+  items: ApiWatchItem[];
+}
+
+export function fetchWatchlist() {
+  return apiGet<ApiWatchlist>('/watchlist');
+}
+
+export function addWatchlist(stockId: number, alertEnabled = false) {
+  return apiPost<null>('/watchlist', { stock_id: stockId, alert_enabled: alertEnabled });
+}
+
+export function setWatchAlert(stockId: number, alertEnabled: boolean) {
+  return apiPatch<null>(`/watchlist/${stockId}`, { alert_enabled: alertEnabled });
+}
+
+export function removeWatchlist(stockId: number) {
+  return apiDelete<null>(`/watchlist/${stockId}`);
+}
+
+export interface ApiNotification {
+  id: number;
+  stock_code: string;
+  stock_name: string;
+  direction: 'UP' | 'DOWN';
+  /** 넘은 단계(5, 10, 15...) */
+  level: number;
+  change_rate: number;
+  price: number;
+  created_at: string;
+  read: boolean;
+}
+
+export function fetchNotifications() {
+  return apiGet<{ unread_count: number; items: ApiNotification[] }>('/notifications');
+}
+
+export function readAllNotifications() {
+  return apiPost<null>('/notifications/read-all');
+}
+
+export function deleteNotification(id: number) {
+  return apiDelete<null>(`/notifications/${id}`);
+}
+
+export function deleteAllNotifications() {
+  return apiDelete<null>('/notifications');
+}

@@ -11,6 +11,7 @@ interface MyProfile {
   login_type: string;
   has_password: boolean;
   marketing_agreed: boolean;
+  price_alert_enabled: boolean;
   created_at: string;
 }
 
@@ -39,6 +40,9 @@ export default function SettingsPage() {
   const [confirmPw, setConfirmPw] = useState('');
   const [pwNotice, setPwNotice] = useState<Notice>(null);
   const [savingPw, setSavingPw] = useState(false);
+
+  const [alertNotice, setAlertNotice] = useState<Notice>(null);
+  const [savingAlert, setSavingAlert] = useState(false);
 
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
@@ -113,6 +117,23 @@ export default function SettingsPage() {
       setPwNotice({ kind: 'error', text: errorText(err) });
     } finally {
       setSavingPw(false);
+    }
+  };
+
+  // 스위치는 누르는 즉시 저장한다
+  const togglePriceAlert = async () => {
+    if (savingAlert) return;
+    const next = !profile.price_alert_enabled;
+    setSavingAlert(true);
+    setAlertNotice(null);
+    try {
+      const res = await apiPatch<MyProfile>('/users/me', { price_alert_enabled: next });
+      setProfile(res.data);
+      setAlertNotice({ kind: 'ok', text: next ? '급등락 알림을 켰습니다' : '급등락 알림을 껐습니다' });
+    } catch (err) {
+      setAlertNotice({ kind: 'error', text: errorText(err) });
+    } finally {
+      setSavingAlert(false);
     }
   };
 
@@ -214,6 +235,36 @@ export default function SettingsPage() {
           </div>
         </Section>
       )}
+
+      <Section title="알림 설정">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>관심 종목 급등락 알림</div>
+            <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+              알림을 켠 관심 종목이 전일 종가 대비 5%, 10%, 15%… 를 넘게 오르거나 내리면 오른쪽 위 알림에 표시합니다.
+              끄면 종목별 알림 설정과 관계없이 새 알림을 보내지 않습니다.
+            </div>
+          </div>
+          <div
+            role="switch"
+            aria-checked={profile.price_alert_enabled}
+            onClick={togglePriceAlert}
+            style={{
+              width: 44, height: 26, borderRadius: 13, flexShrink: 0, position: 'relative',
+              background: profile.price_alert_enabled ? theme.ai : theme.border,
+              cursor: savingAlert ? 'default' : 'pointer', opacity: savingAlert ? 0.6 : 1,
+              transition: 'background 0.2s',
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: 3, left: profile.price_alert_enabled ? 21 : 3,
+              width: 20, height: 20, borderRadius: '50%', background: '#fff',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s',
+            }} />
+          </div>
+        </div>
+        {notice(alertNotice)}
+      </Section>
 
       <Section title="회원 탈퇴" danger>
         <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.6 }}>

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { stocks, aiRecs } from '../../data/mockData';
 import StockLogo from '../StockLogo';
-import { apiGet } from '../../lib/api';
+import { apiGet, fetchWatchlist } from '../../lib/api';
+import type { ApiWatchItem } from '../../lib/api';
+import { usePolling, PORTFOLIO_POLL_MS } from '../../lib/usePolling';
 
 interface HoldingItem {
   stock_id: number;
@@ -33,11 +36,16 @@ export default function GlobalRightPanel() {
   const [activeRec, setActiveRec] = useState(0);
   const [showRec, setShowRec] = useState(true);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [watchlist, setWatchlist] = useState<ApiWatchItem[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated) { setPortfolio(null); return; }
-    apiGet<PortfolioData>('/portfolio').then(res => setPortfolio(res.data)).catch(() => {});
+    if (!isAuthenticated) { setPortfolio(null); setWatchlist([]); }
   }, [isAuthenticated]);
+
+  usePolling(() => {
+    apiGet<PortfolioData>('/portfolio').then(res => setPortfolio(res.data)).catch(() => {});
+    fetchWatchlist().then(res => setWatchlist(res.data.items)).catch(() => {});
+  }, PORTFOLIO_POLL_MS, isAuthenticated);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -122,7 +130,7 @@ export default function GlobalRightPanel() {
       )}
 
       {/* 보유 종목 */}
-      <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>보유 종목</div>
+      <CollapsibleSection title="보유 종목" storageKey="panel.holdings.hidden">
       {!isAuthenticated && (
         <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '12px 0' }}>로그인 후 확인 가능</div>
       )}
@@ -148,9 +156,80 @@ export default function GlobalRightPanel() {
           </div>
         );
       })}
+      </CollapsibleSection>
 
       <div onClick={() => navigate('/portfolio')} style={{ textAlign: 'center', padding: '9px 0', borderRadius: 8, border: `1px solid ${theme.border}`, fontSize: 12, fontWeight: 600, color: theme.textMuted, cursor: 'pointer', marginTop: 4 }}>
         전체 포트폴리오 보기
+      </div>
+
+      {/* 관심 종목 (종목 상세의 하트) */}
+      {isAuthenticated && (
+        <CollapsibleSection title="관심 종목" storageKey="panel.watchlist.hidden" style={{ marginTop: 8 }}>
+          {watchlist.length === 0 && (
+            <div style={{ fontSize: 12, color: theme.textMuted, textAlign: 'center', padding: '12px 0', lineHeight: 1.6 }}>
+              종목 상세에서 ♡를 누르면<br />여기에 모아 보여드려요
+            </div>
+          )}
+          {watchlist.map(w => {
+            const hasPrice = w.current_price !== null && w.change !== null && w.change_rate !== null;
+            const changeColor = (w.change ?? 0) >= 0 ? theme.up : theme.down;
+            const sign = (w.change ?? 0) >= 0 ? '+' : '-';
+            return (
+              <div key={w.stock_id} onClick={() => navigate(`/stock/${w.stock_code}`)} style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <StockLogo name={w.stock_name} code={w.stock_code} size={30} />
+                {/* 종목명은 아이콘 높이 가운데, 가격과 등락은 오른쪽에 위아래로 */}
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.stock_name}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{hasPrice ? `${w.current_price!.toLocaleString()}원` : '-'}</span>
+                  {hasPrice && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: changeColor }}>{sign}{Math.abs(w.change!).toLocaleString()}원 ({Math.abs(w.change_rate!).toFixed(1)}%)</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </CollapsibleSection>
+      )}
+    </div>
+  );
+}
+
+/** 제목 오른쪽 "숨기기/보이기" 버튼으로 아래 목록을 접었다 편다. 접은 상태는 이 브라우저에만 기억한다 */
+function CollapsibleSection({ title, storageKey, style, children }: {
+  title: string; storageKey: string; style?: React.CSSProperties; children: ReactNode;
+}) {
+  const { theme } = useTheme();
+  const [hidden, setHidden] = useState(() => {
+    try { return localStorage.getItem(storageKey) === '1'; } catch { return false; }
+  });
+
+  const toggle = () => {
+    const next = !hidden;
+    setHidden(next);
+    try { localStorage.setItem(storageKey, next ? '1' : '0'); } catch { /* 저장 못 해도 화면은 동작 */ }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, ...style }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>{title}</span>
+        <span
+          onClick={toggle}
+          style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: theme.textMuted, cursor: 'pointer', padding: '2px 4px' }}
+        >
+          {hidden ? '보이기' : '숨기기'}
+        </span>
+      </div>
+      {/* 높이를 0fr ↔ 1fr로 바꿔 목록 높이에 상관없이 부드럽게 말려 올라가게 한다 */}
+      <div style={{
+        display: 'grid', gridTemplateRows: hidden ? '0fr' : '1fr',
+        transition: 'grid-template-rows 0.25s ease',
+      }}>
+        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 14 }}>
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );
