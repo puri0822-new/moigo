@@ -1,9 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useTheme } from '../../context/ThemeContext';
-import { MOBILE_MAX, useViewport } from '../../lib/useViewport';
+import { COMPACT_MAX, MOBILE_MAX, useViewport } from '../../lib/useViewport';
 
 export type OrderPriceType = 'limit' | 'market';
+
+const BOX_WIDTH = 292;
+// 넓은 화면에서 종목 상세 우측 패널(AI 인사이트·내 모의매매)이 차지하는 폭
+const RIGHT_PANEL_WIDTH = 300;
+const POS_STORAGE_KEY = 'moigo:order-box-pos';
+
+// 처음 위치: 우측 패널이 옆에 있으면 그 왼쪽(차트 쪽)에 띄워 AI 인사이트를 가리지 않는다.
+// 좁은 화면에서는 우측 패널이 본문 아래로 내려가므로 오른쪽 끝에 붙인다
+function defaultPos() {
+  const rightGap = window.innerWidth >= COMPACT_MAX ? RIGHT_PANEL_WIDTH + 16 : 24;
+  return { x: window.innerWidth - BOX_WIDTH - rightGap, y: window.innerHeight - 540 };
+}
+
+function loadSavedPos(): { x: number; y: number } | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(POS_STORAGE_KEY) ?? 'null');
+    return typeof saved?.x === 'number' && typeof saved?.y === 'number' ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePos(pos: { x: number; y: number }) {
+  try {
+    localStorage.setItem(POS_STORAGE_KEY, JSON.stringify(pos));
+  } catch {
+    // 저장소를 못 쓰는 환경이면 위치 기억만 건너뛴다
+  }
+}
 
 interface OrderBoxProps {
   stockName: string;
@@ -36,7 +65,7 @@ export default function OrderBox({
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   useEffect(() => {
-    setFloatPos({ x: window.innerWidth - 316, y: window.innerHeight - 540 });
+    setFloatPos(loadSavedPos() ?? defaultPos());
   }, []);
 
   // 창을 줄이면 주문창이 화면 밖으로 밀려나지 않게 안쪽으로 당긴다
@@ -54,15 +83,19 @@ export default function OrderBox({
   const handleDragStart = (e: React.MouseEvent) => {
     e.preventDefault();
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: floatPos.x, origY: floatPos.y };
+    let moved: { x: number; y: number } | null = null;
     const onMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
-      setFloatPos({
+      moved = {
         x: Math.max(0, Math.min(window.innerWidth - 300, dragRef.current.origX + e.clientX - dragRef.current.startX)),
         y: Math.max(0, Math.min(window.innerHeight - 48, dragRef.current.origY + e.clientY - dragRef.current.startY)),
-      });
+      };
+      setFloatPos(moved);
     };
     const onUp = () => {
       dragRef.current = null;
+      // 옮긴 자리를 기억해 두고 다른 종목·다음 방문에서도 같은 자리에 띄운다
+      if (moved) savePos(moved);
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
@@ -83,7 +116,7 @@ export default function OrderBox({
       overflow: 'hidden',
       ...(isMobile
         ? { left: 0, right: 0, bottom: 0, borderRadius: '14px 14px 0 0', maxHeight: '80vh', overflowY: 'auto' }
-        : { left: floatPos.x, top: floatPos.y, width: 292, borderRadius: 14 }),
+        : { left: floatPos.x, top: floatPos.y, width: BOX_WIDTH, borderRadius: 14 }),
     }}>
       {/* 드래그 핸들 */}
       <div
