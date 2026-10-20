@@ -203,7 +203,7 @@ export default function DashboardPage() {
             .map((s, i) => {
             const changeColor = s.changePct >= 0 ? theme.up : theme.down;
             const changeAmt = Math.round(s.priceRaw - s.priceRaw / (1 + s.changePct / 100));
-            const changeLabel = `${s.changePct >= 0 ? '+' : '-'}${Math.abs(changeAmt).toLocaleString()}원 (${Math.abs(s.changePct).toFixed(1)}%)`;
+            const changeLabel = `${s.changePct >= 0 ? '+' : '-'}${Math.abs(changeAmt).toLocaleString()}원 (${Math.abs(s.changePct).toFixed(2)}%)`;
             const stockRecs = aiRecs.filter(r => r.stockCode === s.code);
             const aiRec = stockRecs[(stockRecIndices[s.name] ?? 0) % stockRecs.length];
             const signalColor = aiRec?.opinion === 'BUY' ? theme.up : theme.down;

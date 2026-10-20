@@ -16,7 +16,7 @@ export function resultLabel(evaluateAt: string): string {
 }
 
 export function formatReturn(rate: number): string {
-  return `${rate >= 0 ? '+' : ''}${(rate * 100).toFixed(1)}%`;
+  return `${rate >= 0 ? '+' : ''}${(rate * 100).toFixed(2)}%`;
 }
 
 export function formatDate(dateString: string): string {

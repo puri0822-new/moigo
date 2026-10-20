@@ -157,7 +157,7 @@ export default function Header() {
                     fontSize: 11, fontWeight: 600,
                     color: s.changePct >= 0 ? theme.up : theme.down,
                   }}>
-                    {s.changePct >= 0 ? '▲' : '▼'}{Math.abs(s.changePct).toFixed(1)}%
+                    {s.changePct >= 0 ? '▲' : '▼'}{Math.abs(s.changePct).toFixed(2)}%
                   </div>
                 </div>
               </div>

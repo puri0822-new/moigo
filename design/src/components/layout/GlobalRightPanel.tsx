@@ -109,7 +109,7 @@ export default function GlobalRightPanel() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2 }}>
                 <span style={{ fontSize: 11, color: theme.textMuted }}>{h.quantity}주</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: changeColor, flexShrink: 0 }}>{sign}{Math.abs(h.profit_loss).toLocaleString()}원 ({Math.abs(h.profit_loss_rate).toFixed(1)}%)</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: changeColor, flexShrink: 0 }}>{sign}{Math.abs(h.profit_loss).toLocaleString()}원 ({Math.abs(h.profit_loss_rate).toFixed(2)}%)</span>
               </div>
             </div>
           </div>
@@ -141,7 +141,7 @@ export default function GlobalRightPanel() {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
                   <span style={{ fontSize: 12, fontWeight: 700 }}>{hasPrice ? `${w.current_price!.toLocaleString()}원` : '-'}</span>
                   {hasPrice && (
-                    <span style={{ fontSize: 11, fontWeight: 700, color: changeColor }}>{sign}{Math.abs(w.change!).toLocaleString()}원 ({Math.abs(w.change_rate!).toFixed(1)}%)</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: changeColor }}>{sign}{Math.abs(w.change!).toLocaleString()}원 ({Math.abs(w.change_rate!).toFixed(2)}%)</span>
                   )}
                 </div>
               </div>

@@ -87,7 +87,7 @@ export default function FeedSidebar() {
             <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: user.is_me ? 800 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nickname}</span>
             <div style={{ textAlign: 'right', flexShrink: 0, color }}>
               <div style={{ fontSize: 12, fontWeight: 700 }}>{user.profit_amount >= 0 ? '+' : '-'}{Math.abs(user.profit_amount).toLocaleString()}원</div>
-              <div style={{ fontSize: 10 }}>({Math.abs(user.profit_rate).toFixed(1)}%)</div>
+              <div style={{ fontSize: 10 }}>({Math.abs(user.profit_rate).toFixed(2)}%)</div>
             </div>
           </div>
         );
