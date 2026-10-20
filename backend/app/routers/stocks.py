@@ -7,6 +7,8 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import naver_client, toss_client
+from app.core.candle_agg import aggregate_daily
+from app.core.candle_store import get_daily_bars
 from app.core.database import get_db
 from app.models import Stock
 from app.schemas.candle import Candle
@@ -19,6 +21,10 @@ router = APIRouter(prefix="/stocks", tags=["Stocks"])
 logger = logging.getLogger(__name__)
 
 TOSS_TIMEOUT_SECONDS = 6
+# 일봉은 DB에서 읽고, 주/월/년봉은 그 일봉을 묶어서 만든다.
+_TRADING_DAYS_PER_BAR = {"1d": 1, "1w": 5, "1mo": 22, "1y": 250}
+_MAX_DAILY_HISTORY = 2500
+_MAX_BAR_COUNT = 2000
 
 
 async def _fetch_prices_safe(codes: list[str]) -> dict[str, dict]:
@@ -142,19 +148,30 @@ async def get_stock_candles(
     count: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
-    if interval not in ("1m", "1d"):
-        raise HTTPException(status_code=400, detail="interval은 1m 또는 1d만 지원합니다")
-    if not 1 <= count <= 200:
-        raise HTTPException(status_code=400, detail="count는 1~200 사이여야 합니다")
+    if interval != "1m" and interval not in _TRADING_DAYS_PER_BAR:
+        raise HTTPException(status_code=400, detail="interval은 1m, 1d, 1w, 1mo, 1y만 지원합니다")
+    if not 1 <= count <= _MAX_BAR_COUNT:
+        raise HTTPException(status_code=400, detail=f"count는 1~{_MAX_BAR_COUNT} 사이여야 합니다")
+    daily_needed = min(
+        _MAX_DAILY_HISTORY,
+        count if interval == "1d" else (count + 1) * _TRADING_DAYS_PER_BAR.get(interval, 0),
+    )
 
     stock = await db.get(Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
     try:
-        raw_candles = await toss_client.get_candles(stock.code, interval, count)
-    except httpx.HTTPError:
-        raw_candles = []
+        if interval == "1m":
+            raw_candles = await asyncio.wait_for(
+                toss_client.get_candles(stock.code, interval, count), TOSS_TIMEOUT_SECONDS
+            )
+        else:
+            daily = await get_daily_bars(db, stock, daily_needed)
+            raw_candles = daily[-count:] if interval == "1d" else aggregate_daily(daily, interval)[-count:]
+    except (httpx.HTTPError, asyncio.TimeoutError) as e:
+        logger.warning("캔들 조회 실패 %s %s/%d: %r", stock.code, interval, count, e)
+        raise HTTPException(status_code=502, detail="차트 데이터를 불러오지 못했습니다")
 
     data = [
         Candle(

@@ -16,6 +16,7 @@ psql -d moigo -f docs/migrations/004_ai_recommendations.sql
 psql -d moigo -f docs/migrations/005_watchlist_notifications.sql
 psql -d moigo -f docs/migrations/006_ai_model_clova.sql
 psql -d moigo -f docs/migrations/007_stock_ai_reasons.sql
+psql -d moigo -f docs/migrations/008_stock_daily_candles.sql
 ```
 
 | 파일 | 내용 | 실행하지 않으면 |
@@ -25,6 +26,7 @@ psql -d moigo -f docs/migrations/007_stock_ai_reasons.sql
 | `004_ai_recommendations.sql` | AI 모델·추천·결과·근거 테이블 | AI 관련 API 오류 |
 | `005_watchlist_notifications.sql` | 관심 종목·알림 테이블, `users.price_alert_enabled` | **회원 설정 페이지(`/users/me`)가 열리지 않음**, 관심 종목·알림 API 오류 |
 | `006_ai_model_clova.sql` | AI 모델 목록에 CLOVA 추가, 추천 한 줄 요약(`summary`) | AI 추천 API 오류 |
+| `008_stock_daily_candles.sql` | 일봉 테이블에 (stock_id, trade_date) 유일 제약·created_at/updated_at 추가 (없으면 테이블 생성) | 종목 상세 차트가 "불러오지 못했습니다"로 나옴 |
 | `007_stock_ai_reasons.sql` | 종목 상세 AI 등락 이유 저장 | 종목 상세의 등락 이유가 "준비 중"으로만 나옴 |
 
 ### `.env` 키 확인 (`backend/.env`)
@@ -73,6 +75,11 @@ NAVER_CLIENT_SECRET=
 - **백그라운드 작업은 없습니다.** 헤더 🔔가 30초마다 `GET /v1/notifications`를 부를 때 서버가 계산합니다. 그래서 접속하지 않은 동안의 급등락은 놓칠 수 있습니다
 - 알림 삭제는 행을 지우지 않고 `deleted_at`만 채웁니다. 행을 지우면 같은 알림이 다시 생깁니다
 - 회원 설정의 "관심 종목 급등락 알림" 스위치(`users.price_alert_enabled`)를 끄면 새 알림을 만들지 않습니다
+
+### 종목 상세 차트 (backend_A에서 가져옴)
+- 탭이 `분 · 일 · 주 · 월 · 년`(막대 하나의 단위)으로 바뀌었습니다. 분은 오늘 1분봉, 나머지는 DB에 쌓은 일봉을 묶어 만든 봉입니다. 드래그·휠로 과거 이동과 확대·축소가 됩니다
+- 3초마다 현재가와 마지막 막대만 갱신합니다
+- 토스 동시 요청은 4개로 묶고, 429(요청 제한)는 1초·2초 뒤 다시 시도합니다
 
 ## 3. 새 API
 

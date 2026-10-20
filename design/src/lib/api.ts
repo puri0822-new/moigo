@@ -138,7 +138,7 @@ export interface ApiCandle {
   volume: number;
 }
 
-export async function fetchStockCandles(stockId: number, interval: '1m' | '1d', count: number): Promise<ApiCandle[]> {
+export async function fetchStockCandles(stockId: number, interval: '1m' | '1d' | '1w' | '1mo' | '1y', count: number): Promise<ApiCandle[]> {
   const res = await api.get<ApiResponse<ApiCandle[]>>(`/stocks/${stockId}/candles`, { params: { interval, count } });
   return res.data.data;
 }

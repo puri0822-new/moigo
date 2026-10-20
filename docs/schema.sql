@@ -276,3 +276,19 @@ CREATE TABLE stock_ai_reasons (
 
     UNIQUE (stock_id, trade_date)
 );
+
+-- stock_daily_candles (종목 일봉. 차트의 일·주·월·년봉은 이걸 읽어 만들고, 최근 봉만 토스에서 받아 덮어쓴다)
+CREATE TABLE stock_daily_candles (
+    id              BIGSERIAL       PRIMARY KEY,
+    stock_id        BIGINT          NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    trade_date      DATE            NOT NULL,
+    open_price      BIGINT          NOT NULL CHECK (open_price >= 0),
+    high_price      BIGINT          NOT NULL CHECK (high_price >= 0),
+    low_price       BIGINT          NOT NULL CHECK (low_price >= 0),
+    close_price     BIGINT          NOT NULL CHECK (close_price >= 0),
+    volume          BIGINT          NOT NULL CHECK (volume >= 0),
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (stock_id, trade_date)
+);
