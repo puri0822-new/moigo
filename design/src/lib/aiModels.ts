@@ -22,7 +22,7 @@ interface ApiAiModel {
 
 // API를 받기 전이나 실패했을 때 쓰는 목록 (DB 시드 값과 같다)
 const FALLBACK_MODELS: AiProfile[] = [
-  { model: 'GPT', name: 'GPT', color: '#10A37F', isActive: true },
+  { model: 'CLAUDE', name: 'Claude', color: '#D4714F', isActive: true },
   { model: 'GEMINI', name: 'Gemini', color: '#4285F4', isActive: true },
 ];
 

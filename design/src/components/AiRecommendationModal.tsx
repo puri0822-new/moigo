@@ -5,7 +5,7 @@ import StockLogo from './StockLogo';
 import AiIcon from './AiIcon';
 import { daysUntil } from '../lib/time';
 import { findAiProfile, useAiModels } from '../lib/aiModels';
-import type { AiRecommendation } from '../data/aiRecommendations';
+import type { AiRecommendation } from '../lib/aiRecommendations';
 
 // 검증일이 지났는데 결과가 아직 없으면(검증 작업 대기 중) '결과 집계 중'으로 보여준다
 export function resultLabel(evaluateAt: string): string {

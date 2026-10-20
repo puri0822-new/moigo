@@ -8,7 +8,7 @@ export const REC_LABEL: Record<string, '매수' | '매도' | '중립'> = {
 
 export const BOT_META = {
   Gemini: { icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64' },
-  GPT: { icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64' },
+  Claude: { icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64' },
   CLOVA: { icon: 'https://www.google.com/s2/favicons?domain=naver.com&sz=64' },
 } as const;
 

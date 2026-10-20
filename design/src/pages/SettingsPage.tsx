@@ -12,6 +12,7 @@ interface MyProfile {
   login_type: string;
   has_password: boolean;
   marketing_agreed: boolean;
+  price_alert_enabled: boolean;
   created_at: string;
 }
 
@@ -41,6 +42,9 @@ export default function SettingsPage() {
   const [confirmPw, setConfirmPw] = useState('');
   const [pwNotice, setPwNotice] = useState<Notice>(null);
   const [savingPw, setSavingPw] = useState(false);
+
+  const [alertNotice, setAlertNotice] = useState<Notice>(null);
+  const [savingAlert, setSavingAlert] = useState(false);
 
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
@@ -118,14 +122,59 @@ export default function SettingsPage() {
     }
   };
 
+  // 스위치는 누르는 즉시 저장한다
+  const togglePriceAlert = async () => {
+    if (savingAlert) return;
+    const next = !profile.price_alert_enabled;
+    setSavingAlert(true);
+    setAlertNotice(null);
+    try {
+      const res = await apiPatch<MyProfile>('/users/me', { price_alert_enabled: next });
+      setProfile(res.data);
+      setAlertNotice({ kind: 'ok', text: next ? '급등락 알림을 켰습니다' : '급등락 알림을 껐습니다' });
+    } catch (err) {
+      setAlertNotice({ kind: 'error', text: errorText(err) });
+    } finally {
+      setSavingAlert(false);
+    }
+  };
+
   const joined = new Date(profile.created_at);
+  const joinedDays = Math.floor((Date.now() - joined.getTime()) / 86_400_000) + 1;
+
+  const badgeStyle = {
+    padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+    background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.textMuted,
+  };
 
   return (
     <div style={{ padding: isMobile ? 16 : 24, maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <div style={{ fontSize: 20, fontWeight: 800 }}>회원 설정</div>
-        <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 3 }}>
-          {joined.getFullYear()}.{joined.getMonth() + 1}.{joined.getDate()} 가입 · {profile.login_type === 'GOOGLE' ? '구글 계정' : '이메일 계정'}
+      <div style={{ fontSize: 20, fontWeight: 800 }}>회원 설정</div>
+
+      <div style={{
+        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+        padding: 20, display: 'flex', alignItems: 'center', gap: 16,
+      }}>
+        <div style={{
+          width: 64, height: 64, borderRadius: '50%', background: theme.ai, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 26, color: theme.aiText, fontWeight: 700,
+        }}>
+          {profile.nickname[0]?.toUpperCase() ?? '?'}
+        </div>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile.nickname}
+          </div>
+          <div style={{ fontSize: 13, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {profile.email}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+            <span style={badgeStyle}>{profile.login_type === 'GOOGLE' ? 'Google' : '이메일'}</span>
+            <span style={badgeStyle}>
+              {joined.getFullYear()}.{joined.getMonth() + 1}.{joined.getDate()} 가입 · {joinedDays}일째
+            </span>
+          </div>
         </div>
       </div>
 
@@ -188,6 +237,36 @@ export default function SettingsPage() {
           </div>
         </Section>
       )}
+
+      <Section title="알림 설정">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>관심 종목 급등락 알림</div>
+            <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+              알림을 켠 관심 종목이 전일 종가 대비 5%, 10%, 15%… 를 넘게 오르거나 내리면 오른쪽 위 알림에 표시합니다.
+              끄면 종목별 알림 설정과 관계없이 새 알림을 보내지 않습니다.
+            </div>
+          </div>
+          <div
+            role="switch"
+            aria-checked={profile.price_alert_enabled}
+            onClick={togglePriceAlert}
+            style={{
+              width: 44, height: 26, borderRadius: 13, flexShrink: 0, position: 'relative',
+              background: profile.price_alert_enabled ? theme.ai : theme.border,
+              cursor: savingAlert ? 'default' : 'pointer', opacity: savingAlert ? 0.6 : 1,
+              transition: 'background 0.2s',
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: 3, left: profile.price_alert_enabled ? 21 : 3,
+              width: 20, height: 20, borderRadius: '50%', background: '#fff',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s',
+            }} />
+          </div>
+        </div>
+        {notice(alertNotice)}
+      </Section>
 
       <Section title="회원 탈퇴" danger>
         <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.6 }}>

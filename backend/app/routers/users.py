@@ -21,6 +21,7 @@ def _profile(user: User) -> MyProfile:
         login_type=user.login_type,
         has_password=user.password_hash is not None,
         marketing_agreed=user.marketing_agreed,
+        price_alert_enabled=user.price_alert_enabled,
         created_at=user.created_at,
     )
 
@@ -41,6 +42,8 @@ def update_me(body: ProfileUpdateRequest, user: User = Depends(get_current_user)
         user.nickname = nickname
     if body.marketing_agreed is not None:
         user.marketing_agreed = body.marketing_agreed
+    if body.price_alert_enabled is not None:
+        user.price_alert_enabled = body.price_alert_enabled
     db.commit()
     db.refresh(user)
     return ApiResponse(success=True, data=_profile(user), message="회원 정보가 수정되었습니다")

@@ -8,9 +8,6 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Groq: OpenAI의 공개 모델(gpt-oss)을 무료 한도 안에서 호출한다 (OpenAI 호환 방식)
-_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
-
 _JSON_RE = re.compile(r"\{[\s\S]*\}")
 
 _SYSTEM = """당신은 한국 주식 뉴스 분석가다.
@@ -43,7 +40,7 @@ def _build_prompt(stock_name: str, news_items: list[dict]) -> str:
 def _parse_result(text: str) -> dict:
     match = _JSON_RE.search(text)
     if not match:
-        raise ValueError("GPT 응답에서 JSON을 찾지 못했습니다")
+        raise ValueError("Claude 응답에서 JSON을 찾지 못했습니다")
     data = json.loads(match.group())
     rec = str(data.get("recommendation", "HOLD")).upper()
     sent = str(data.get("sentiment", "NEUTRAL")).upper()
@@ -59,42 +56,34 @@ def _parse_result(text: str) -> dict:
 
 
 def _api_key() -> str:
-    return (settings.GROQ_API_KEY or "").strip()
+    return (settings.CLAUDE_API_KEY or settings.ANTHROPIC_API_KEY or "").strip()
 
 
 async def analyze_news(stock_name: str, news_items: list[dict]) -> dict | None:
-    """뉴스 기반 GPT 분석 (Groq). 키 없거나 실패하면 None."""
+    """뉴스 기반 Claude 분석. 키 없거나 실패하면 None."""
     api_key = _api_key()
     if not api_key:
         return None
 
     payload = {
-        "model": settings.GPT_MODEL,
-        # gpt-oss는 추론 토큰도 max_tokens에 포함되므로 넉넉히 두고 추론은 짧게 시킨다
-        "max_tokens": 2048,
-        "reasoning_effort": "low",
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": _SYSTEM},
-            {"role": "user", "content": _build_prompt(stock_name, news_items)},
-        ],
+        "model": settings.ANTHROPIC_MODEL,
+        "max_tokens": 1024,
+        "system": _SYSTEM,
+        "messages": [{"role": "user", "content": _build_prompt(stock_name, news_items)}],
     }
     headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
     }
 
     try:
         async with httpx.AsyncClient(timeout=45) as client:
-            resp = await client.post(_ENDPOINT, headers=headers, json=payload)
-            if resp.status_code == 429:
-                logger.warning("GPT(Groq) 무료 한도 초과 (429)")
-                return None
+            resp = await client.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
-        text = data["choices"][0]["message"]["content"] or ""
+        text = "".join(part.get("text", "") for part in data.get("content", []) if part.get("type") == "text")
         return _parse_result(text)
-    except Exception as e:
-        # 키가 예외 메시지에 섞일 수 있어 메시지는 짧게만 남긴다
-        logger.error("GPT 분석 실패: %s: %s", type(e).__name__, str(e)[:300])
+    except Exception:
+        logger.exception("Claude 분석 실패")
         return None

@@ -19,6 +19,7 @@ CREATE TABLE users (
     login_type          VARCHAR(20)     NOT NULL DEFAULT 'LOCAL',
     social_id           VARCHAR(255)    NULL,
     marketing_agreed    BOOLEAN         NOT NULL DEFAULT FALSE,
+    price_alert_enabled BOOLEAN         NOT NULL DEFAULT TRUE,   -- 회원 설정의 급등락 알림 전체 스위치
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -78,10 +79,10 @@ CREATE TABLE ai_analyses (
     id                      BIGSERIAL       PRIMARY KEY,
     stock_id                BIGINT          NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
     gemini_result           TEXT            NULL,
-    gpt_result              TEXT            NULL,
+    claude_result           TEXT            NULL,
     clova_result            TEXT            NULL,
     gemini_recommendation   VARCHAR(20)     NULL,
-    gpt_recommendation      VARCHAR(20)     NULL,
+    claude_recommendation   VARCHAR(20)     NULL,
     clova_recommendation    VARCHAR(20)     NULL,
     is_matched              BOOLEAN         NULL,
     sentiment               VARCHAR(20)     NULL,
@@ -89,7 +90,7 @@ CREATE TABLE ai_analyses (
     analyzed_at             TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_gemini_recommendation CHECK (gemini_recommendation IN ('BUY', 'HOLD', 'SELL')),
-    CONSTRAINT chk_gpt_recommendation CHECK (gpt_recommendation IN ('BUY', 'HOLD', 'SELL')),
+    CONSTRAINT chk_claude_recommendation CHECK (claude_recommendation IN ('BUY', 'HOLD', 'SELL')),
     CONSTRAINT chk_clova_recommendation CHECK (clova_recommendation IN ('BUY', 'HOLD', 'SELL')),
     CONSTRAINT chk_sentiment CHECK (sentiment IN ('POSITIVE', 'NEUTRAL', 'NEGATIVE'))
 );
@@ -223,12 +224,41 @@ CREATE INDEX idx_holdings_user_id ON holdings(user_id);
 CREATE INDEX idx_posts_stock_id ON posts(stock_id);
 CREATE INDEX idx_post_comments_post_id ON post_comments(post_id);
 
+-- watchlist / notifications (관심 종목, 급등락 알림)
+CREATE TABLE watchlist (
+    id             BIGSERIAL    PRIMARY KEY,
+    user_id        BIGINT       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stock_id       BIGINT       NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    alert_enabled  BOOLEAN      NOT NULL DEFAULT FALSE,   -- 이 종목의 급등락 알림을 받을지
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (user_id, stock_id)
+);
+
+CREATE TABLE notifications (
+    id           BIGSERIAL     PRIMARY KEY,
+    user_id      BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stock_id     BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    direction    VARCHAR(4)    NOT NULL CHECK (direction IN ('UP', 'DOWN')),
+    level        INT           NOT NULL,                 -- 넘은 단계(5, 10, 15...). 같은 날 같은 단계는 한 번만 알린다
+    change_rate  NUMERIC(6,2)  NOT NULL,                 -- 알림을 만든 순간의 전일 대비 등락률(%)
+    price        BIGINT        NOT NULL,
+    trade_date   DATE          NOT NULL,
+    read_at      TIMESTAMPTZ   NULL,
+    deleted_at   TIMESTAMPTZ   NULL,                     -- 사용자가 지운 알림. 행을 남겨야 같은 날 같은 단계 알림이 다시 생기지 않는다
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (user_id, stock_id, trade_date, direction, level)
+);
+
+CREATE INDEX idx_notifications_user_id ON notifications(user_id, created_at DESC);
+
 -- ai_models / ai_recommendations / ai_recommendation_results / ai_recommendation_evidence (AI 모델, 종목 추천, 결과 검증, 근거 뉴스)
 -- 추천을 내는 AI 모델 목록. 모델을 추가·중단할 때 코드를 고치지 않고 이 테이블만 바꾼다
 CREATE TABLE ai_models (
-    code          VARCHAR(30)   PRIMARY KEY,                        -- GPT, GEMINI, ... (ai_recommendations.ai_model이 참조)
+    code          VARCHAR(30)   PRIMARY KEY,                        -- CLAUDE, GEMINI, ... (ai_recommendations.ai_model이 참조)
     display_name  VARCHAR(50)   NOT NULL,                           -- 화면에 보이는 이름
-    provider      VARCHAR(30)   NOT NULL,                           -- OPENAI, GOOGLE, ...
+    provider      VARCHAR(30)   NOT NULL,                           -- ANTHROPIC, GOOGLE, ...
     model_id      VARCHAR(100)  NULL,                               -- API 호출에 쓰는 모델 ID. 추천 생성을 붙일 때 채운다
     color         VARCHAR(7)    NOT NULL,                           -- 그래프·강조에 쓰는 색 (#RRGGBB)
     is_active     BOOLEAN       NOT NULL DEFAULT TRUE,              -- FALSE면 새 추천을 만들지 않는다 (지난 성적은 남는다)
@@ -239,8 +269,9 @@ CREATE TABLE ai_models (
 );
 
 INSERT INTO ai_models (code, display_name, provider, color, sort_order) VALUES
-    ('GPT', 'GPT', 'OPENAI', '#10A37F', 1),
-    ('GEMINI', 'Gemini', 'GOOGLE', '#4285F4', 2);
+    ('CLAUDE', 'Claude', 'ANTHROPIC', '#D4714F', 1),
+    ('GEMINI', 'Gemini', 'GOOGLE', '#4285F4', 2),
+    ('CLOVA', 'CLOVA', 'NAVER', '#03C75A', 3);
 
 CREATE TABLE ai_recommendations (
     id                       BIGSERIAL     PRIMARY KEY,
@@ -249,6 +280,7 @@ CREATE TABLE ai_recommendations (
     stock_id                 BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
     opinion                  VARCHAR(10)   NOT NULL,                     -- BUY: 오르면 적중, SELL: 떨어지면 적중
     reason                   TEXT          NOT NULL,                     -- AI가 밝힌 추천 근거
+    summary                  VARCHAR(100)  NULL,                          -- 대시보드용 25자 안팎 한 줄 요약
     confidence               SMALLINT      NULL CHECK (confidence BETWEEN 0 AND 100),
     price_at_recommendation  BIGINT        NOT NULL CHECK (price_at_recommendation > 0),
     recommended_at           TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -282,3 +314,16 @@ CREATE INDEX idx_ai_rec_model_period ON ai_recommendations(ai_model, period_type
 CREATE INDEX idx_ai_rec_stock_id ON ai_recommendations(stock_id);
 CREATE INDEX idx_ai_rec_evaluate_at ON ai_recommendations(evaluate_at);
 CREATE INDEX idx_ai_rec_evidence_rec_id ON ai_recommendation_evidence(recommendation_id);
+
+-- stock_ai_reasons (종목 상세의 AI 등락 이유. 종목·거래일마다 한 줄, 장중에는 1시간마다 새로 씀)
+CREATE TABLE stock_ai_reasons (
+    id           BIGSERIAL     PRIMARY KEY,
+    stock_id     BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    trade_date   DATE          NOT NULL,
+    ai_model     VARCHAR(30)   NOT NULL REFERENCES ai_models(code),
+    change_rate  NUMERIC(6,2)  NOT NULL,
+    reason       TEXT          NOT NULL,
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE (stock_id, trade_date)
+);

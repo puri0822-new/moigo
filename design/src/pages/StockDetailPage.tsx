@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { CandlestickData } from 'lightweight-charts';
+import type { CandlestickData, UTCTimestamp } from 'lightweight-charts';
 import { useTheme } from '../context/ThemeContext';
 import StockLogo from '../components/StockLogo';
 import CandleChart from '../components/CandleChart';
@@ -13,19 +13,25 @@ import StockNewsTab from '../components/stock/StockNewsTab';
 import AiInsightTab from '../components/stock/AiInsightTab';
 import MyTradingTab from '../components/stock/MyTradingTab';
 import OrderBox, { type OrderPriceType } from '../components/stock/OrderBox';
+import WatchAlertDialog from '../components/stock/WatchAlertDialog';
 import {
-  cancelOrder, createOrder, createStockAnalysis, fetchStockAnalysis, fetchStockByCode, fetchStockCandles, fetchStockInfo, fetchStockNews, fetchStockOrderbook, fetchStockRankings, getOrders, getPortfolio,
-  type ApiAiAnalysis, type ApiNewsItem, type ApiOrder, type ApiOrderbook, type ApiStockRanking, type ApiPortfolio, type ApiStockDetail, type ApiStockInfo,
+  addWatchlist, cancelOrder, createOrder, createStockAnalysis, fetchSimilarStocks, fetchStockAiReason, fetchStockAnalysis, fetchStockByCode, fetchStockCandles,
+  fetchStockInfo, fetchStockNews, fetchStockOrderbook, fetchWatchlist, getOrders, getPortfolio, removeWatchlist, setWatchAlert,
+  type ApiAiAnalysis, type ApiCandle, type ApiNewsItem, type ApiOrder, type ApiOrderbook, type ApiPortfolio, type ApiStock, type ApiStockAiReason,
+  type ApiStockDetail, type ApiStockInfo,
 } from '../lib/api';
+import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
 import { useViewport } from '../lib/useViewport';
 
-// 탭 이름은 막대 하나의 단위다. 일 = 일봉, 주 = 주봉, 월 = 월봉, 년 = 년봉.
+// 탭 이름은 막대 하나의 단위다. 분 = 오늘 1분봉, 일 = 일봉, 주 = 주봉, 월 = 월봉, 년 = 년봉.
 // count는 서버에서 가져올 막대 개수(넉넉히 요청하면 있는 만큼 전부 온다), visibleBars는 처음 화면에 보여줄 최근 막대 개수.
 // 나머지는 차트를 드래그하거나 확대·축소해서 본다.
-const periods = ['일', '주', '월', '년'] as const;
+const periods = ['분', '일', '주', '월', '년'] as const;
 type Period = (typeof periods)[number];
+type ChartInterval = '1m' | '1d' | '1w' | '1mo' | '1y';
 
-const PERIOD_PARAMS: Record<Period, { interval: '1d' | '1w' | '1mo' | '1y'; count: number; visibleBars: number }> = {
+const PERIOD_PARAMS: Record<Period, { interval: ChartInterval; count: number; visibleBars: number }> = {
+  '분': { interval: '1m', count: 200, visibleBars: 200 },
   '일': { interval: '1d', count: 2000, visibleBars: 60 },
   '주': { interval: '1w', count: 500, visibleBars: 52 },
   '월': { interval: '1mo', count: 150, visibleBars: 36 },
@@ -37,7 +43,23 @@ const POLL_INTERVAL_MS = 3000;
 // 호가 패널에 보여줄 매도/매수 단계 수 (서버는 각 10단계까지 준다)
 const ORDERBOOK_LEVELS = 5;
 
-type ChartCandle = CandlestickData<string>;
+// 현재가 옆 등락 문구의 기준. 분·일은 전일 종가, 주·월·년은 바로 앞 주·달·해 마지막 거래일 종가
+const COMPARE_LABEL: Record<Period, string> = { '분': '어제보다', '일': '어제보다', '주': '지난주보다', '월': '지난달보다', '년': '작년보다' };
+
+// 차트 라이브러리는 시각을 UTC로 표시하므로, 분봉은 한국 시간(UTC+9)만큼 더해서 넣어야 축과 십자선에 한국 시각이 보인다
+const KST_OFFSET_SECONDS = 9 * 60 * 60;
+
+type ChartCandle = CandlestickData<UTCTimestamp | string>;
+
+// 분봉은 시각(초)으로, 나머지는 날짜 문자열로 차트에 넣는다
+function toChartCandle(c: ApiCandle, interval: ChartInterval): ChartCandle {
+  return {
+    time: interval === '1m'
+      ? (Math.floor(new Date(c.timestamp).getTime() / 1000) + KST_OFFSET_SECONDS) as UTCTimestamp
+      : c.timestamp.slice(0, 10),
+    open: c.open, high: c.high, low: c.low, close: c.close,
+  };
+}
 
 export default function StockDetailPage() {
   const { theme } = useTheme();
@@ -47,15 +69,16 @@ export default function StockDetailPage() {
   const [orderType, setOrderType] = useState<OrderPriceType>('limit');
   const [inputPrice, setInputPrice] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [period, setPeriod] = useState<Period>('일');
+  const [period, setPeriod] = useState<Period>('분');
   const [liked, setLiked] = useState(false);
-  const [alerted, setAlerted] = useState(false);
+  // 회원 설정에서 급등락 알림을 껐으면 하트를 눌러도 알림 여부를 묻지 않는다
+  const [priceAlertEnabled, setPriceAlertEnabled] = useState(true);
+  const [askAlert, setAskAlert] = useState(false);
   const [mainTab, setMainTab] = useState<'chart' | 'info' | 'news' | 'community'>('chart');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [rightTab, setRightTab] = useState<'insight' | 'portfolio'>('insight');
   const { isMobile, isCompact } = useViewport();
 
-  // 종목 정보·차트·호가·종목정보·뉴스·주문·내 모의매매는 실제 API, AI 인사이트는 아직 목업
   const [stock, setStock] = useState<ApiStockDetail | null>(null);
   const [stockStatus, setStockStatus] = useState<'loading' | 'ready' | 'notFound' | 'error'>('loading');
   const [orderbookExpanded, setOrderbookExpanded] = useState(false);
@@ -63,6 +86,8 @@ export default function StockDetailPage() {
   // 폴링으로 받은 마지막 막대. 차트를 다시 그리지 않고 마지막 막대만 갱신한다
   const [liveBar, setLiveBar] = useState<ChartCandle | null>(null);
   const [candlesStatus, setCandlesStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // candles가 어느 탭 데이터인지. 탭을 바꾼 직후 이전 탭 막대로 등락을 잘못 계산하지 않게 한다
+  const [candlesPeriod, setCandlesPeriod] = useState<Period | null>(null);
   const [candlesReloadKey, setCandlesReloadKey] = useState(0);
   const [orderbook, setOrderbook] = useState<ApiOrderbook | null>(null);
   const [orderbookStatus, setOrderbookStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -76,16 +101,22 @@ export default function StockDetailPage() {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<ApiPortfolio | null>(null);
   const [orders, setOrders] = useState<ApiOrder[]>([]);
-  const [rankings, setRankings] = useState<ApiStockRanking[]>([]);
+  const [aiReason, setAiReason] = useState<ApiStockAiReason | null>(null);
+  const [aiReasonStatus, setAiReasonStatus] = useState<'loading' | 'ready'>('loading');
+  const [similarStocks, setSimilarStocks] = useState<ApiStock[]>([]);
 
-  // 내 모의매매 탭의 AI 추천 카드용 실분석 (랭킹 API의 최신 insights)
+  // 오늘 등락 이유는 처음 만들 때 AI 호출로 몇 초 걸리므로 다른 데이터와 따로 불러온다
   useEffect(() => {
+    if (!code) return;
     let cancelled = false;
-    fetchStockRankings()
-      .then(data => { if (!cancelled) setRankings(data); })
-      .catch(() => {});
+    setAiReason(null);
+    setAiReasonStatus('loading');
+    fetchStockAiReason(code)
+      .then(res => { if (!cancelled) setAiReason(res.data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setAiReasonStatus('ready'); });
     return () => { cancelled = true; };
-  }, []);
+  }, [code]);
   useEffect(() => {
     if (!code) return;
     let cancelled = false;
@@ -107,6 +138,29 @@ export default function StockDetailPage() {
   // 분석 응답이 늦게 오는 사이 다른 종목으로 옮겼는지 확인하는 용도
   const stockIdRef = useRef(stockId);
   stockIdRef.current = stockId;
+
+  useEffect(() => {
+    if (stockId == null) return;
+    let cancelled = false;
+    setSimilarStocks([]);
+    fetchSimilarStocks(stockId).then(res => { if (!cancelled) setSimilarStocks(res.data); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [stockId]);
+
+  // 관심 종목(하트) 여부와 급등락 알림 전체 설정
+  useEffect(() => {
+    if (stockId == null) return;
+    let cancelled = false;
+    setLiked(false);
+    fetchWatchlist()
+      .then(res => {
+        if (cancelled) return;
+        setLiked(res.data.items.some(w => w.stock_id === stockId));
+        setPriceAlertEnabled(res.data.price_alert_enabled);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [stockId]);
 
   useEffect(() => {
     if (stockId == null) return;
@@ -154,7 +208,6 @@ export default function StockDetailPage() {
       if (stockIdRef.current !== requestedId) return;
       setAnalysis(data);
       setAnalysisStatus('ready');
-      fetchStockRankings().then(setRankings).catch(() => {});
     } catch (err) {
       if (stockIdRef.current !== requestedId) return;
       setAnalyzeError(err instanceof Error ? err.message : 'AI 분석에 실패했습니다');
@@ -172,13 +225,8 @@ export default function StockDetailPage() {
     fetchStockCandles(stockId, interval, count)
       .then(data => {
         if (cancelled) return;
-        setCandles(data.map(c => ({
-          time: c.timestamp.slice(0, 10),
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-        })));
+        setCandles(data.map(c => toChartCandle(c, interval)));
+        setCandlesPeriod(period);
         setCandlesStatus('ready');
       })
       .catch(() => {
@@ -208,9 +256,7 @@ export default function StockDetailPage() {
         if (cancelled) return;
         if (found) setStock(found);
         const last = bars[bars.length - 1];
-        if (last) {
-          setLiveBar({ time: last.timestamp.slice(0, 10), open: last.open, high: last.high, low: last.low, close: last.close });
-        }
+        if (last) setLiveBar(toChartCandle(last, interval));
       } catch {
         // 일시적인 실패는 무시하고 다음 주기에 다시 시도한다
       } finally {
@@ -276,7 +322,8 @@ export default function StockDetailPage() {
     getPortfolio().then(res => setPortfolio(res.data)).catch(() => setPortfolio(null));
     getOrders().then(res => setOrders(res.data)).catch(() => setOrders([]));
   }, []);
-  useEffect(() => { loadAccountData(); }, [loadAccountData]);
+  // 체결·현재가가 바뀌면 평가금액도 바뀌므로 30초마다 다시 불러온다 (탭이 가려지면 멈춘다)
+  usePolling(loadAccountData, PORTFOLIO_POLL_MS);
 
   // 미체결 주문은 서버가 호가를 보고 체결하므로, 남아 있는 동안에는 주기적으로 다시 확인한다
   const hasPendingOrders = orders.some(o => o.status === 'PENDING');
@@ -327,6 +374,33 @@ export default function StockDetailPage() {
       showToast(err instanceof Error ? err.message : '주문에 실패했습니다', false);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const toggleLike = async () => {
+    if (stockId == null) return;
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) {
+        await addWatchlist(stockId);
+        if (priceAlertEnabled) setAskAlert(true);
+      } else {
+        await removeWatchlist(stockId);
+      }
+    } catch {
+      setLiked(!next);
+      showToast('관심 종목을 바꾸지 못했습니다', false);
+    }
+  };
+
+  const answerAlert = async (enable: boolean) => {
+    setAskAlert(false);
+    if (!enable || stockId == null) return;
+    try {
+      await setWatchAlert(stockId, true);
+    } catch {
+      showToast('알림을 켜지 못했습니다', false);
     }
   };
 
@@ -398,27 +472,10 @@ export default function StockDetailPage() {
               <span style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</span>
               <span style={{ fontSize: 13, color: theme.textMuted, fontWeight: 500 }}>{stock.code}</span>
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* 알림 아이콘 */}
+                {/* 관심 종목 (하트) */}
                 <div
-                  onClick={() => setAlerted(v => !v)}
-                  style={{
-                    width: 34, height: 34, borderRadius: 10,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', fontSize: 17,
-                    background: alerted ? theme.aiSoft : theme.panel2,
-                    border: `1px solid ${alerted ? theme.ai : theme.border}`,
-                    color: alerted ? theme.ai : theme.textMuted,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                  </svg>
-                </div>
-                {/* 즐겨찾기 아이콘 */}
-                <div
-                  onClick={() => setLiked(v => !v)}
+                  onClick={toggleLike}
+                  title={liked ? '관심 종목에서 빼기' : '관심 종목에 추가'}
                   style={{
                     width: 34, height: 34, borderRadius: 10,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -452,15 +509,27 @@ export default function StockDetailPage() {
           <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 800, letterSpacing: '-0.01em' }}>
             {stock.current_price != null ? `${stock.current_price.toLocaleString()}원` : '-'}
           </div>
-          {changePct != null && stock.current_price != null && (
-            <div style={{ fontSize: 14, fontWeight: 700, color: changePct >= 0 ? theme.up : theme.down }}>
-              {(() => {
-                const changeWon = Math.round(priceNum * changePct / (100 + changePct));
-                const sign = changePct >= 0 ? '+' : '';
-                return `어제보다 ${sign}${changeWon.toLocaleString()}원 (${Math.abs(changePct).toFixed(1)}%)`;
-              })()}
-            </div>
-          )}
+          {changePct != null && stock.current_price != null && (() => {
+            // 기본은 전일 대비. 주·월·년 탭이면 바로 앞 막대(지난주·지난달·작년)의 종가와 비교한다
+            let changeWon = Math.round(priceNum * changePct / (100 + changePct));
+            let rate = changePct;
+            let label = COMPARE_LABEL['일'];
+            if ((period === '주' || period === '월' || period === '년') && candlesPeriod === period && priceNum > 0) {
+              const last = candles[candles.length - 1];
+              // 실시간 막대가 새 주·달·해로 넘어갔으면 받아 둔 마지막 막대가 바로 앞 기간이다
+              const prev = liveBar && last && liveBar.time !== last.time ? last : candles[candles.length - 2];
+              if (prev && prev.close > 0) {
+                changeWon = priceNum - prev.close;
+                rate = (changeWon / prev.close) * 100;
+                label = COMPARE_LABEL[period];
+              }
+            }
+            return (
+              <div style={{ fontSize: 14, fontWeight: 700, color: rate >= 0 ? theme.up : theme.down }}>
+                {`${label} ${rate >= 0 ? '+' : ''}${Math.round(changeWon).toLocaleString()}원 (${Math.abs(rate).toFixed(2)}%)`}
+              </div>
+            );
+          })()}
           <div style={{ fontSize: 12, color: theme.textMuted }}>
             거래량 {stock.volume != null ? stock.volume.toLocaleString() : '-'}
           </div>
@@ -609,6 +678,9 @@ export default function StockDetailPage() {
           {rightTab === 'insight' && (
             <AiInsightTab
               code={code}
+              aiReason={aiReason}
+              aiReasonStatus={aiReasonStatus}
+              similarStocks={similarStocks}
               analysis={analysis}
               status={analysisStatus}
               analyzing={analyzing}
@@ -618,7 +690,7 @@ export default function StockDetailPage() {
           )}
 
           {/* 내 모의매매 탭 */}
-          {rightTab === 'portfolio' && <MyTradingTab rankings={rankings} portfolio={portfolio} />}
+          {rightTab === 'portfolio' && <MyTradingTab portfolio={portfolio} />}
         </div>
       </div>
 
@@ -635,6 +707,9 @@ export default function StockDetailPage() {
         submitting={submitting}
         onOrder={handleOrder}
       />
+
+      {/* 관심 종목 추가 후 급등락 알림 여부 */}
+      {askAlert && <WatchAlertDialog stockName={stock.name} stockCode={stock.code} onAnswer={answerAlert} />}
 
       {toast && (
         <div style={{

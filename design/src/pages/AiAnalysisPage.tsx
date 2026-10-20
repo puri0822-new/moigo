@@ -5,9 +5,10 @@ import HorizontalScroll from '../components/HorizontalScroll';
 import AiIcon from '../components/AiIcon';
 import AiStatsCard from '../components/AiStatsCard';
 import AiHitRateTrendChart from '../components/AiHitRateTrendChart';
+import AiConsensusPanel from '../components/AiConsensusPanel';
 import AiRecommendationModal, { HitBadge, formatDate, formatReturn, resultLabel } from '../components/AiRecommendationModal';
-import { AI_PAST_RECOMMENDATIONS, AI_RECOMMENDATIONS, hitRateOf } from '../data/aiRecommendations';
-import type { AiRecommendation, PeriodType } from '../data/aiRecommendations';
+import { hitRateOf, useAiRecommendations } from '../lib/aiRecommendations';
+import type { AiRecommendation, PeriodType } from '../lib/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
 import type { AiModel } from '../lib/aiModels';
 import { useViewport } from '../lib/useViewport';
@@ -22,12 +23,13 @@ export default function AiAnalysisPage() {
   const [selected, setSelected] = useState<AiRecommendation | null>(null);
   const [pastAi, setPastAi] = useState<'ALL' | AiModel>('ALL');
   const models = useAiModels();
+  const { status, current, past } = useAiRecommendations();
   // 새 추천과 성적 카드는 지금 쓰는 모델만, 성적표 필터는 지난 추천이 있는 모델(중단된 모델 포함)
   const activeModels = models.filter(m => m.isActive);
-  const pastModels = models.filter(m => AI_PAST_RECOMMENDATIONS.some(r => r.aiModel === m.model));
+  const pastModels = models.filter(m => past.some(r => r.aiModel === m.model));
 
   // 최근에 검증된 것부터
-  const pastRecs = AI_PAST_RECOMMENDATIONS
+  const pastRecs = past
     .filter(r => r.result && (period === 'ALL' || r.periodType === period) && (pastAi === 'ALL' || r.aiModel === pastAi))
     .sort((a, b) => b.result!.evaluatedAt.localeCompare(a.result!.evaluatedAt));
 
@@ -38,46 +40,73 @@ export default function AiAnalysisPage() {
         background: `linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)`,
         borderRadius: 16, padding: isMobile ? '22px 20px' : '26px 32px',
         position: 'relative', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', gap: 16,
+        display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
       }}>
         <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ position: 'absolute', right: 120, bottom: -70, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 8 }}>
-            ✦ AI 추천 성적표
-          </div>
-          <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: '#fff', lineHeight: 1.45 }}>
-            AI가 뉴스를 분석해 종목을 추천하고,<br />1주·1달 뒤 실제 결과로 성적을 공개합니다
-          </div>
-        </div>
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {['뉴스 수집·분석', '매수/매도 추천', '결과 검증'].map((step, i) => (
-            <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {i > 0 && <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>→</span>}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 20,
-                background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
-                fontSize: 12, fontWeight: 600, color: '#fff',
-              }}>
-                <span style={{
-                  width: 16, height: 16, borderRadius: '50%', background: '#fff', color: '#4F6EF7',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
-                }}>
-                  {i + 1}
-                </span>
-                {step}
-              </div>
+        <div style={{ position: 'relative', flex: 1, minWidth: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 8 }}>
+              ✦ AI 추천 성적표
             </div>
-          ))}
+            <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: '#fff', lineHeight: 1.45 }}>
+              AI가 뉴스를 분석해 종목을 추천하고,<br />1주·1달 뒤 실제 결과로 성적을 공개합니다
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {['뉴스 수집·분석', '매수/매도 추천', '결과 검증'].map((step, i) => (
+              <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {i > 0 && <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>→</span>}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 20,
+                  background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
+                  fontSize: 12, fontWeight: 600, color: '#fff',
+                }}>
+                  <span style={{
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff', color: '#4F6EF7',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
+                  }}>
+                    {i + 1}
+                  </span>
+                  {step}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* 여러 AI가 함께 고른 종목 (없으면 AI별 주목 종목) */}
+        <AiConsensusPanel current={current} />
       </div>
+
+      {status !== 'ready' && (
+        <div style={{ fontSize: 13, color: theme.textMuted }}>
+          {status === 'loading' ? 'AI 추천을 불러오는 중…' : 'AI 추천을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}
+        </div>
+      )}
+      {status === 'ready' && current.length === 0 && past.length === 0 && (
+        <div style={{
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+          padding: '24px', fontSize: 13, color: theme.textMuted, lineHeight: 1.6, textAlign: 'center',
+        }}>
+          아직 AI 추천이 없습니다. 평일 장 마감 뒤(16시)에 AI가 그날 뉴스를 분석해 첫 추천을 올립니다.
+        </div>
+      )}
 
       {/* AI별 성적 */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         {activeModels.map(ai => <AiStatsCard key={ai.model} ai={ai} onSelect={setSelected} />)}
       </div>
-      <AiHitRateTrendChart />
+      {past.length > 0 ? <AiHitRateTrendChart /> : status === 'ready' && current.length > 0 && (
+        <div style={{
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+          padding: '20px 24px', fontSize: 13, color: theme.textMuted, lineHeight: 1.6,
+        }}>
+          아직 검증이 끝난 추천이 없어 적중률 추이가 없습니다. 첫 결과는{' '}
+          <b style={{ color: theme.text }}>{formatDate(current.reduce((min, r) => (r.evaluateAt < min ? r.evaluateAt : min), current[0].evaluateAt))}</b>에 나옵니다.
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {PERIOD_FILTERS.map(([key, label]) => (
@@ -97,10 +126,10 @@ export default function AiAnalysisPage() {
       </div>
 
       {activeModels.map(ai => {
-        const recs = AI_RECOMMENDATIONS.filter(
+        const recs = current.filter(
           r => r.aiModel === ai.model && (period === 'ALL' || r.periodType === period),
         );
-        const hitRate = hitRateOf(ai.model);
+        const hitRate = hitRateOf(past, ai.model);
         return (
           <section key={ai.model} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

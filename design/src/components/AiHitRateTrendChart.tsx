@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { formatDate } from './AiRecommendationModal';
-import { AI_HIT_RATE_TREND } from '../data/aiRecommendations';
+import { hitRateTrend, useAiRecommendations } from '../lib/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
 
 const HEIGHT = 220;
@@ -19,7 +19,8 @@ export default function AiHitRateTrendChart() {
   const [width, setWidth] = useState(600);
   const [hover, setHover] = useState<number | null>(null);
   const [showTable, setShowTable] = useState(false);
-  const data = AI_HIT_RATE_TREND;
+  const { past } = useAiRecommendations();
+  const data = hitRateTrend(past);
   // 추이 데이터가 있는 모델만 선으로 그린다 (새로 추가된 모델은 결과가 쌓이면 나타난다)
   const series = useAiModels().filter(ai => data.some(d => d.rates[ai.model] != null));
 

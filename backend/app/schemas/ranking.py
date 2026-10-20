@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class RankingAiInsight(BaseModel):
-    bot: Literal["Gemini", "GPT", "CLOVA"]
+    bot: Literal["Gemini", "Claude", "CLOVA"]
     recommendation: Literal["BUY", "HOLD", "SELL"]
     summary: str
 

@@ -273,9 +273,9 @@ Authorization: Bearer {access_token}
     "id": 1,
     "stock_id": 1,
     "gemini_result": "삼성전자는 3분기 실적 호조로...",
-    "gpt_result": "최근 반도체 업황 회복세로...",
+    "claude_result": "최근 반도체 업황 회복세로...",
     "gemini_recommendation": "BUY",
-    "gpt_recommendation": "BUY",
+    "claude_recommendation": "BUY",
     "is_matched": true,
     "sentiment": "POSITIVE",
     "price_at_analysis": 75000,
@@ -395,7 +395,7 @@ Authorization: Bearer {access_token}
       "ordered_at": "2026-09-15T10:00:00",
       "ai_analysis": {
         "gemini_recommendation": "BUY",
-        "gpt_recommendation": "BUY",
+        "claude_recommendation": "BUY",
         "is_matched": true
       }
     }
@@ -490,9 +490,9 @@ Authorization: Bearer {access_token}
       "ordered_at": "2026-09-15T10:00:00",
       "ai_analysis": {
         "gemini_result": "삼성전자는 3분기 실적 호조로...",
-        "gpt_result": "최근 반도체 업황 회복세로...",
+        "claude_result": "최근 반도체 업황 회복세로...",
         "gemini_recommendation": "BUY",
-        "gpt_recommendation": "BUY",
+        "claude_recommendation": "BUY",
         "is_matched": true,
         "sentiment": "POSITIVE"
       }

@@ -10,12 +10,14 @@ class MyProfile(BaseModel):
     # 구글로만 가입한 회원은 비밀번호가 없어서 비밀번호 변경 칸을 숨긴다
     has_password: bool
     marketing_agreed: bool
+    price_alert_enabled: bool
     created_at: datetime
 
 
 class ProfileUpdateRequest(BaseModel):
     nickname: str | None = None
     marketing_agreed: bool | None = None
+    price_alert_enabled: bool | None = None
 
 
 class PasswordChangeRequest(BaseModel):

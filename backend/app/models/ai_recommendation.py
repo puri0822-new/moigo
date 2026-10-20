@@ -1,4 +1,6 @@
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text, func
+from datetime import date
+
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Integer, Numeric, SmallInteger, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -31,6 +33,8 @@ class AiRecommendation(Base):
     # BUY는 오르면 적중, SELL은 떨어지면 적중
     opinion: Mapped[str] = mapped_column(String(10), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
+    # 대시보드 종목명 옆에 보여줄 25자 안팎 한 줄 요약
+    summary: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confidence: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     price_at_recommendation: Mapped[int] = mapped_column(BigInteger, nullable=False)
     recommended_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -67,3 +71,16 @@ class AiRecommendationEvidence(Base):
     published_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # 이 뉴스가 추천에 어떻게 반영됐는지 AI가 쓴 한 줄
     insight: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class StockAiReason(Base):
+    """종목 상세의 AI 등락 이유. 종목·거래일마다 한 줄, 장중에는 1시간마다 새로 쓴다"""
+    __tablename__ = "stock_ai_reasons"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    stock_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False)
+    ai_model: Mapped[str] = mapped_column(String(30), ForeignKey("ai_models.code"), nullable=False)
+    change_rate: Mapped[float] = mapped_column(Numeric(6, 2), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

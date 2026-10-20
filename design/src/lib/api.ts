@@ -199,7 +199,7 @@ export async function fetchStockByCode(code: string): Promise<ApiStockDetail | n
 
 // --- 거래대금 랭킹 ---
 export interface ApiRankingAiInsight {
-  bot: 'Gemini' | 'GPT' | 'CLOVA';
+  bot: 'Gemini' | 'Claude' | 'CLOVA';
   recommendation: 'BUY' | 'HOLD' | 'SELL';
   summary: string;
 }
@@ -253,10 +253,10 @@ export interface ApiAiAnalysis {
   id: number;
   stock_id: number;
   gemini_result: string | null;
-  gpt_result: string | null;
+  claude_result: string | null;
   clova_result: string | null;
   gemini_recommendation: string | null;
-  gpt_recommendation: string | null;
+  claude_recommendation: string | null;
   clova_recommendation: string | null;
   is_matched: boolean | null;
   sentiment: string | null;
@@ -493,4 +493,88 @@ export interface ApiWeeklyRanker {
 
 export function fetchWeeklyRanking(limit = 5) {
   return apiGet<ApiWeeklyRanker[]>(`/ranking/weekly?limit=${limit}`);
+}
+
+// ── 관심 종목 · 급등락 알림 ──
+
+export interface ApiWatchItem {
+  stock_id: number;
+  stock_code: string;
+  stock_name: string;
+  alert_enabled: boolean;
+  /** 토스 조회에 실패하면 null */
+  current_price: number | null;
+  change: number | null;
+  change_rate: number | null;
+}
+
+export interface ApiWatchlist {
+  /** 회원 설정의 급등락 알림 전체 스위치 */
+  price_alert_enabled: boolean;
+  items: ApiWatchItem[];
+}
+
+export function fetchWatchlist() {
+  return apiGet<ApiWatchlist>('/watchlist');
+}
+
+export function addWatchlist(stockId: number, alertEnabled = false) {
+  return apiPost<null>('/watchlist', { stock_id: stockId, alert_enabled: alertEnabled });
+}
+
+export function setWatchAlert(stockId: number, alertEnabled: boolean) {
+  return apiPatch<null>(`/watchlist/${stockId}`, { alert_enabled: alertEnabled });
+}
+
+export function removeWatchlist(stockId: number) {
+  return apiDelete<null>(`/watchlist/${stockId}`);
+}
+
+export interface ApiNotification {
+  id: number;
+  stock_code: string;
+  stock_name: string;
+  direction: 'UP' | 'DOWN';
+  /** 넘은 단계(5, 10, 15...) */
+  level: number;
+  change_rate: number;
+  price: number;
+  created_at: string;
+  read: boolean;
+}
+
+export function fetchNotifications() {
+  return apiGet<{ unread_count: number; items: ApiNotification[] }>('/notifications');
+}
+
+export function readAllNotifications() {
+  return apiPost<null>('/notifications/read-all');
+}
+
+export function deleteNotification(id: number) {
+  return apiDelete<null>(`/notifications/${id}`);
+}
+
+export function deleteAllNotifications() {
+  return apiDelete<null>('/notifications');
+}
+
+// ── 종목 상세 AI 인사이트 ──
+
+export interface ApiStockAiReason {
+  ai_model: string;
+  trade_date: string;
+  change_rate: number;
+  reason: string;
+  created_at: string;
+}
+
+/** 오늘 등락 이유. 없거나 오래됐으면 서버가 이 요청에서 AI로 새로 써서 몇 초 걸릴 수 있다 */
+export function fetchStockAiReason(code: string) {
+  return apiGet<ApiStockAiReason | null>(`/ai/stocks/${code}/reason`);
+}
+
+/** 같은 업종 종목 (이름·코드만) */
+export function fetchSimilarStocks(stockId: number) {
+  return apiGet<ApiStock[]>(`/stocks/${stockId}/similar`);
 }

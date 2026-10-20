@@ -65,7 +65,7 @@ def _to_ranking_ai(analysis: AiAnalysis) -> RankingAiSummary | None:
     insights: list[RankingAiInsight] = []
     for bot, result, rec in (
         ("Gemini", analysis.gemini_result, analysis.gemini_recommendation),
-        ("GPT", analysis.gpt_result, analysis.gpt_recommendation),
+        ("Claude", analysis.claude_result, analysis.claude_recommendation),
         ("CLOVA", analysis.clova_result, analysis.clova_recommendation),
     ):
         if result and rec in ("BUY", "HOLD", "SELL"):
@@ -174,6 +174,20 @@ async def get_stock(stock_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
     return ApiResponse(success=True, data=await _build_stock_detail(db, *rows[0]), message="요청 성공")
+
+
+@router.get("/{stock_id}/similar", response_model=ApiResponse[list[StockListItem]])
+def get_similar_stocks(stock_id: int, db: Session = Depends(get_db)):
+    """같은 업종 종목 (시세 없이 이름·코드만). 종목 상세 AI 인사이트의 유사 종목."""
+    stock = db.get(Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+    if not stock.sector:
+        return ApiResponse(success=True, data=[], message="요청 성공")
+    similar = db.execute(
+        select(Stock).where(Stock.sector == stock.sector, Stock.id != stock.id).order_by(Stock.id)
+    ).scalars().all()
+    return ApiResponse(success=True, data=[StockListItem.model_validate(s) for s in similar], message="요청 성공")
 
 
 @router.get("/{stock_id}/candles", response_model=ApiResponse[list[Candle]])
@@ -295,10 +309,10 @@ def _to_analysis_data(db: Session, analysis: AiAnalysis) -> AiAnalysisData:
         id=analysis.id,
         stock_id=analysis.stock_id,
         gemini_result=analysis.gemini_result,
-        gpt_result=analysis.gpt_result,
+        claude_result=analysis.claude_result,
         clova_result=analysis.clova_result,
         gemini_recommendation=analysis.gemini_recommendation,
-        gpt_recommendation=analysis.gpt_recommendation,
+        claude_recommendation=analysis.claude_recommendation,
         clova_recommendation=analysis.clova_recommendation,
         is_matched=analysis.is_matched,
         sentiment=analysis.sentiment,
