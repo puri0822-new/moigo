@@ -1,6 +1,7 @@
 # 환경변수 / 시크릿
 .env
 .env.*
+/env
 !.env.example
 *-firebase-adminsdk-*.json
 
