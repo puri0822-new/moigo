@@ -12,5 +12,7 @@ class User(Base):
     login_type: Mapped[str] = mapped_column(String(20), nullable=False, default="LOCAL")
     social_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     marketing_agreed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # 회원 설정의 급등락 알림 전체 스위치. 끄면 새 알림을 만들지 않는다
+    price_alert_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
