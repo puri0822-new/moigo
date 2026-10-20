@@ -51,6 +51,9 @@ class AiRecommendationItem(BaseModel):
     evidence: list[AiEvidenceItem]
     # 검증 전이면 None
     result: AiResultItem | None
+    # 검증 전 추천의 중간 집계: 지금 현재가와 추천가 대비 수익률(0.0123 = +1.23%). 검증 끝났거나 시세를 못 받으면 None
+    live_price: int | None = None
+    live_return_rate: float | None = None
 
 
 class StockAiReasonItem(BaseModel):

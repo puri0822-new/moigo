@@ -7,7 +7,7 @@ import AiStatsCard from '../components/AiStatsCard';
 import AiHitRateTrendChart from '../components/AiHitRateTrendChart';
 import AiConsensusPanel from '../components/AiConsensusPanel';
 import AiRecommendationModal, { HitBadge, formatDate, formatReturn, resultLabel } from '../components/AiRecommendationModal';
-import { hitRateOf, useAiRecommendations } from '../lib/aiRecommendations';
+import { directionalReturn, hitRateOf, useAiRecommendations } from '../lib/aiRecommendations';
 import type { AiRecommendation, PeriodType } from '../lib/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
 import type { AiModel } from '../lib/aiModels';
@@ -191,6 +191,13 @@ export default function AiAnalysisPage() {
                       </div>
                       <div style={{ marginTop: 'auto', fontSize: 12, color: theme.textMuted }}>
                         추천가 <span style={{ color: theme.text, fontWeight: 700 }}>{r.priceAtRecommendation.toLocaleString()}원</span>
+                        {/* 중간 집계: 추천 후 지금까지의 가격 변화와, 추천 방향대로 가고 있는지 */}
+                        {r.live && (
+                          <div style={{ marginTop: 4 }}>
+                            현재 <span style={{ color: theme.text, fontWeight: 700 }}>{r.live.price.toLocaleString()}원</span>{' '}
+                            <span style={{ fontWeight: 700, color: r.live.returnRate >= 0 ? theme.up : theme.down }}>({formatReturn(r.live.returnRate)})</span>
+                          </div>
+                        )}
                       </div>
                       <div style={{
                         paddingTop: 10, borderTop: `1px solid ${theme.border}`,
@@ -198,6 +205,15 @@ export default function AiAnalysisPage() {
                       }}>
                         {r.periodType === 'WEEKLY' ? '1주' : '1달'} 추천 ·{' '}
                         <span style={{ color: theme.ai, fontWeight: 700 }}>{resultLabel(r.evaluateAt)}</span>
+                        {r.live && (
+                          <span style={{
+                            float: 'right', fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap',
+                            color: directionalReturn(r) > 0 ? '#16a34a' : '#ef4444',
+                            background: directionalReturn(r) > 0 ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)',
+                          }}>
+                            {directionalReturn(r) > 0 ? '맞히는 중' : '빗나가는 중'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );

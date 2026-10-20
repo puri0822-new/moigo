@@ -1,10 +1,12 @@
 from collections import defaultdict
 
+import httpx
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core import llm, stock_reason
+from app.core import llm, stock_reason, toss_client
 from app.database import get_db
 from app.models.ai_recommendation import AiModel, AiRecommendation, AiRecommendationEvidence, AiRecommendationResult
 from app.models.stock import Stock
@@ -27,7 +29,7 @@ def list_ai_models(db: Session = Depends(get_db)):
 
 
 @router.get("/recommendations", response_model=ApiResponse[list[AiRecommendationItem]])
-def list_recommendations(db: Session = Depends(get_db)):
+async def list_recommendations(db: Session = Depends(get_db)):
     """모든 AI 추천과 근거 뉴스, 검증 결과. 결과가 없으면 아직 검증 전인 추천이다."""
     rows = (
         db.query(AiRecommendation, Stock, AiRecommendationResult)
@@ -47,6 +49,20 @@ def list_recommendations(db: Session = Depends(get_db)):
         for ev in ev_rows:
             evidence[ev.recommendation_id].append(AiEvidenceItem.model_validate(ev))
 
+    # 아직 결과가 나오지 않은 추천은 지금 현재가로 중간 집계를 붙인다 (토스 현재가는 60초 캐시)
+    pending_codes = sorted({stock.code for _, stock, result in rows if result is None})
+    try:
+        prices = await toss_client.get_prices(pending_codes) if pending_codes else {}
+    except httpx.HTTPError:
+        prices = {}
+
+    def live(rec: AiRecommendation, stock: Stock, result) -> dict:
+        p = prices.get(stock.code) if result is None else None
+        if not p:
+            return {}
+        price = int(float(p["lastPrice"]))
+        return {"live_price": price, "live_return_rate": round((price - rec.price_at_recommendation) / rec.price_at_recommendation, 4)}
+
     data = [
         AiRecommendationItem(
             id=rec.id, ai_model=rec.ai_model, period_type=rec.period_type,
@@ -56,6 +72,7 @@ def list_recommendations(db: Session = Depends(get_db)):
             recommended_at=rec.recommended_at, evaluate_at=rec.evaluate_at,
             evidence=evidence[rec.id],
             result=AiResultItem.model_validate(result) if result else None,
+            **live(rec, stock, result),
         )
         for rec, stock, result in rows
     ]
