@@ -22,9 +22,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GOOGLE_API_KEY: str = ""  # 있으면 GEMINI_API_KEY보다 우선
     GEMINI_MODEL: str = "gemini-3.8-flash"
-    ANTHROPIC_API_KEY: str = ""
-    CLAUDE_API_KEY: str = ""  # 있으면 ANTHROPIC_API_KEY 대신 사용
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-5"
+    GROQ_API_KEY: str = ""  # Groq 무료 플랜 키 (GPT 자리에 OpenAI 공개 모델 gpt-oss 사용)
+    GPT_MODEL: str = "openai/gpt-oss-120b"
 
     CLOVA_API_KEY: str = ""
     CLOVA_MODEL: str = "HCX-005"

@@ -20,7 +20,7 @@ const REC_LABEL: Record<string, '매수' | '매도' | '중립'> = {
 
 const BOT_META = {
   Gemini: { icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64' },
-  Claude: { icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64' },
+  GPT: { icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64' },
   CLOVA: { icon: 'https://www.google.com/s2/favicons?domain=naver.com&sz=64' },
 } as const;
 
@@ -852,13 +852,13 @@ export default function StockDetailPage() {
               analysis.gemini_result && analysis.gemini_recommendation
                 ? { bot: 'Gemini' as const, comment: analysis.gemini_result, signal: REC_LABEL[analysis.gemini_recommendation] ?? '중립' }
                 : null,
-              analysis.claude_result && analysis.claude_recommendation
-                ? { bot: 'Claude' as const, comment: analysis.claude_result, signal: REC_LABEL[analysis.claude_recommendation] ?? '중립' }
+              analysis.gpt_result && analysis.gpt_recommendation
+                ? { bot: 'GPT' as const, comment: analysis.gpt_result, signal: REC_LABEL[analysis.gpt_recommendation] ?? '중립' }
                 : null,
               analysis.clova_result && analysis.clova_recommendation
                 ? { bot: 'CLOVA' as const, comment: analysis.clova_result, signal: REC_LABEL[analysis.clova_recommendation] ?? '중립' }
                 : null,
-            ] as const).filter((x): x is { bot: 'Gemini' | 'Claude' | 'CLOVA'; comment: string; signal: '매수' | '매도' | '중립' } => x != null) : [];
+            ] as const).filter((x): x is { bot: 'Gemini' | 'GPT' | 'CLOVA'; comment: string; signal: '매수' | '매도' | '중립' } => x != null) : [];
 
             const buyCount = insights.filter(i => i.signal === '매수').length;
             const neutralCount = insights.filter(i => i.signal === '중립').length;

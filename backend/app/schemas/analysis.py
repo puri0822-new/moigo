@@ -15,10 +15,10 @@ class AiAnalysisData(BaseModel):
     id: int
     stock_id: int
     gemini_result: str | None
-    claude_result: str | None
+    gpt_result: str | None
     clova_result: str | None
     gemini_recommendation: str | None
-    claude_recommendation: str | None
+    gpt_recommendation: str | None
     clova_recommendation: str | None
     is_matched: bool | None
     sentiment: str | None

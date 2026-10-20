@@ -6,29 +6,8 @@ interface AiIconProps {
   size?: number;
 }
 
-// Claude의 방사형 별 모양 광선. 길이를 조금씩 달리해 손으로 그린 느낌을 낸다
-const CLAUDE_RAYS = [10, 8, 9.5, 7.5, 10, 8.5, 9, 7.5, 10, 8, 9.5, 8];
-
 export default function AiIcon({ model, size = 28 }: AiIconProps) {
   const models = useAiModels();
-
-  if (model === 'CLAUDE') {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
-        {CLAUDE_RAYS.map((len, i) => {
-          const angle = (i / CLAUDE_RAYS.length) * Math.PI * 2;
-          return (
-            <line
-              key={i}
-              x1={12} y1={12}
-              x2={12 + Math.cos(angle) * len} y2={12 + Math.sin(angle) * len}
-              stroke="#D97757" strokeWidth={2.4} strokeLinecap="round"
-            />
-          );
-        })}
-      </svg>
-    );
-  }
 
   if (model !== 'GEMINI') {
     // 전용 로고가 없는 모델은 모델 색 바탕에 이름 첫 글자를 쓴다

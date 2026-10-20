@@ -47,7 +47,7 @@ export interface AiRecommendation {
 
 export const AI_RECOMMENDATIONS: AiRecommendation[] = [
   {
-    id: 1, aiModel: 'CLAUDE', periodType: 'WEEKLY', stockCode: '005930', stockName: '삼성전자', sector: '반도체/전자', opinion: 'BUY',
+    id: 1, aiModel: 'GPT', periodType: 'WEEKLY', stockCode: '005930', stockName: '삼성전자', sector: '반도체/전자', opinion: 'BUY',
     reason: 'HBM 공급 확대 기사가 이어지며 실적 기대감이 커지고 있음. 단기적으로 외국인 매수세 유입이 예상됨',
     evidence: [
       { title: '삼성전자, 차세대 HBM 공급 물량 확대 합의', source: '경제신문', publishedAt: '2026-10-11', insight: '고부가 메모리 매출 비중이 늘어 다음 분기 실적 개선 요인' },
@@ -56,7 +56,7 @@ export const AI_RECOMMENDATIONS: AiRecommendation[] = [
     priceAtRecommendation: 217000, recommendedAt: '2026-10-12', evaluateAt: '2026-10-19',
   },
   {
-    id: 2, aiModel: 'CLAUDE', periodType: 'WEEKLY', stockCode: '000660', stockName: 'SK하이닉스', sector: '반도체/전자', opinion: 'BUY',
+    id: 2, aiModel: 'GPT', periodType: 'WEEKLY', stockCode: '000660', stockName: 'SK하이닉스', sector: '반도체/전자', opinion: 'BUY',
     reason: '메모리 가격 상승 전망 보도가 잇따르고 있어 단기 주가에 긍정적임',
     evidence: [
       { title: '4분기 D램 고정거래가격 상승 전망', source: '테크데일리', publishedAt: '2026-10-09', insight: '판가 상승은 메모리 업체 이익에 바로 반영됨' },
@@ -65,7 +65,7 @@ export const AI_RECOMMENDATIONS: AiRecommendation[] = [
     priceAtRecommendation: 1265000, recommendedAt: '2026-10-12', evaluateAt: '2026-10-19',
   },
   {
-    id: 3, aiModel: 'CLAUDE', periodType: 'WEEKLY', stockCode: '035420', stockName: 'NAVER', sector: 'IT서비스', opinion: 'SELL',
+    id: 3, aiModel: 'GPT', periodType: 'WEEKLY', stockCode: '035420', stockName: 'NAVER', sector: 'IT서비스', opinion: 'SELL',
     reason: '광고 매출 둔화 우려 기사가 늘고 있어 단기 약세가 예상됨',
     evidence: [
       { title: '3분기 온라인 광고 시장 성장률 둔화', source: '미디어경제', publishedAt: '2026-10-08', insight: '광고는 주요 매출원이라 실적 눈높이가 낮아질 수 있음' },
@@ -74,7 +74,7 @@ export const AI_RECOMMENDATIONS: AiRecommendation[] = [
     priceAtRecommendation: 182000, recommendedAt: '2026-10-12', evaluateAt: '2026-10-19',
   },
   {
-    id: 4, aiModel: 'CLAUDE', periodType: 'MONTHLY', stockCode: '005380', stockName: '현대차', sector: '자동차', opinion: 'BUY',
+    id: 4, aiModel: 'GPT', periodType: 'MONTHLY', stockCode: '005380', stockName: '현대차', sector: '자동차', opinion: 'BUY',
     reason: '신차 판매 호조와 우호적인 환율이 겹쳐 한 달간 실적 기대감이 이어질 것으로 봄',
     evidence: [
       { title: '9월 해외 판매 전년 대비 증가', source: '산업일보', publishedAt: '2026-09-30', insight: '주력 시장 판매가 늘어 매출 성장 근거가 됨' },
@@ -83,7 +83,7 @@ export const AI_RECOMMENDATIONS: AiRecommendation[] = [
     priceAtRecommendation: 238000, recommendedAt: '2026-10-01', evaluateAt: '2026-11-01',
   },
   {
-    id: 5, aiModel: 'CLAUDE', periodType: 'MONTHLY', stockCode: '005930', stockName: '삼성전자', sector: '반도체/전자', opinion: 'BUY',
+    id: 5, aiModel: 'GPT', periodType: 'MONTHLY', stockCode: '005930', stockName: '삼성전자', sector: '반도체/전자', opinion: 'BUY',
     reason: '반도체 업황이 회복 흐름에 들어섰다는 보도가 많아 중기적으로 상승 여력이 있음',
     evidence: [
       { title: '반도체 수출 3개월 연속 증가', source: '정책신문', publishedAt: '2026-09-30', insight: '업황 회복이 수치로 확인되는 단계' },
@@ -130,14 +130,14 @@ export const AI_RECOMMENDATIONS: AiRecommendation[] = [
 // 검증이 끝난 지난 추천. BUY는 오르면, SELL은 떨어지면 적중
 export const AI_PAST_RECOMMENDATIONS: AiRecommendation[] = [
   {
-    id: 101, aiModel: 'CLAUDE', periodType: 'WEEKLY', stockCode: '000660', stockName: 'SK하이닉스', sector: '반도체/전자', opinion: 'BUY',
+    id: 101, aiModel: 'GPT', periodType: 'WEEKLY', stockCode: '000660', stockName: 'SK하이닉스', sector: '반도체/전자', opinion: 'BUY',
     reason: '메모리 업황 개선 기대가 커지고 외국인 매수세가 이어지고 있음',
     evidence: [{ title: 'D램 현물가격 2주 연속 상승', source: '테크데일리', publishedAt: '2026-10-03', insight: '판가 상승이 이익 개선으로 이어질 것' }],
     priceAtRecommendation: 1180000, recommendedAt: '2026-10-05', evaluateAt: '2026-10-12',
     result: { priceAtEvaluation: 1265000, returnRate: 0.072, isHit: true, evaluatedAt: '2026-10-12' },
   },
   {
-    id: 102, aiModel: 'CLAUDE', periodType: 'WEEKLY', stockCode: '035720', stockName: '카카오', sector: 'IT서비스', opinion: 'BUY',
+    id: 102, aiModel: 'GPT', periodType: 'WEEKLY', stockCode: '035720', stockName: '카카오', sector: 'IT서비스', opinion: 'BUY',
     reason: '신규 서비스 기대감으로 단기 반등이 예상됨',
     evidence: [{ title: '카카오, 신규 AI 서비스 공개 예고', source: '테크데일리', publishedAt: '2026-10-02', insight: '새 매출원 기대감' }],
     priceAtRecommendation: 42500, recommendedAt: '2026-10-05', evaluateAt: '2026-10-12',
@@ -147,14 +147,14 @@ export const AI_PAST_RECOMMENDATIONS: AiRecommendation[] = [
     },
   },
   {
-    id: 103, aiModel: 'CLAUDE', periodType: 'WEEKLY', stockCode: '051910', stockName: 'LG화학', sector: '배터리/화학', opinion: 'SELL',
+    id: 103, aiModel: 'GPT', periodType: 'WEEKLY', stockCode: '051910', stockName: 'LG화학', sector: '배터리/화학', opinion: 'SELL',
     reason: '전기차 수요 둔화로 배터리 소재 실적 우려가 커지고 있음',
     evidence: [{ title: '전기차 재고 증가, 소재 주문 감소', source: '산업일보', publishedAt: '2026-10-02', insight: '소재 판가 하락 가능성' }],
     priceAtRecommendation: 335000, recommendedAt: '2026-10-05', evaluateAt: '2026-10-12',
     result: { priceAtEvaluation: 312000, returnRate: -0.0687, isHit: true, evaluatedAt: '2026-10-12' },
   },
   {
-    id: 104, aiModel: 'CLAUDE', periodType: 'MONTHLY', stockCode: '068270', stockName: '셀트리온', sector: '제약바이오', opinion: 'SELL',
+    id: 104, aiModel: 'GPT', periodType: 'MONTHLY', stockCode: '068270', stockName: '셀트리온', sector: '제약바이오', opinion: 'SELL',
     reason: '임상 일정 지연 우려로 한 달간 약세가 예상됨',
     evidence: [{ title: '바이오 업종 임상 일정 지연 잇따라', source: '바이오신문', publishedAt: '2026-08-30', insight: '신약 기대감이 줄어들 수 있음' }],
     priceAtRecommendation: 165000, recommendedAt: '2026-09-01', evaluateAt: '2026-10-01',
@@ -164,7 +164,7 @@ export const AI_PAST_RECOMMENDATIONS: AiRecommendation[] = [
     },
   },
   {
-    id: 105, aiModel: 'CLAUDE', periodType: 'MONTHLY', stockCode: '005380', stockName: '현대차', sector: '자동차', opinion: 'BUY',
+    id: 105, aiModel: 'GPT', periodType: 'MONTHLY', stockCode: '005380', stockName: '현대차', sector: '자동차', opinion: 'BUY',
     reason: '환율 효과와 판매 호조로 실적 기대감이 이어질 것',
     evidence: [{ title: '8월 자동차 수출 역대 최대', source: '산업일보', publishedAt: '2026-08-31', insight: '수출 증가가 실적으로 이어짐' }],
     priceAtRecommendation: 226000, recommendedAt: '2026-09-01', evaluateAt: '2026-10-01',
@@ -250,11 +250,11 @@ export function statsOf(model: AiModel): AiStats {
 
 // 주별 누적 적중률 추이 (0~1). 더미 값이라 성적표 건수와 맞지 않는다. 실제로는 검증 결과를 주 단위로 누적해 계산한다
 export const AI_HIT_RATE_TREND: { week: string; rates: Partial<Record<AiModel, number>> }[] = [
-  { week: '2026-08-31', rates: { CLAUDE: 0.5, GEMINI: 0.67 } },
-  { week: '2026-09-07', rates: { CLAUDE: 0.57, GEMINI: 0.6 } },
-  { week: '2026-09-14', rates: { CLAUDE: 0.55, GEMINI: 0.58 } },
-  { week: '2026-09-21', rates: { CLAUDE: 0.62, GEMINI: 0.54 } },
-  { week: '2026-09-28', rates: { CLAUDE: 0.58, GEMINI: 0.55 } },
-  { week: '2026-10-05', rates: { CLAUDE: 0.61, GEMINI: 0.52 } },
-  { week: '2026-10-12', rates: { CLAUDE: 0.6, GEMINI: 0.5 } },
+  { week: '2026-08-31', rates: { GPT: 0.5, GEMINI: 0.67 } },
+  { week: '2026-09-07', rates: { GPT: 0.57, GEMINI: 0.6 } },
+  { week: '2026-09-14', rates: { GPT: 0.55, GEMINI: 0.58 } },
+  { week: '2026-09-21', rates: { GPT: 0.62, GEMINI: 0.54 } },
+  { week: '2026-09-28', rates: { GPT: 0.58, GEMINI: 0.55 } },
+  { week: '2026-10-05', rates: { GPT: 0.61, GEMINI: 0.52 } },
+  { week: '2026-10-12', rates: { GPT: 0.6, GEMINI: 0.5 } },
 ];

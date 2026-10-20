@@ -81,9 +81,9 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 | 분석 ID | id | PK | BIGINT | NOT NULL | AUTO_INCREMENT |
 | 종목 ID | stock_id | FK(Stock) | BIGINT | NOT NULL | - |
 | Gemini 분석 내용 | gemini_result | - | TEXT | NULL | NULL |
-| Claude 분석 내용 | claude_result | - | TEXT | NULL | NULL |
+| GPT 분석 내용 | gpt_result | - | TEXT | NULL | NULL |
 | Gemini 추천 | gemini_recommendation | - | VARCHAR(20) | NULL | NULL |
-| Claude 추천 | claude_recommendation | - | VARCHAR(20) | NULL | NULL |
+| GPT 추천 | gpt_recommendation | - | VARCHAR(20) | NULL | NULL |
 | AI 결과 일치 여부 | is_matched | - | BOOLEAN | NULL | NULL |
 | 투자심리 | sentiment | - | VARCHAR(20) | NULL | NULL |
 | 분석 시점 주가 | price_at_analysis | - | BIGINT | NULL | NULL |
@@ -146,7 +146,7 @@ Order N ──── 1 AiAnalysis (매매 당시 분석 참조, nullable)
 1. **Account.balance** 는 매수 시 차감, 매도 시 증가로 실시간 관리
 2. **Holding** 은 user_id + stock_id 복합 유니크 → 같은 종목 중복 행 방지, 매수 시 avg_price 갱신
 3. **Order.ai_analysis_id** 는 nullable → AI 분석 없이도 주문 가능, 있으면 복기 기능 연결
-4. **AiAnalysis** 는 Gemini/Claude 결과를 한 행에 저장 → 비교 쿼리 단순화
+4. **AiAnalysis** 는 Gemini/GPT/CLOVA 결과를 한 행에 저장 → 비교 쿼리 단순화
 5. **News.collected_at** 과 **published_at** 분리 → 수집 시점과 발행 시점 구분 가능
 6. **User.login_type** 으로 로그인 방식 구분 → LOCAL이면 password_hash 필수, GOOGLE이면 social_id 필수
    - password_hash는 GOOGLE 로그인 사용자에 한해 NULL 허용 (의도된 설계)

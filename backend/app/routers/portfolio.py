@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Depends
+from bisect import bisect_right
+from datetime import date, timedelta, timezone
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.core.candle_store import get_daily_bars
 from app.core.dependencies import get_current_user
+from app.core.market_hours import KST, now_kst
 from app.core.order_matching import FILLED, reserved_cash, reserved_shares
 from app.core.price_cache import get_current_prices
 from app.models.user import User
@@ -67,6 +72,78 @@ def get_portfolio(
             "total_profit_loss_rate": round(total_profit_loss_rate, 2),
             "holdings": holding_data,
         },
+        "message": "요청 성공"
+    }
+
+
+def _kst_date(value) -> date:
+    # DB 컬럼은 timestamptz지만 모델에 시간대가 없는 타입으로 선언된 것도 있어, 시간대가 없으면 UTC로 본다
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(KST).date()
+
+
+@router.get("/asset-history")
+async def get_asset_history(
+    days: int = Query(default=90, ge=7, le=365),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """최근 days일의 일별 총자산(현금 + 보유 주식 평가액) 추이.
+    따로 쌓아 둔 기록 없이, 지금의 잔고·보유 수량에서 체결 내역을 날짜 역순으로 되돌려 그날의 현금과 수량을 구하고
+    그날 종가(일봉)로 평가한다. 장이 없는 날은 직전 거래일 종가를 쓰고, 오늘은 현재가를 쓴다."""
+    account = db.query(Account).filter(Account.user_id == current_user.id).first()
+    if not account:
+        return {"success": True, "data": {"initial_balance": 0, "points": []}, "message": "요청 성공"}
+
+    today = now_kst().date()
+    # 계좌를 만들기 전 날짜는 보여줄 것이 없다
+    start = max(today - timedelta(days=days - 1), _kst_date(account.created_at))
+
+    holdings = db.query(Holding).filter(Holding.user_id == current_user.id).all()
+    orders = db.query(Order).filter(Order.user_id == current_user.id, Order.status == FILLED).all()
+    # 최근 체결부터 되돌린다
+    fills = sorted(((_kst_date(o.filled_at or o.ordered_at), o) for o in orders), key=lambda f: f[0], reverse=True)
+
+    quantities = {h.stock_id: h.quantity for h in holdings}
+    stock_ids = set(quantities) | {o.stock_id for o in orders}
+    current_prices = get_current_prices(db, list(stock_ids))
+
+    # 종목별 (날짜 목록, 종가 목록). 달력 일수만큼 받으면 거래일 기준으로는 항상 충분하다
+    closes: dict[int, tuple[list[date], list[int]]] = {}
+    for stock in db.query(Stock).filter(Stock.id.in_(stock_ids)).all() if stock_ids else []:
+        bars = await get_daily_bars(db, stock, (today - start).days + 10)
+        closes[stock.id] = ([date.fromisoformat(b["timestamp"][:10]) for b in bars], [int(b["closePrice"]) for b in bars])
+
+    def price_on(stock_id: int, day: date) -> int:
+        if day == today and stock_id in current_prices:
+            return current_prices[stock_id]
+        dates, prices = closes.get(stock_id, ([], []))
+        if not dates:
+            return current_prices.get(stock_id, 0)
+        # 그날 또는 그 전 마지막 거래일의 종가 (그보다 앞선 봉이 없으면 가장 오래된 봉)
+        return prices[max(bisect_right(dates, day) - 1, 0)]
+
+    cash = account.balance
+    points = []
+    next_fill = 0
+    day = today
+    while day >= start:
+        # 이 날짜보다 뒤에 체결된 주문을 되돌려 이 날짜 장 마감 시점의 현금·수량으로 만든다
+        while next_fill < len(fills) and fills[next_fill][0] > day:
+            order = fills[next_fill][1]
+            sign = 1 if order.order_type == "BUY" else -1
+            cash += sign * order.total_amount
+            quantities[order.stock_id] = quantities.get(order.stock_id, 0) - sign * order.quantity
+            next_fill += 1
+        stock_value = sum(qty * price_on(stock_id, day) for stock_id, qty in quantities.items() if qty > 0)
+        points.append({"date": day.isoformat(), "total_asset": cash + stock_value, "cash": cash, "stock_value": stock_value})
+        day -= timedelta(days=1)
+    points.reverse()
+
+    return {
+        "success": True,
+        "data": {"initial_balance": account.initial_balance, "points": points},
         "message": "요청 성공"
     }
 

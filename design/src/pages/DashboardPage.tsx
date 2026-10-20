@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import StockLogo from '../components/StockLogo';
+import BannerStrikeChart from '../components/BannerStrikeChart';
 import { fetchMarketIndices, fetchStockRankings, type ApiMarketIndex, type ApiStockRanking } from '../lib/api';
 
 // 백엔드가 시세 캐시를 30초마다 갱신하므로 같은 주기로 다시 받아온다
@@ -15,7 +16,7 @@ const REC_LABEL: Record<string, '매수' | '매도' | '중립'> = {
 
 const BOT_META = {
   Gemini: { icon: 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64' },
-  Claude: { icon: 'https://www.google.com/s2/favicons?domain=anthropic.com&sz=64' },
+  GPT: { icon: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64' },
   CLOVA: { icon: 'https://www.google.com/s2/favicons?domain=naver.com&sz=64' },
 } as const;
 
@@ -110,6 +111,9 @@ export default function DashboardPage() {
           <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
           <div style={{ position: 'absolute', right: 80, bottom: -60, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
           <div style={{ position: 'absolute', left: '45%', top: -20, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+
+          {/* 배경 차트: 문구와 지수 카드 사이 빈 공간에 우상향 선이 번개 치듯 그려진다 */}
+          <BannerStrikeChart style={{ position: 'absolute', left: 300, right: 270, top: 22, bottom: 18 }} />
 
           {/* 텍스트 */}
           <div style={{ position: 'relative', zIndex: 1 }}>

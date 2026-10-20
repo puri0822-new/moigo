@@ -136,6 +136,23 @@ export function getPortfolio() {
   return apiGet<ApiPortfolio>('/portfolio');
 }
 
+export interface ApiAssetPoint {
+  date: string; // YYYY-MM-DD
+  total_asset: number; // 현금 + 보유 주식 평가액
+  cash: number;
+  stock_value: number;
+}
+
+export interface ApiAssetHistory {
+  initial_balance: number; // 처음 받은 원금
+  points: ApiAssetPoint[]; // 날짜 오름차순, 하루에 한 점
+}
+
+/** 최근 days일의 일별 총자산 추이 */
+export function getAssetHistory(days: number) {
+  return apiGet<ApiAssetHistory>(`/portfolio/asset-history?days=${days}`);
+}
+
 // --- 계좌 ---
 export interface AccountInfo {
   id: number;
@@ -182,7 +199,7 @@ export async function fetchStockByCode(code: string): Promise<ApiStockDetail | n
 
 // --- 거래대금 랭킹 ---
 export interface ApiRankingAiInsight {
-  bot: 'Gemini' | 'Claude' | 'CLOVA';
+  bot: 'Gemini' | 'GPT' | 'CLOVA';
   recommendation: 'BUY' | 'HOLD' | 'SELL';
   summary: string;
 }
@@ -236,10 +253,10 @@ export interface ApiAiAnalysis {
   id: number;
   stock_id: number;
   gemini_result: string | null;
-  claude_result: string | null;
+  gpt_result: string | null;
   clova_result: string | null;
   gemini_recommendation: string | null;
-  claude_recommendation: string | null;
+  gpt_recommendation: string | null;
   clova_recommendation: string | null;
   is_matched: boolean | null;
   sentiment: string | null;

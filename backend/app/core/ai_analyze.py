@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 import logging
 
-from app.core import claude_client, clova_client, gemini_client
+from app.core import clova_client, gemini_client, gpt_client
 from app.core.news_pipeline import collect_for_analysis
 from app.core.price_fetch import fetch_prices_safe
 from app.models import AiAnalysis, AiAnalysisNews, News, Stock, StockPriceCache
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # 모델별 상한. Gemini Interactions가 가끔 60~70초까지 늘어나 전체를 막는다.
 _GEMINI_TIMEOUT = 25.0
-_CLAUDE_TIMEOUT = 20.0
+_GPT_TIMEOUT = 20.0
 _CLOVA_TIMEOUT = 20.0
 
 
@@ -78,25 +78,25 @@ async def run_analysis(db: Session, stock: Stock) -> AiAnalysis:
     payload = _news_payload(news_rows)
 
     # 병렬 + 모델별 타임아웃. 느린 Gemini 때문에 CLOVA 결과가 묻히지 않게 한다.
-    gemini, claude, clova = await asyncio.gather(
+    gemini, gpt, clova = await asyncio.gather(
         _with_timeout("Gemini", gemini_client.analyze_news(stock.name, payload), _GEMINI_TIMEOUT),
-        _with_timeout("Claude", claude_client.analyze_news(stock.name, payload), _CLAUDE_TIMEOUT),
+        _with_timeout("GPT", gpt_client.analyze_news(stock.name, payload), _GPT_TIMEOUT),
         _with_timeout("CLOVA", clova_client.analyze_news(stock.name, payload), _CLOVA_TIMEOUT),
     )
 
-    if gemini is None and claude is None and clova is None:
+    if gemini is None and gpt is None and clova is None:
         raise RuntimeError("AI 분석에 사용할 API 키가 없거나 호출에 실패했습니다")
 
     analysis = AiAnalysis(
         stock_id=stock.id,
         gemini_result=gemini["summary"] if gemini else None,
-        claude_result=claude["summary"] if claude else None,
+        gpt_result=gpt["summary"] if gpt else None,
         clova_result=clova["summary"] if clova else None,
         gemini_recommendation=gemini["recommendation"] if gemini else None,
-        claude_recommendation=claude["recommendation"] if claude else None,
+        gpt_recommendation=gpt["recommendation"] if gpt else None,
         clova_recommendation=clova["recommendation"] if clova else None,
-        is_matched=_is_matched(gemini, claude, clova),
-        sentiment=_pick_sentiment(gemini, clova, claude),
+        is_matched=_is_matched(gemini, gpt, clova),
+        sentiment=_pick_sentiment(gemini, clova, gpt),
         price_at_analysis=await _current_price(db, stock),
         # DB now()는 트랜잭션 시작 시각이라 긴 AI 호출 후 순서가 꼬일 수 있음
         analyzed_at=datetime.now(timezone.utc),
