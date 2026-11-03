@@ -5,21 +5,30 @@ from app.database import get_db
 from app.models.user import User
 from app.models.account import Account
 from app.schemas.auth import SignupRequest, LoginRequest, TokenResponseData, SignupResponseData
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import PASSWORD_MAX, PASSWORD_MIN, hash_password, verify_password, create_access_token
 from app.core.firebase import verify_google_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+NICKNAME_MAX = 50  # users.nickname VARCHAR(50)
+
 
 @router.post("/signup", status_code=201)
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
+    if not PASSWORD_MIN <= len(body.password) <= PASSWORD_MAX:
+        raise HTTPException(status_code=400, detail=f"비밀번호는 {PASSWORD_MIN}~{PASSWORD_MAX}자로 입력해 주세요")
+    nickname = body.nickname.strip()
+    if not nickname:
+        raise HTTPException(status_code=400, detail="닉네임을 입력해 주세요")
+    if len(nickname) > NICKNAME_MAX:
+        raise HTTPException(status_code=400, detail=f"닉네임은 {NICKNAME_MAX}자 이하여야 합니다")
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다")
 
     user = User(
         email=body.email,
         password_hash=hash_password(body.password),
-        nickname=body.nickname,
+        nickname=nickname,
         login_type="LOCAL",
         marketing_agreed=body.marketing_agreed,
     )
@@ -70,13 +79,18 @@ def google_login(body: GoogleLoginRequest, db: Session = Depends(get_db)):
 
     social_id = decoded["uid"]
     email = decoded.get("email", "")
-    name = decoded.get("name", "") or email.split("@")[0]
+    name = (decoded.get("name", "") or email.split("@")[0])[:NICKNAME_MAX]
 
     user = db.query(User).filter(User.social_id == social_id).first()
 
-    if not user:
-        # 같은 이메일로 LOCAL 계정이 있으면 연결
-        user = db.query(User).filter(User.email == email, User.login_type == "LOCAL").first()
+    if not user and email:
+        # 같은 이메일로 LOCAL 계정이 있으면 연결한다. 구글이 인증한 이메일일 때만 연결해야
+        # 남의 이메일로 만든 구글(Firebase) 계정으로 기존 계정에 들어오는 일을 막을 수 있다
+        local = db.query(User).filter(User.email == email, User.login_type == "LOCAL").first()
+        if local:
+            if not decoded.get("email_verified"):
+                raise HTTPException(status_code=409, detail="이미 이메일로 가입된 계정입니다. 이메일과 비밀번호로 로그인해 주세요")
+            user = local
 
     if not user:
         user = User(

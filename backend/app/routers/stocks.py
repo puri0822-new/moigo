@@ -3,6 +3,7 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -96,8 +97,10 @@ def _latest_analyses_by_stock(db: Session, stock_ids: list[int]) -> dict[int, Ai
     return {row.stock_id: row for row in rows}
 
 
+# DB 세션은 동기(psycopg2)다. DB만 쓰는 라우트는 def로 두어 스레드풀에서 돌게 하고,
+# 토스 호출을 기다려야 해서 async인 라우트는 DB 작업을 run_in_threadpool로 넘겨 이벤트 루프를 막지 않는다.
 @router.get("", response_model=ApiResponse[list[StockListItem]])
-async def list_stocks(db: Session = Depends(get_db)):
+def list_stocks(db: Session = Depends(get_db)):
     data = []
     for stock, cache in _load_stocks_with_cache(db):
         item = StockListItem.model_validate(stock)
@@ -107,7 +110,7 @@ async def list_stocks(db: Session = Depends(get_db)):
 
 
 @router.get("/rankings", response_model=ApiResponse[list[StockRankingItem]])
-async def get_stock_rankings(db: Session = Depends(get_db)):
+def get_stock_rankings(db: Session = Depends(get_db)):
     """실시간 거래대금 랭킹. 거래대금 100위 안의 종목을 실제 순위대로 앞에 두고, 100위 밖 종목은 뒤에 붙인다.
     (주의: 반드시 /{stock_id}보다 먼저 등록되어야 "rankings"가 stock_id로 잘못 파싱되지 않음)"""
     rows = _load_stocks_with_cache(
@@ -147,7 +150,7 @@ async def _build_stock_detail(db: Session, stock: Stock, cache: StockPriceCache 
         detail.current_price = int(float(price["lastPrice"]))
 
     # 전일 종가와 오늘 거래량은 DB의 최근 일봉 두 개에서 읽는다. (오늘 봉은 일정 주기로 토스에서 갱신된다)
-    bars = await get_daily_bars(db, stock, 2)
+    bars = await get_daily_bars(stock.id, stock.code, 2)
     if len(bars) == 2:
         prev_close = bars[0]["closePrice"]
         if detail.current_price is not None and prev_close:
@@ -160,7 +163,7 @@ async def _build_stock_detail(db: Session, stock: Stock, cache: StockPriceCache 
 @router.get("/by-code/{code}", response_model=ApiResponse[StockDetail])
 async def get_stock_by_code(code: str, db: Session = Depends(get_db)):
     """종목 코드로 단건 조회. 상세페이지에서 종목 하나만 필요할 때 전체 목록을 받지 않도록 별도로 둔다."""
-    rows = _load_stocks_with_cache(db, Stock.code == code)
+    rows = await run_in_threadpool(_load_stocks_with_cache, db, Stock.code == code)
     if not rows:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
@@ -169,7 +172,7 @@ async def get_stock_by_code(code: str, db: Session = Depends(get_db)):
 
 @router.get("/{stock_id}", response_model=ApiResponse[StockDetail])
 async def get_stock(stock_id: int, db: Session = Depends(get_db)):
-    rows = _load_stocks_with_cache(db, Stock.id == stock_id)
+    rows = await run_in_threadpool(_load_stocks_with_cache, db, Stock.id == stock_id)
     if not rows:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
@@ -204,7 +207,7 @@ async def get_stock_candles(
     # count를 넉넉히 요청하면 있는 만큼 전부 준다. 주/월/년봉이 필요로 하는 일봉 개수는 상한까지만 읽는다.
     daily_needed = min(_MAX_DAILY_HISTORY, count if interval == "1d" else (count + 1) * _TRADING_DAYS_PER_BAR.get(interval, 0))
 
-    stock = db.get(Stock, stock_id)
+    stock = await run_in_threadpool(db.get, Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
@@ -216,7 +219,7 @@ async def get_stock_candles(
         else:
             # 주/월/년봉은 진행 중인 기간 하나가 중간에 잘려 있을 수 있어 한 기간 더 받아 묶은 뒤 뒤에서 count개만 쓴다
             # (일봉 갱신이 실패해도 get_daily_bars가 DB에 있는 만큼은 돌려준다)
-            daily = await get_daily_bars(db, stock, daily_needed)
+            daily = await get_daily_bars(stock.id, stock.code, daily_needed)
             raw_candles = daily[-count:] if interval == "1d" else aggregate_daily(daily, interval)[-count:]
     except (httpx.HTTPError, asyncio.TimeoutError) as e:
         # 빈 배열로 내려주면 프론트가 "데이터 없음"과 "조회 실패"를 구분하지 못하므로 에러로 응답한다
@@ -239,7 +242,7 @@ async def get_stock_candles(
 
 @router.get("/{stock_id}/info", response_model=ApiResponse[StockInfo])
 async def get_stock_info(stock_id: int, db: Session = Depends(get_db)):
-    stock = db.get(Stock, stock_id)
+    stock = await run_in_threadpool(db.get, Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
@@ -271,7 +274,7 @@ async def get_stock_info(stock_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{stock_id}/orderbook", response_model=ApiResponse[Orderbook])
 async def get_stock_orderbook(stock_id: int, db: Session = Depends(get_db)):
-    stock = db.get(Stock, stock_id)
+    stock = await run_in_threadpool(db.get, Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
@@ -290,7 +293,7 @@ async def get_stock_orderbook(stock_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{stock_id}/news", response_model=ApiResponse[list[NewsItem]])
 async def get_stock_news(stock_id: int, limit: int = 10, db: Session = Depends(get_db)):
-    stock = db.get(Stock, stock_id)
+    stock = await run_in_threadpool(db.get, Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 

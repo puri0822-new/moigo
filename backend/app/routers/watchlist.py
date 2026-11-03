@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
@@ -22,15 +23,20 @@ class WatchlistUpdateRequest(BaseModel):
     alert_enabled: bool
 
 
-@router.get("")
-async def list_watchlist(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rows = (
+def _load_watchlist(db: Session, user_id: int) -> list[tuple[Watchlist, Stock]]:
+    return (
         db.query(Watchlist, Stock)
         .join(Stock, Stock.id == Watchlist.stock_id)
-        .filter(Watchlist.user_id == current_user.id)
+        .filter(Watchlist.user_id == user_id)
         .order_by(Watchlist.created_at.desc())
         .all()
     )
+
+
+@router.get("")
+async def list_watchlist(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # DB 세션은 동기라 이벤트 루프를 막지 않도록 스레드에서 조회한다
+    rows = await run_in_threadpool(_load_watchlist, db, current_user.id)
     changes = await get_price_changes([s.code for _, s in rows])
 
     items = []

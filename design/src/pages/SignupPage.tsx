@@ -133,7 +133,7 @@ export default function SignupPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted }}>비밀번호</label>
             <input
-              type="password"
+              type="password" maxLength={64}
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="8자 이상 입력하세요"
@@ -145,7 +145,7 @@ export default function SignupPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted }}>비밀번호 확인</label>
             <input
-              type="password"
+              type="password" maxLength={64}
               value={passwordConfirm}
               onChange={e => setPasswordConfirm(e.target.value)}
               placeholder="비밀번호를 다시 입력하세요"

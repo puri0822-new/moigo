@@ -57,6 +57,24 @@ def plan_fill(order_type: str, quantity: int, book: dict, limit_price: int | Non
     return None
 
 
+def copy_book(book: dict) -> dict:
+    """호가를 깊은 복사한다. 토스 클라이언트는 캐시한 dict를 그대로 돌려주므로, 잔량을 깎기 전에 반드시 복사한다."""
+    return {**book, "asks": [dict(l) for l in book.get("asks") or []], "bids": [dict(l) for l in book.get("bids") or []]}
+
+
+def consume_book(book: dict, order_type: str, quantity: int) -> None:
+    """체결된 수량만큼 호가 잔량을 현재가에 가까운 단계부터 줄인다 (plan_fill과 같은 순서).
+    같은 회차의 다음 주문이 이미 써 버린 잔량으로 또 체결되지 않게 한다."""
+    remaining = quantity
+    for level in book.get("asks" if order_type == "BUY" else "bids") or []:
+        if remaining == 0:
+            return
+        volume = int(float(level["volume"]))
+        take = min(remaining, volume)
+        level["volume"] = volume - take
+        remaining -= take
+
+
 def reserved_cash(db: Session, user_id: int) -> int:
     """미체결 매수 주문에 묶여 있는 금액 (지정가 × 수량의 합)."""
     return db.execute(
@@ -109,17 +127,18 @@ def apply_fill(db: Session, order: Order, account: Account, holding: Holding | N
     return True
 
 
-def _try_fill_pending(db: Session, order_id: int, book: dict) -> None:
+def _try_fill_pending(db: Session, order_id: int, book: dict) -> tuple[str, int] | None:
+    """체결되면 (주문 종류, 수량)을 돌려준다 (커밋 뒤 호가 잔량을 깎는 데 쓴다). 체결되지 않았으면 None."""
     # 취소 요청과 겹치지 않도록 주문 행을 잠그고 아직 미체결인지 다시 확인한다
     order = db.execute(
         select(Order).where(Order.id == order_id, Order.status == PENDING).with_for_update()
     ).scalar_one_or_none()
     if not order:
-        return
+        return None
 
     total = plan_fill(order.order_type, order.quantity, book, order.limit_price)
     if total is None:
-        return
+        return None
 
     account = db.execute(select(Account).where(Account.id == order.account_id).with_for_update()).scalar_one()
     holding = db.execute(
@@ -130,6 +149,8 @@ def _try_fill_pending(db: Session, order_id: int, book: dict) -> None:
         # 주문을 받을 때 묶어 둔 잔고·수량 범위 안에서만 체결되므로 정상적으로는 오지 않는 경로다
         logger.warning("미체결 주문 %s: 잔고/보유 수량이 모자라 취소", order.id)
         order.status = CANCELLED
+        return None
+    return order.order_type, order.quantity
 
 
 def expire_stale_orders(db: Session, now: datetime) -> None:
@@ -143,18 +164,43 @@ def expire_stale_orders(db: Session, now: datetime) -> None:
         logger.info("장 마감으로 미체결 주문 %d건 만료", result.rowcount)
 
 
-async def match_pending_once() -> None:
-    now = now_kst()
+def _pending_targets(now: datetime) -> list[tuple[int, str]]:
+    """미체결 주문이 있는 (종목 id, 종목 코드). 장 운영시간이 아니면 지난 주문을 만료시키고 빈 목록."""
     with SessionLocal() as db:
         if not is_market_open(now):
             expire_stale_orders(db, now)
-            return
-        targets = db.execute(
+            return []
+        rows = db.execute(
             select(Order.stock_id, Stock.code)
             .join(Stock, Stock.id == Order.stock_id)
             .where(Order.status == PENDING)
             .distinct()
         ).all()
+        return [(stock_id, code) for stock_id, code in rows]
+
+
+def _fill_stock_orders(stock_id: int, book: dict) -> None:
+    """한 종목의 미체결 주문을 먼저 들어온 순서대로 체결한다. book은 복사본이어야 한다 (체결될 때마다 잔량을 깎는다)."""
+    with SessionLocal() as db:
+        order_ids = db.execute(
+            select(Order.id).where(Order.stock_id == stock_id, Order.status == PENDING).order_by(Order.ordered_at, Order.id)
+        ).scalars().all()
+        for order_id in order_ids:
+            try:
+                filled = _try_fill_pending(db, order_id, book)
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("미체결 주문 %s 체결 처리 실패", order_id)
+                continue
+            if filled:
+                consume_book(book, *filled)
+
+
+async def match_pending_once() -> None:
+    # DB 세션은 동기(psycopg2)라 이벤트 루프를 막지 않도록 DB 작업은 스레드에서 돌린다
+    now = now_kst()
+    targets = await asyncio.to_thread(_pending_targets, now)
 
     for stock_id, code in targets:
         try:
@@ -164,18 +210,7 @@ async def match_pending_once() -> None:
             continue
         if not is_orderbook_live(book, now):
             continue
-
-        with SessionLocal() as db:
-            order_ids = db.execute(
-                select(Order.id).where(Order.stock_id == stock_id, Order.status == PENDING).order_by(Order.ordered_at, Order.id)
-            ).scalars().all()
-            for order_id in order_ids:
-                try:
-                    _try_fill_pending(db, order_id, book)
-                    db.commit()
-                except Exception:
-                    db.rollback()
-                    logger.exception("미체결 주문 %s 체결 처리 실패", order_id)
+        await asyncio.to_thread(_fill_stock_orders, stock_id, copy_book(book))
 
 
 async def order_matching_loop() -> None:

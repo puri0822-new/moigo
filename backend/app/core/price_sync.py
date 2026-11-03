@@ -82,37 +82,25 @@ def _row_from_ranking(ranking: dict) -> dict:
     }
 
 
-async def sync_price_cache_once() -> None:
-    """토스 랭킹 API(+랭킹 밖 종목은 개별 조회)로 전 종목 시세를 채워 캐시 테이블에 저장.
-    DB 세션은 동기(Session)라 커밋/조회 자체는 블로킹이지만, 30초에 한 번만 도는
-    백그라운드 작업이라 이벤트 루프에 미치는 영향은 무시할 수 있는 수준이다."""
+def _load_stocks() -> list[tuple[int, str]]:
     with SessionLocal() as db:
-        stocks = db.execute(select(Stock).order_by(Stock.id)).scalars().all()
+        return [(stock_id, code) for stock_id, code in db.execute(select(Stock.id, Stock.code).order_by(Stock.id)).all()]
 
-        rankings = await _fetch_rankings_safe()
-        unranked = await _fetch_unranked([s.code for s in stocks if s.code not in rankings])
 
-        rows = []
-        for s in stocks:
-            if s.code in rankings:
-                rows.append({"stock_id": s.id, **_row_from_ranking(rankings[s.code])})
-            elif s.code in unranked:
-                rows.append({"stock_id": s.id, **unranked[s.code]})
-        if not rows:
-            return
-
-        stmt = pg_insert(StockPriceCache).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[StockPriceCache.stock_id],
-            set_={
-                "current_price": stmt.excluded.current_price,
-                "change_rate": stmt.excluded.change_rate,
-                "trading_volume": stmt.excluded.trading_volume,
-                "trading_amount": stmt.excluded.trading_amount,
-                "market_rank": stmt.excluded.market_rank,
-                "fetched_at": func.now(),
-            },
-        )
+def _save_rows(rows: list[dict]) -> None:
+    stmt = pg_insert(StockPriceCache).values(rows)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[StockPriceCache.stock_id],
+        set_={
+            "current_price": stmt.excluded.current_price,
+            "change_rate": stmt.excluded.change_rate,
+            "trading_volume": stmt.excluded.trading_volume,
+            "trading_amount": stmt.excluded.trading_amount,
+            "market_rank": stmt.excluded.market_rank,
+            "fetched_at": func.now(),
+        },
+    )
+    with SessionLocal() as db:
         try:
             db.execute(stmt)
             db.commit()
@@ -120,6 +108,25 @@ async def sync_price_cache_once() -> None:
             # 캐시 테이블이 아직 없는 등 DB 문제가 있어도 다음 주기에 다시 시도한다
             db.rollback()
             logger.exception("stock_price_cache 저장 실패")
+
+
+async def sync_price_cache_once() -> None:
+    """토스 랭킹 API(+랭킹 밖 종목은 개별 조회)로 전 종목 시세를 채워 캐시 테이블에 저장.
+    DB 세션은 동기(psycopg2)라 이벤트 루프를 막지 않도록 DB 작업은 스레드에서 돌리고,
+    토스를 기다리는 동안에는 DB 연결을 잡고 있지 않는다."""
+    stocks = await asyncio.to_thread(_load_stocks)
+
+    rankings = await _fetch_rankings_safe()
+    unranked = await _fetch_unranked([code for _, code in stocks if code not in rankings])
+
+    rows = []
+    for stock_id, code in stocks:
+        if code in rankings:
+            rows.append({"stock_id": stock_id, **_row_from_ranking(rankings[code])})
+        elif code in unranked:
+            rows.append({"stock_id": stock_id, **unranked[code]})
+    if rows:
+        await asyncio.to_thread(_save_rows, rows)
 
 
 async def price_sync_loop() -> None:

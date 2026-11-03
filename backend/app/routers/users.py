@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
-from app.core.security import hash_password, verify_password
+from app.core.security import PASSWORD_MAX, PASSWORD_MIN, hash_password, verify_password
 from app.database import get_db
 from app.models.user import User
 from app.schemas.common import ApiResponse
@@ -11,7 +11,6 @@ from app.schemas.user import MyProfile, PasswordChangeRequest, ProfileUpdateRequ
 router = APIRouter(prefix="/users", tags=["Users"])
 
 NICKNAME_MAX = 50
-PASSWORD_MIN = 8
 
 
 def _profile(user: User) -> MyProfile:
@@ -55,8 +54,8 @@ def change_password(body: PasswordChangeRequest, user: User = Depends(get_curren
         raise HTTPException(status_code=400, detail="구글로 가입한 계정은 비밀번호를 변경할 수 없습니다")
     if not verify_password(body.current_password, user.password_hash):
         raise HTTPException(status_code=400, detail="현재 비밀번호가 올바르지 않습니다")
-    if len(body.new_password) < PASSWORD_MIN:
-        raise HTTPException(status_code=400, detail=f"비밀번호는 {PASSWORD_MIN}자 이상이어야 합니다")
+    if not PASSWORD_MIN <= len(body.new_password) <= PASSWORD_MAX:
+        raise HTTPException(status_code=400, detail=f"비밀번호는 {PASSWORD_MIN}~{PASSWORD_MAX}자로 입력해 주세요")
     if verify_password(body.new_password, user.password_hash):
         raise HTTPException(status_code=400, detail="현재 비밀번호와 다른 비밀번호를 입력해 주세요")
     user.password_hash = hash_password(body.new_password)

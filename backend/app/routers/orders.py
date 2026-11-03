@@ -3,6 +3,7 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core import toss_client
@@ -62,7 +63,8 @@ async def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    stock = db.query(Stock).filter(Stock.id == body.stock_id).first()
+    # DB 세션은 동기(psycopg2)라 이벤트 루프를 막지 않도록 DB 작업은 스레드에서 돌린다
+    stock = await run_in_threadpool(db.get, Stock, body.stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
@@ -83,13 +85,22 @@ async def create_order(
     if fill_total is None and not is_limit:
         raise HTTPException(status_code=400, detail="호가 잔량이 부족해 시장가로 체결할 수 없습니다. 수량을 줄이거나 지정가로 주문해주세요")
 
+    return await run_in_threadpool(_place_order, db, current_user.id, body, stock, limit_price, fill_total)
+
+
+def _place_order(
+    db: Session, user_id: int, body: OrderRequest, stock: Stock, limit_price: int | None, fill_total: int | None
+) -> dict:
+    """잔고·수량을 확인하고 주문을 만든다. 지금 호가로 전량 체결할 수 있으면(fill_total) 바로 체결한다."""
+    is_limit = limit_price is not None
+
     # 계좌 확인 (동시에 들어온 주문이 같은 잔고를 기준으로 계산하지 않도록 행을 잠근다)
-    account = db.query(Account).filter(Account.user_id == current_user.id).with_for_update().first()
+    account = db.query(Account).filter(Account.user_id == user_id).with_for_update().first()
     if not account:
         raise HTTPException(status_code=404, detail="계좌를 찾을 수 없습니다")
 
     holding = db.query(Holding).filter(
-        Holding.user_id == current_user.id,
+        Holding.user_id == user_id,
         Holding.stock_id == body.stock_id
     ).with_for_update().first()
 
@@ -97,17 +108,17 @@ async def create_order(
     if body.order_type == "BUY":
         # 지정가는 더 싸게 체결되더라도 지정가 기준으로 주문 가능 금액을 확인한다
         required = limit_price * body.quantity if is_limit else fill_total
-        if account.balance - reserved_cash(db, current_user.id) < required:
+        if account.balance - reserved_cash(db, user_id) < required:
             raise HTTPException(status_code=400, detail="주문 가능 금액이 부족합니다")
     else:
         held = holding.quantity if holding else 0
-        if held - reserved_shares(db, current_user.id).get(body.stock_id, 0) < body.quantity:
+        if held - reserved_shares(db, user_id).get(body.stock_id, 0) < body.quantity:
             raise HTTPException(status_code=400, detail="주문 가능 수량이 부족합니다")
 
     # 일단 미체결로 만들고, 지금 호가로 전량 체결할 수 있으면 바로 체결한다
     reference_price = limit_price if is_limit else max(1, round(fill_total / body.quantity))
     order = Order(
-        user_id=current_user.id,
+        user_id=user_id,
         account_id=account.id,
         stock_id=body.stock_id,
         ai_analysis_id=body.ai_analysis_id,

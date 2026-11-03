@@ -3,6 +3,7 @@ from collections import defaultdict
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,9 +29,8 @@ def list_ai_models(db: Session = Depends(get_db)):
     return ApiResponse(success=True, data=data, message="요청 성공")
 
 
-@router.get("/recommendations", response_model=ApiResponse[list[AiRecommendationItem]])
-async def list_recommendations(db: Session = Depends(get_db)):
-    """모든 AI 추천과 근거 뉴스, 검증 결과. 결과가 없으면 아직 검증 전인 추천이다."""
+def _load_recommendations(db: Session):
+    """추천·종목·결과 행과 추천별 근거 뉴스. DB 세션은 동기라 async 라우트에서는 스레드에서 부른다."""
     rows = (
         db.query(AiRecommendation, Stock, AiRecommendationResult)
         .join(Stock, Stock.id == AiRecommendation.stock_id)
@@ -48,6 +48,13 @@ async def list_recommendations(db: Session = Depends(get_db)):
         )
         for ev in ev_rows:
             evidence[ev.recommendation_id].append(AiEvidenceItem.model_validate(ev))
+    return rows, evidence
+
+
+@router.get("/recommendations", response_model=ApiResponse[list[AiRecommendationItem]])
+async def list_recommendations(db: Session = Depends(get_db)):
+    """모든 AI 추천과 근거 뉴스, 검증 결과. 결과가 없으면 아직 검증 전인 추천이다."""
+    rows, evidence = await run_in_threadpool(_load_recommendations, db)
 
     # 아직 결과가 나오지 않은 추천은 지금 현재가로 중간 집계를 붙인다 (토스 현재가는 60초 캐시)
     pending_codes = sorted({stock.code for _, stock, result in rows if result is None})

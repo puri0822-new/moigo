@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440
+    # 프론트 주소. 여러 개면 쉼표로 구분한다 (배포 주소를 추가할 때 여기만 바꾸면 된다)
+    CORS_ORIGINS: str = "http://localhost:5173"
 
     TOSS_CLIENT_ID: str = ""
     TOSS_CLIENT_SECRET: str = ""

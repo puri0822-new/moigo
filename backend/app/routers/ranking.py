@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, Query
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -31,7 +32,7 @@ def _current_prices(db: Session, stocks: list[Stock]) -> dict[str, int]:
 
 
 @router.get("")
-async def get_ranking(
+def get_ranking(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -92,14 +93,8 @@ async def _closes_on(codes: list[str], day: str) -> dict[str, int]:
     return {code: close for code, close in results if close is not None}
 
 
-@router.get("/weekly")
-async def get_weekly_ranking(
-    limit: int = Query(default=5, ge=1, le=50),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """최근 7일 동안 번 금액 순위. 자산 기록을 따로 쌓지 않으므로, 최근 7일 주문을 되돌려
-    7일 전의 현금·보유 수량을 구하고 당시 종가로 평가한 총 자산과 지금을 비교한다."""
+def _weekly_state(db: Session):
+    """주간 순위 계산에 필요한 DB 값들. DB 세션은 동기라 async 라우트에서는 스레드에서 부른다."""
     accounts = db.query(User, Account).join(Account, Account.user_id == User.id).all()
     holdings = db.query(Holding).all()
     # 미체결·취소·만료 주문은 현금과 수량을 바꾸지 않았으므로 체결된 주문만 되돌린다
@@ -119,8 +114,20 @@ async def get_weekly_ranking(
 
     stock_ids = {stock_id for (_, stock_id), qty in (*qty_now.items(), *qty_then.items()) if qty > 0}
     codes = sorted(stocks[i].code for i in stock_ids)
-    base_day = (datetime.now(KST) - timedelta(days=WEEK_DAYS)).date().isoformat()
     prices_now = _current_prices(db, [stocks[i] for i in stock_ids])
+    return accounts, stocks, qty_now, qty_then, cash_delta, codes, prices_now
+
+
+@router.get("/weekly")
+async def get_weekly_ranking(
+    limit: int = Query(default=5, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """최근 7일 동안 번 금액 순위. 자산 기록을 따로 쌓지 않으므로, 최근 7일 주문을 되돌려
+    7일 전의 현금·보유 수량을 구하고 당시 종가로 평가한 총 자산과 지금을 비교한다."""
+    accounts, stocks, qty_now, qty_then, cash_delta, codes, prices_now = await run_in_threadpool(_weekly_state, db)
+    base_day = (datetime.now(KST) - timedelta(days=WEEK_DAYS)).date().isoformat()
     prices_then = await _closes_on(codes, base_day)
 
     def evaluate(quantities: dict[tuple[int, int], int], user_id: int, prices: dict[str, int]) -> int | None:

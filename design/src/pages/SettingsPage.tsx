@@ -18,6 +18,7 @@ interface MyProfile {
 
 const NICKNAME_MAX = 50;
 const PASSWORD_MIN = 8;
+const PASSWORD_MAX = 64;
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null;
 
@@ -217,13 +218,13 @@ export default function SettingsPage() {
           </Field>
           <Field label="새 비밀번호">
             <input
-              type="password" value={newPw} placeholder={`${PASSWORD_MIN}자 이상 입력하세요`}
+              type="password" maxLength={PASSWORD_MAX} value={newPw} placeholder={`${PASSWORD_MIN}자 이상 입력하세요`}
               onChange={e => { setNewPw(e.target.value); setPwNotice(null); }} style={inputStyle}
             />
           </Field>
           <Field label="새 비밀번호 확인">
             <input
-              type="password" value={confirmPw}
+              type="password" maxLength={PASSWORD_MAX} value={confirmPw}
               onChange={e => { setConfirmPw(e.target.value); setPwNotice(null); }}
               onKeyDown={e => { if (e.key === 'Enter') changePassword(); }}
               style={inputStyle}

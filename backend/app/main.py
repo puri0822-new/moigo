@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core import ai_scheduler, http
 from app.core.config import settings
 from app.core.order_matching import order_matching_loop
+from app.core.price_alerts import price_alert_loop
 from app.core.price_sync import price_sync_loop
 from app.core.uploads import UPLOAD_DIR, UPLOAD_URL_PREFIX
 from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai, users, watchlist, notifications
@@ -20,6 +21,7 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(price_sync_loop()),
         asyncio.create_task(order_matching_loop()),
+        asyncio.create_task(price_alert_loop()),
     ]
     # lifespan을 쓰면 on_event("startup")은 실행되지 않으므로 AI 추천 스케줄러도 여기서 띄운다
     if settings.AI_SCHEDULER_ENABLED:
@@ -34,7 +36,7 @@ app = FastAPI(title="모이고 API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
