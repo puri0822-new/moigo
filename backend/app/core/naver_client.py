@@ -51,6 +51,12 @@ NEWS_EXCLUDES: dict[str, list[str]] = {
     "삼성화재": ["블루팡스"],
     "삼성생명": ["블루밍스"],
     "현대차": ["현대차증권"],
+    # 이름 안에 종목명이 들어가는 별도 상장사
+    "카카오": ["카카오뱅크", "카뱅", "카카오페이", "카카오게임즈"],
+    "셀트리온": ["셀트리온제약"],
+    "신한지주": ["신한금융투자"],
+    # 별칭 '엔씨'와 겹치는 야구단
+    "엔씨소프트": ["다이노스"],
 }
 
 
@@ -58,7 +64,7 @@ def _clean(text: str) -> str:
     return html.unescape(_TAG_RE.sub("", text))
 
 
-async def _fetch_og_image(client: httpx.AsyncClient, url: str) -> str | None:
+async def fetch_og_image(client: httpx.AsyncClient, url: str) -> str | None:
     """기사 페이지의 대표 이미지(og:image) 주소. 느리거나 없으면 None."""
     if urlparse(url).scheme not in ("http", "https"):
         return None
@@ -77,12 +83,28 @@ async def _fetch_og_image(client: httpx.AsyncClient, url: str) -> str | None:
     return None
 
 
-async def _search(client: httpx.AsyncClient, query: str) -> list[dict]:
+def title_matcher(stock_name: str):
+    """제목에 종목명(또는 별칭)이 있고 제외어가 없는 기사만 남기는 필터."""
+    keywords = [k.lower() for k in (stock_name, *NEWS_ALIASES.get(stock_name, []))]
+    excludes = [x.lower() for x in NEWS_EXCLUDES.get(stock_name, [])]
+
+    def matched(found: list[dict]) -> list[dict]:
+        return [
+            item for item in found
+            if any(k in item["title"].lower() for k in keywords)
+            and not any(x in item["title"].lower() for x in excludes)
+        ]
+
+    return matched
+
+
+async def search(client: httpx.AsyncClient, query: str, sort: str = "date") -> list[dict]:
+    """네이버 뉴스 검색 1회 (최대 100건). sort는 'date'(최신순) 또는 'sim'(정확도순)."""
     headers = {
         "X-NCP-APIGW-API-KEY-ID": settings.NAVER_CLIENT_ID,
         "X-NCP-APIGW-API-KEY": settings.NAVER_CLIENT_SECRET,
     }
-    params = {"query": query, "display": SEARCH_DISPLAY, "sort": "date"}
+    params = {"query": query, "display": SEARCH_DISPLAY, "sort": sort}
     resp = await client.get(ENDPOINT, headers=headers, params=params)
     resp.raise_for_status()
     return [
@@ -107,24 +129,16 @@ async def search_news(stock_name: str, display: int = 10, with_images: bool = Tr
         return cached[0][:display]
 
     aliases = NEWS_ALIASES.get(stock_name, [])
-    keywords = [k.lower() for k in (stock_name, *aliases)]
-    excludes = [x.lower() for x in NEWS_EXCLUDES.get(stock_name, [])]
-
-    def matched(found: list[dict]) -> list[dict]:
-        return [
-            item for item in found
-            if any(k in item["title"].lower() for k in keywords)
-            and not any(x in item["title"].lower() for x in excludes)
-        ]
+    matched = title_matcher(stock_name)
 
     async with httpx.AsyncClient(timeout=5) as client:
-        items = matched(await _search(client, stock_name))
+        items = matched(await search(client, stock_name))
         # 기사 제목이 주로 별칭으로 쓰이는 종목은 정식 명칭 검색만으로는 모자라 별칭으로도 찾는다
         for alias in aliases:
             if len(items) >= display:
                 break
             seen = {item["url"] for item in items}
-            items += [item for item in matched(await _search(client, alias)) if item["url"] not in seen]
+            items += [item for item in matched(await search(client, alias)) if item["url"] not in seen]
 
     items.sort(key=lambda item: item["published_at"], reverse=True)
     total = len(items)
@@ -135,7 +149,7 @@ async def search_news(stock_name: str, display: int = 10, with_images: bool = Tr
     async with httpx.AsyncClient(
         timeout=IMAGE_TIMEOUT_SECONDS, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}
     ) as client:
-        images = await asyncio.gather(*(_fetch_og_image(client, item["url"]) for item in items))
+        images = await asyncio.gather(*(fetch_og_image(client, item["url"]) for item in items))
     for item, image in zip(items, images):
         item["image_url"] = image
 

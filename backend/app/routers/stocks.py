@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core import naver_client, toss_client
+from app.core import naver_client, news_issues, toss_client
 from app.core.ai_analyze import get_latest_analysis, related_news_for, run_analysis
 from app.core.candle_agg import aggregate_daily
 from app.core.candle_store import get_daily_bars
@@ -19,7 +19,7 @@ from app.models import AiAnalysis, Stock, StockPriceCache, User
 from app.schemas.analysis import AiAnalysisData, AnalysisNewsItem
 from app.schemas.candle import Candle
 from app.schemas.common import ApiResponse
-from app.schemas.news import NewsItem
+from app.schemas.news import NewsIssue, NewsItem
 from app.schemas.orderbook import Orderbook, OrderbookLevel
 from app.schemas.ranking import RankingAiInsight, RankingAiSummary, StockRankingItem
 from app.schemas.stock import StockDetail, StockListItem
@@ -29,6 +29,7 @@ router = APIRouter(prefix="/stocks", tags=["Stocks"])
 logger = logging.getLogger("uvicorn.error")
 
 TOSS_TIMEOUT_SECONDS = 6
+ISSUE_TIMEOUT_SECONDS = 10  # 네이버 검색 여러 번 + 대표 기사 썸네일
 
 # 봉 하나를 만드는 데 드는 거래일 수(대략). 필요한 일봉 개수를 어림잡는 용도.
 # 일봉은 DB(stock_daily_candles)에서 읽고, 주/월/년봉은 그 일봉을 묶어서 만든다.
@@ -305,6 +306,22 @@ async def get_stock_news(stock_id: int, limit: int = 10, db: Session = Depends(g
     data = [NewsItem(id=i + 1, **item) for i, item in enumerate(items)]
     return ApiResponse(success=True, data=data, message="요청 성공")
 
+
+
+@router.get("/{stock_id}/news/top", response_model=ApiResponse[list[NewsIssue]])
+async def get_stock_top_issues(stock_id: int, limit: int = 5, db: Session = Depends(get_db)):
+    """최근 7일간 여러 언론사가 함께 다룬 핵심 이슈 (같은 사건 기사를 묶어 대표 기사 하나로)."""
+    stock = await run_in_threadpool(db.get, Stock, stock_id)
+    if not stock:
+        raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
+
+    try:
+        issues = await asyncio.wait_for(news_issues.top_issues(stock.name, limit=min(limit, 10)), ISSUE_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError):
+        raise HTTPException(status_code=502, detail="핵심 이슈를 불러오지 못했습니다")
+
+    data = [NewsIssue(id=i + 1, **issue) for i, issue in enumerate(issues)]
+    return ApiResponse(success=True, data=data, message="요청 성공")
 
 def _to_analysis_data(db: Session, analysis: AiAnalysis) -> AiAnalysisData:
     news = related_news_for(db, analysis.id)

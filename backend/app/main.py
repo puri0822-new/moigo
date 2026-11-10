@@ -13,7 +13,7 @@ from app.core.order_matching import order_matching_loop
 from app.core.price_alerts import price_alert_loop
 from app.core.price_sync import price_sync_loop
 from app.core.uploads import UPLOAD_DIR, UPLOAD_URL_PREFIX
-from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai, users, watchlist, notifications
+from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai, users, watchlist, notifications, news
 
 
 @asynccontextmanager
@@ -77,6 +77,7 @@ app.include_router(portfolio.router, prefix="/v1")
 app.include_router(account.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")
 app.include_router(market.router, prefix="/v1")
+app.include_router(news.router, prefix="/v1")
 app.include_router(ranking.router, prefix="/v1")
 app.include_router(community.router, prefix="/v1")
 app.include_router(ai.router, prefix="/v1")

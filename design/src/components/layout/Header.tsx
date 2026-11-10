@@ -77,6 +77,7 @@ export default function Header() {
         {[
           { label: '홈', path: '/dashboard' },
           { label: 'AI 분석', path: '/ai-analysis' },
+          { label: '뉴스', path: '/news' },
           { label: '랭킹', path: '/ranking' },
           { label: '피드', path: '/feed' },
           { label: '내 계좌', path: '/portfolio' },

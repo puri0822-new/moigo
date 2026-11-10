@@ -240,6 +240,38 @@ export async function fetchStockNews(stockId: number, limit = 10): Promise<ApiNe
   return res.data.data;
 }
 
+// 여러 언론사가 함께 다룬 하나의 사건. 대표 기사 + 같은 사건의 다른 기사들
+export interface ApiNewsIssue extends ApiNewsItem {
+  first_published_at: string;
+  latest_published_at: string;
+  article_count: number;
+  source_count: number;
+  tags: string[];
+  related: { title: string; url: string; source: string | null; published_at: string }[];
+}
+
+export async function fetchStockTopIssues(stockId: number, limit = 5): Promise<ApiNewsIssue[]> {
+  const res = await api.get<ApiResponse<ApiNewsIssue[]>>(`/stocks/${stockId}/news/top`, { params: { limit }, timeout: 20000 });
+  return res.data.data;
+}
+
+export interface ApiIssueStock {
+  id: number;
+  code: string;
+  name: string;
+}
+
+// 뉴스 탭: 거래대금 상위 종목들의 핵심 이슈. 한 사건이 여러 종목에 걸리면 stocks에 함께 담긴다
+export interface ApiMarketNewsIssue extends ApiNewsIssue {
+  stocks: ApiIssueStock[];
+}
+
+export async function fetchMarketIssues(limit = 15): Promise<ApiMarketNewsIssue[]> {
+  // 처음엔 여러 종목 기사를 모아 묶느라 20초 가까이 걸릴 수 있다 (이후 10분은 캐시)
+  const res = await api.get<ApiResponse<ApiMarketNewsIssue[]>>('/news/issues', { params: { limit }, timeout: 40000 });
+  return res.data.data;
+}
+
 // --- AI 분석 ---
 export interface ApiAnalysisNewsItem {
   id: number;
