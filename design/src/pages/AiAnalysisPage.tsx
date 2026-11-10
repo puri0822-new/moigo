@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import StockLogo from '../components/StockLogo';
 import HorizontalScroll from '../components/HorizontalScroll';
@@ -14,12 +14,15 @@ import type { AiModel } from '../lib/aiModels';
 
 type PeriodFilter = 'ALL' | PeriodType;
 const PERIOD_FILTERS: [PeriodFilter, string][] = [['ALL', '전체'], ['WEEKLY', '주간'], ['MONTHLY', '월간']];
+// 지난 추천 성적표를 한 번에 보여주는 개수 (더보기를 누를 때마다 이만큼 늘어난다)
+const PAST_PAGE_SIZE = 10;
 
 export default function AiAnalysisPage() {
   const { theme } = useTheme();
   const [period, setPeriod] = useState<PeriodFilter>('ALL');
   const [selected, setSelected] = useState<AiRecommendation | null>(null);
   const [pastAi, setPastAi] = useState<'ALL' | AiModel>('ALL');
+  const [pastLimit, setPastLimit] = useState(PAST_PAGE_SIZE);
   const models = useAiModels();
   const { status, current, past } = useAiRecommendations();
   // 새 추천과 성적 카드는 지금 쓰는 모델만, 성적표 필터는 지난 추천이 있는 모델(중단된 모델 포함)
@@ -30,6 +33,10 @@ export default function AiAnalysisPage() {
   const pastRecs = past
     .filter(r => r.result && (period === 'ALL' || r.periodType === period) && (pastAi === 'ALL' || r.aiModel === pastAi))
     .sort((a, b) => b.result!.evaluatedAt.localeCompare(a.result!.evaluatedAt));
+  const pastRemaining = pastRecs.length - pastLimit;
+
+  // 필터를 바꾸면 다시 처음 10개부터 보여준다
+  useEffect(() => setPastLimit(PAST_PAGE_SIZE), [period, pastAi]);
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -262,7 +269,7 @@ export default function AiAnalysisPage() {
             background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
             overflow: 'hidden',
           }}>
-            {pastRecs.map((r, i) => {
+            {pastRecs.slice(0, pastLimit).map((r, i) => {
               const result = r.result!;
               const isBuy = r.opinion === 'BUY';
               return (
@@ -301,6 +308,18 @@ export default function AiAnalysisPage() {
                 </div>
               );
             })}
+            {pastRemaining > 0 && (
+              <div
+                onClick={() => setPastLimit(n => n + PAST_PAGE_SIZE)}
+                style={{
+                  padding: '12px 0', textAlign: 'center', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, color: theme.textMuted,
+                  borderTop: `1px solid ${theme.border}`,
+                }}
+              >
+                더보기 ({pastRemaining}개 남음)
+              </div>
+            )}
           </div>
         )}
       </section>

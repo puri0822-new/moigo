@@ -6,9 +6,12 @@ import { useAiModels } from '../lib/aiModels';
 
 const HEIGHT = 220;
 const PAD = { top: 16, right: 84, bottom: 28, left: 40 };
-// 적중률이 대부분 40~70%대라 0~100%로 그리면 선이 붙어 보여서 범위를 좁혀 그린다
-const Y_MIN = 0.3, Y_MAX = 0.8;
-const Y_TICKS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+// 낮은 적중률도 제 높이에 보이도록 0%부터 그린다. 위쪽은 80%면 충분해서 그 위는 잘라 선 간격을 넓힌다
+const Y_MIN = 0, Y_MAX = 0.8;
+const Y_TICKS = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+
+// 끝점 옆 이름표끼리 최소 이만큼 위아래로 떨어뜨린다 (적중률이 같거나 비슷하면 글자가 겹치므로)
+const LABEL_GAP = 16;
 
 const pct = (v: number | undefined) => (v == null ? '-' : `${Math.round(v * 100)}%`);
 
@@ -37,6 +40,27 @@ export default function AiHitRateTrendChart() {
   const plotH = HEIGHT - PAD.top - PAD.bottom;
   const x = (i: number) => PAD.left + (data.length === 1 ? plotW / 2 : (i / (data.length - 1)) * plotW);
   const y = (v: number) => PAD.top + (1 - (Math.min(Math.max(v, Y_MIN), Y_MAX) - Y_MIN) / (Y_MAX - Y_MIN)) * plotH;
+
+  // 값이 없는 주는 건너뛰고 이어 그린다
+  const lines = series.map(ai => ({
+    ai,
+    pts: data.flatMap((d, i) => {
+      const v = d.rates[ai.model];
+      return v == null ? [] : [{ i, v }];
+    }),
+  }));
+
+  // 이름표 높이: 끝점 높이에서 시작해 겹치는 것끼리 아래로 밀고, 그래프 밖으로 나가면 다시 위로 올린다
+  const labelY: Record<string, number> = {};
+  const byY = lines
+    .map(({ ai, pts }) => ({ model: ai.model, y: y(pts[pts.length - 1].v) }))
+    .sort((a, b) => a.y - b.y);
+  byY.forEach((l, i) => { if (i > 0) l.y = Math.max(l.y, byY[i - 1].y + LABEL_GAP); });
+  for (let i = byY.length - 1; i >= 0; i--) {
+    const limit = i === byY.length - 1 ? PAD.top + plotH : byY[i + 1].y - LABEL_GAP;
+    byY[i].y = Math.max(Math.min(byY[i].y, limit), PAD.top);
+  }
+  byY.forEach(l => { labelY[l.model] = l.y; });
 
   const onMove = (e: React.MouseEvent<SVGRectElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -119,12 +143,7 @@ export default function AiHitRateTrendChart() {
               <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + plotH} stroke={theme.textMuted} strokeWidth={1} />
             )}
 
-            {series.map(ai => {
-              // 값이 없는 주는 건너뛰고 이어 그린다
-              const pts = data.flatMap((d, i) => {
-                const v = d.rates[ai.model];
-                return v == null ? [] : [{ i, v }];
-              });
+            {lines.map(({ ai, pts }) => {
               const points = pts.map(p => `${x(p.i)},${y(p.v)}`).join(' ');
               const last = pts[pts.length - 1];
               return (
@@ -133,7 +152,7 @@ export default function AiHitRateTrendChart() {
                   {/* 끝점 바로 옆에 이름과 최신 값 */}
                   <circle cx={x(last.i)} cy={y(last.v)} r={4} fill={ai.color} stroke={theme.panel} strokeWidth={2} />
                   <text
-                    x={x(last.i) + 10} y={y(last.v)}
+                    x={x(last.i) + 10} y={labelY[ai.model]}
                     dominantBaseline="middle" fontSize={12} fontWeight={700} fill={theme.text}
                   >
                     {ai.name} {pct(last.v)}
