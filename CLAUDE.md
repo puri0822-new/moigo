@@ -23,8 +23,9 @@ npm run build    # tsc -b && vite build; this is the only type check / "lint" st
 The backend runs from the repo root, using the venv at `backend/venv` (Windows):
 ```bash
 backend/venv/Scripts/python.exe -m pip install -r backend/requirements.txt
-backend/venv/Scripts/python.exe -m uvicorn app.main:app --reload --reload-dir backend/app --app-dir backend --port 8000
+backend/venv/Scripts/python.exe backend/dev.py --port 8000
 ```
+`backend/dev.py` restarts the server when a `.py` file under `backend/app` changes. Don't use `uvicorn --reload` on Windows: it restarts by sending `CTRL_C_EVENT`, which never reaches a process without a console (background runs, `launch.json`), so the reload hangs at "Reloading...".
 `.claude/launch.json` defines both of these as `moigo-frontend` and `moigo-backend`.
 
 There is no test suite, linter config or formatter in the repo.
