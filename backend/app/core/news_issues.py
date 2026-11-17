@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from app.core import naver_client
+from app.core import naver_client, news_sentiment
 
 WINDOW_DAYS = 7
 CACHE_TTL_SECONDS = 600
@@ -154,6 +154,8 @@ async def top_issues(stock_name: str, limit: int = 5) -> list[dict]:
     now = time.monotonic()
     cached = _cache.get(stock_name)
     if cached and now - cached[1] < CACHE_TTL_SECONDS:
+        # 지난번에 판단이 늦어 비어 있던 호재/악재를 채운다 (이미 판단한 것은 캐시에서 바로)
+        await news_sentiment.attach(stock_name, cached[0])
         return cached[0][:limit]
 
     items = await _collect(stock_name)
@@ -192,7 +194,11 @@ async def top_issues(stock_name: str, limit: int = 5) -> list[dict]:
     async with httpx.AsyncClient(
         timeout=naver_client.IMAGE_TIMEOUT_SECONDS, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}
     ) as client:
-        images = await asyncio.gather(*(naver_client.fetch_og_image(client, x["url"]) for x in issues))
+        # 썸네일을 가져오는 동안 호재/악재 판단도 함께 한다
+        images, _ = await asyncio.gather(
+            asyncio.gather(*(naver_client.fetch_og_image(client, x["url"]) for x in issues)),
+            news_sentiment.attach(stock_name, issues),
+        )
     for issue, image in zip(issues, images):
         issue["image_url"] = image
 

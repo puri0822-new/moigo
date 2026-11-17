@@ -19,7 +19,7 @@ logger = logging.getLogger("uvicorn.error")
 HOT_STOCK_COUNT = 10  # 거래대금 상위 몇 종목의 이슈를 모을지
 PER_STOCK_ISSUES = 5
 CONCURRENCY = 5  # 네이버 검색 API를 한꺼번에 너무 많이 부르지 않도록 동시에 처리할 종목 수
-ISSUES_TIMEOUT_SECONDS = 25
+ISSUES_TIMEOUT_SECONDS = 35  # 처음엔 네이버 검색 + 썸네일 + 호재/악재 판단(최대 6초)까지 겹친다 (프론트 제한 40초)
 
 
 def _hot_stocks(db: Session) -> list[Stock]:

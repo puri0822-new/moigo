@@ -10,6 +10,21 @@ import {
 
 type Status = 'loading' | 'ready' | 'error';
 
+const SENTIMENT_LABEL = { POSITIVE: '호재', NEUTRAL: '중립', NEGATIVE: '악재' } as const;
+
+// 호재는 빨강, 악재는 파랑 (국내 증시 상승·하락 색과 같게)
+function SentimentBadge({ sentiment, reason }: { sentiment: ApiNewsIssue['sentiment']; reason: string | null }) {
+  const { theme } = useTheme();
+  if (!sentiment) return null;
+  const color = sentiment === 'POSITIVE' ? theme.up : sentiment === 'NEGATIVE' ? theme.down : theme.textMuted;
+  return (
+    <span title={reason ? `AI 판단: ${reason}` : 'AI 판단'} style={{
+      flexShrink: 0, fontSize: 11, fontWeight: 800, padding: '2px 7px', borderRadius: 6, marginTop: 2, cursor: 'help',
+      color, border: `1px solid ${color}`, background: theme.panel,
+    }}>{SENTIMENT_LABEL[sentiment]}</span>
+  );
+}
+
 function IssueCard({ issue, rank, stocks }: { issue: ApiNewsIssue; rank: number; stocks: ApiIssueStock[] }) {
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -34,10 +49,19 @@ function IssueCard({ issue, rank, stocks }: { issue: ApiNewsIssue; rank: number;
               ))}
             </div>
           )}
-          <a href={issue.url} target="_blank" rel="noopener noreferrer" style={{
-            fontSize: 15, fontWeight: 700, lineHeight: 1.45, color: 'inherit', textDecoration: 'none',
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>{issue.title}</a>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <SentimentBadge sentiment={issue.sentiment} reason={issue.sentiment_reason} />
+            <a href={issue.url} target="_blank" rel="noopener noreferrer" style={{
+              flex: 1, minWidth: 0,
+              fontSize: 15, fontWeight: 700, lineHeight: 1.45, color: 'inherit', textDecoration: 'none',
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>{issue.title}</a>
+          </div>
+          {issue.sentiment_reason && (
+            <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.5 }}>
+              <span style={{ color: theme.ai, fontWeight: 700 }}>AI</span> {issue.sentiment_reason}
+            </div>
+          )}
           {issue.summary && (
             <div style={{
               fontSize: 12, color: theme.textMuted, lineHeight: 1.5,

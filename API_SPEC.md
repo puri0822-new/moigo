@@ -259,6 +259,8 @@ Authorization: Bearer {access_token}
 최근 7일 기사(네이버 최신순·정확도순 각 100건)를 제목이 비슷한 것끼리 하나의 사건으로 묶고,
 보도한 언론사 수 + 중요 키워드(실적·공시·수주·급등 등) 가산점으로 순위를 매기고, 수상·행사·후원 같은 보도자료성 이슈는 점수를 크게 깎는다.
 언론사 2곳 이상이 다뤘거나 중요 키워드가 있는 이슈만 내려준다. 종목별 10분 캐시.
+각 이슈가 이 종목 주가에 호재/중립/악재인지 AI(Gemini → Claude → CLOVA 중 키가 있는 첫 모델)가 판단해 `sentiment`(`POSITIVE`/`NEUTRAL`/`NEGATIVE`)와 `sentiment_reason`으로 내려준다.
+종목의 이슈를 한 번에 판단하고 (종목, 기사 주소)별로 6시간 캐시한다. 판단이 6초 안에 끝나지 않거나 실패하면 두 필드는 `null`이다 (늦게 끝난 판단은 다음 요청에 반영).
 
 **Query Parameter**
 | 파라미터 | 타입 | 필수 | 설명 |
@@ -285,7 +287,9 @@ Authorization: Bearer {access_token}
       "tags": ["급등"],
       "related": [
         { "title": "...", "url": "...", "source": "...", "published_at": "2026-11-10T13:40:00+09:00" }
-      ]
+      ],
+      "sentiment": "POSITIVE",
+      "sentiment_reason": "반도체 업황 회복 기대로 동반 급등해 호재다"
     }
   ],
   "message": "요청 성공"
@@ -305,6 +309,7 @@ Authorization: Bearer {access_token}
 
 시세 캐시 기준 거래대금 상위 10종목의 핵심 이슈(3-2)를 모아 점수 순으로 내려준다.
 기사 주소가 겹치는 이슈(한 사건이 여러 종목에 걸린 경우)는 하나로 합치고 `stocks`에 종목을 함께 담는다.
+합친 이슈의 `sentiment`는 대표 기사를 고른 종목(점수가 가장 높은 쪽) 기준이다.
 처음 호출은 수십 초까지 걸릴 수 있고, 이후 종목별 10분 캐시.
 
 **Query Parameter**

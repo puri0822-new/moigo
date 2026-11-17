@@ -29,7 +29,7 @@ router = APIRouter(prefix="/stocks", tags=["Stocks"])
 logger = logging.getLogger("uvicorn.error")
 
 TOSS_TIMEOUT_SECONDS = 6
-ISSUE_TIMEOUT_SECONDS = 10  # 네이버 검색 여러 번 + 대표 기사 썸네일
+ISSUE_TIMEOUT_SECONDS = 15  # 네이버 검색 여러 번 + 대표 기사 썸네일 + 호재/악재 판단(최대 6초)
 
 # 봉 하나를 만드는 데 드는 거래일 수(대략). 필요한 일봉 개수를 어림잡는 용도.
 # 일봉은 DB(stock_daily_candles)에서 읽고, 주/월/년봉은 그 일봉을 묶어서 만든다.

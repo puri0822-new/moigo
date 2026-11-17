@@ -248,6 +248,9 @@ export interface ApiNewsIssue extends ApiNewsItem {
   source_count: number;
   tags: string[];
   related: { title: string; url: string; source: string | null; published_at: string }[];
+  // 이 종목 주가에 호재/중립/악재인지 AI 판단. 아직 판단 못 했으면 null
+  sentiment: 'POSITIVE' | 'NEUTRAL' | 'NEGATIVE' | null;
+  sentiment_reason: string | null;
 }
 
 export async function fetchStockTopIssues(stockId: number, limit = 5): Promise<ApiNewsIssue[]> {

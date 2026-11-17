@@ -35,6 +35,9 @@ class NewsIssue(BaseModel):
     source_count: int
     tags: list[str]
     related: list[IssueRelatedArticle]
+    # 이 종목 주가에 호재(POSITIVE)/중립(NEUTRAL)/악재(NEGATIVE)인지 AI 판단. 아직 판단 못 했으면 null
+    sentiment: str | None = None
+    sentiment_reason: str | None = None
 
 
 class IssueStock(BaseModel):
