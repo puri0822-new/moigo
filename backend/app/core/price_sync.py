@@ -22,12 +22,13 @@ RANKING_TYPE = "MARKET_TRADING_AMOUNT"
 RANKING_DURATION = "1d"
 
 
-async def _fetch_rankings_safe() -> dict[str, dict]:
+async def _fetch_rankings_safe() -> dict[str, dict] | None:
+    """랭킹 100위. 조회에 실패하면 None (성공했는데 비어 있는 것과 구분해야 한다)."""
     try:
         return await toss_client.get_rankings(RANKING_TYPE, "KR", RANKING_DURATION, 100)
     except httpx.HTTPError as e:
-        logger.warning("랭킹 조회 실패, 전 종목을 개별 조회로 채움: %r", e)
-        return {}
+        logger.warning("랭킹 조회 실패, 전 종목을 개별 조회로 채움 (거래대금·순위는 기존 값 유지): %r", e)
+        return None
 
 
 async def _fetch_unranked(codes: list[str]) -> dict[str, dict]:
@@ -87,19 +88,20 @@ def _load_stocks() -> list[tuple[int, str]]:
         return [(stock_id, code) for stock_id, code in db.execute(select(Stock.id, Stock.code).order_by(Stock.id)).all()]
 
 
-def _save_rows(rows: list[dict]) -> None:
+def _save_rows(rows: list[dict], keep_ranking: bool = False) -> None:
+    """keep_ranking: 랭킹 조회에 실패한 회차. 거래대금·순위는 랭킹에서만 알 수 있으니
+    null로 덮어쓰지 않고 기존 값을 둔다 (덮어쓰면 거래대금 순 목록·뉴스 탭이 통째로 비어 버린다)."""
     stmt = pg_insert(StockPriceCache).values(rows)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=[StockPriceCache.stock_id],
-        set_={
-            "current_price": stmt.excluded.current_price,
-            "change_rate": stmt.excluded.change_rate,
-            "trading_volume": stmt.excluded.trading_volume,
-            "trading_amount": stmt.excluded.trading_amount,
-            "market_rank": stmt.excluded.market_rank,
-            "fetched_at": func.now(),
-        },
-    )
+    set_ = {
+        "current_price": stmt.excluded.current_price,
+        "change_rate": stmt.excluded.change_rate,
+        "trading_volume": stmt.excluded.trading_volume,
+        "fetched_at": func.now(),
+    }
+    if not keep_ranking:
+        set_["trading_amount"] = stmt.excluded.trading_amount
+        set_["market_rank"] = stmt.excluded.market_rank
+    stmt = stmt.on_conflict_do_update(index_elements=[StockPriceCache.stock_id], set_=set_)
     with SessionLocal() as db:
         try:
             db.execute(stmt)
@@ -116,7 +118,9 @@ async def sync_price_cache_once() -> None:
     토스를 기다리는 동안에는 DB 연결을 잡고 있지 않는다."""
     stocks = await asyncio.to_thread(_load_stocks)
 
-    rankings = await _fetch_rankings_safe()
+    fetched = await _fetch_rankings_safe()
+    ranking_failed = fetched is None
+    rankings = fetched or {}
     unranked = await _fetch_unranked([code for _, code in stocks if code not in rankings])
 
     rows = []
@@ -126,7 +130,7 @@ async def sync_price_cache_once() -> None:
         elif code in unranked:
             rows.append({"stock_id": stock_id, **unranked[code]})
     if rows:
-        await asyncio.to_thread(_save_rows, rows)
+        await asyncio.to_thread(_save_rows, rows, ranking_failed)
 
 
 async def price_sync_loop() -> None:
