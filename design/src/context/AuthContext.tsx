@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
+import { loadFirebaseAuth } from '../lib/firebase';
 import { apiPost } from '../lib/api';
 
 interface LoginResponse {
@@ -45,7 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
-    const result = await signInWithPopup(auth, googleProvider);
+    const fb = await loadFirebaseAuth();
+    const result = await fb.signInWithPopup(fb.auth, fb.googleProvider);
     const googleToken = await result.user.getIdToken();
     const res = await apiPost<LoginResponse>('/auth/google', { google_token: googleToken });
     localStorage.setItem('access_token', res.data.access_token);
@@ -59,7 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('nickname');
     setIsAuthenticated(false);
     setNickname('');
-    await Promise.allSettled([apiPost('/auth/logout'), signOut(auth)]);
+    await Promise.allSettled([
+      apiPost('/auth/logout'),
+      loadFirebaseAuth().then(fb => fb.signOut(fb.auth)),
+    ]);
   };
 
   const updateNickname = (next: string) => {

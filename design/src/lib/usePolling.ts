@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-// 백엔드가 토스 현재가를 60초 캐시하므로 그보다 짧은 30초 간격이면 충분하다
+// 백엔드가 시세 캐시 테이블을 30초마다 갱신하므로 같은 주기로 다시 받는다
 export const PORTFOLIO_POLL_MS = 30_000;
 
 /** 처음 한 번 실행하고 intervalMs마다 다시 실행한다.

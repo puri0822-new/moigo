@@ -5,6 +5,7 @@ import StockLogo from '../components/StockLogo';
 import BannerStrikeChart from '../components/BannerStrikeChart';
 import { fetchMarketIndices, fetchStockRankings, type ApiMarketIndex, type ApiStockRanking } from '../lib/api';
 import { useViewport } from '../lib/useViewport';
+import { usePolling } from '../lib/usePolling';
 
 // 배너 배경 차트는 문구(약 300px)와 지수 카드(약 270px) 사이에 그리므로, 본문이 이만큼은 넓어야 보인다
 const BANNER_CHART_MIN_WIDTH = 900;
@@ -52,28 +53,20 @@ export default function DashboardPage() {
   const [marketIndices, setMarketIndices] = useState<ApiMarketIndex[]>([]);
   const [indicesError, setIndicesError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = () => {
-      // 지수를 못 받아와도 이미 받아 둔 값은 그대로 둔다 (한 번도 못 받았으면 카드 자리에 안내를 띄운다)
-      fetchMarketIndices()
-        .then(data => { if (!cancelled) { setMarketIndices(data); setIndicesError(false); } })
-        .catch(() => { if (!cancelled) setIndicesError(true); });
-      fetchStockRankings()
-        .then(data => {
-          if (cancelled) return;
-          setRankings(data);
-          setRankingsStatus('ready');
-        })
-        .catch(() => {
-          // 이미 받아 둔 목록이 있으면 일시적인 실패로 화면을 비우지 않는다
-          if (!cancelled) setRankingsStatus(prev => (prev === 'ready' ? prev : 'error'));
-        });
-    };
-    load();
-    const timer = setInterval(load, RANKINGS_REFRESH_MS);
-    return () => { cancelled = true; clearInterval(timer); };
-  }, []);
+  // 탭이 가려져 있는 동안은 다시 받지 않는다 (다시 보이면 바로 한 번 받는다)
+  usePolling(() => {
+    // 지수를 못 받아와도 이미 받아 둔 값은 그대로 둔다 (한 번도 못 받았으면 카드 자리에 안내를 띄운다)
+    fetchMarketIndices()
+      .then(data => { setMarketIndices(data); setIndicesError(false); })
+      .catch(() => setIndicesError(true));
+    fetchStockRankings()
+      .then(data => {
+        setRankings(data);
+        setRankingsStatus('ready');
+      })
+      // 이미 받아 둔 목록이 있으면 일시적인 실패로 화면을 비우지 않는다
+      .catch(() => setRankingsStatus(prev => (prev === 'ready' ? prev : 'error')));
+  }, RANKINGS_REFRESH_MS);
 
   useEffect(() => {
     const timer = setInterval(() => {

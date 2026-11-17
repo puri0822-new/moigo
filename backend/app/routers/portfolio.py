@@ -1,3 +1,4 @@
+import asyncio
 from bisect import bisect_right
 from datetime import date, timedelta, timezone
 
@@ -25,8 +26,14 @@ def get_portfolio(
     current_user: User = Depends(get_current_user)
 ):
     account = db.query(Account).filter(Account.user_id == current_user.id).first()
-    holdings = db.query(Holding).filter(Holding.user_id == current_user.id).all()
-    current_prices = get_current_prices(db, [h.stock_id for h in holdings])
+    # 종목 정보도 같은 쿼리로 함께 읽는다 (보유 종목마다 따로 조회하지 않게)
+    rows = (
+        db.query(Holding, Stock)
+        .outerjoin(Stock, Stock.id == Holding.stock_id)
+        .filter(Holding.user_id == current_user.id)
+        .all()
+    )
+    current_prices = get_current_prices(db, [h.stock_id for h, _ in rows])
     # 미체결 주문에 묶인 금액·수량을 뺀 만큼만 새로 주문할 수 있다
     pending_cash = reserved_cash(db, current_user.id)
     pending_shares = reserved_shares(db, current_user.id)
@@ -34,8 +41,7 @@ def get_portfolio(
     holding_data = []
     total_eval_amount = 0
 
-    for h in holdings:
-        stock = db.query(Stock).filter(Stock.id == h.stock_id).first()
+    for h, stock in rows:
         # 시세 캐시에 아직 값이 없으면(서버 기동 직후 등) 평단가로 평가한다
         current_price = current_prices.get(h.stock_id, h.avg_price)
         eval_amount = current_price * h.quantity
@@ -121,10 +127,12 @@ async def get_asset_history(
     quantities = {h.stock_id: h.quantity for h in holdings}
 
     # 종목별 (날짜 목록, 종가 목록). 달력 일수만큼 받으면 거래일 기준으로는 항상 충분하다
-    closes: dict[int, tuple[list[date], list[int]]] = {}
-    for stock_id, code in stocks:
-        bars = await get_daily_bars(stock_id, code, (today - start).days + 10)
-        closes[stock_id] = ([date.fromisoformat(b["timestamp"][:10]) for b in bars], [int(b["closePrice"]) for b in bars])
+    # 종목마다 순서대로 기다리면 보유 종목 수만큼 느려지므로 한꺼번에 받는다
+    all_bars = await asyncio.gather(*(get_daily_bars(stock_id, code, (today - start).days + 10) for stock_id, code in stocks))
+    closes: dict[int, tuple[list[date], list[int]]] = {
+        stock_id: ([date.fromisoformat(b["timestamp"][:10]) for b in bars], [int(b["closePrice"]) for b in bars])
+        for (stock_id, _), bars in zip(stocks, all_bars)
+    }
 
     def price_on(stock_id: int, day: date) -> int:
         if day == today and stock_id in current_prices:

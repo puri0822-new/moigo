@@ -145,13 +145,13 @@ async def _build_stock_detail(db: Session, stock: Stock, cache: StockPriceCache 
     if cache:
         detail.volume = cache.trading_volume
 
-    prices = await fetch_prices_safe([stock.code])
+    # 현재가와 최근 일봉은 서로 기다릴 필요가 없어 동시에 받는다 (3초마다 불리는 경로라 응답 시간이 바로 체감된다)
+    # 전일 종가와 오늘 거래량은 DB의 최근 일봉 두 개에서 읽는다. (오늘 봉은 일정 주기로 토스에서 갱신된다)
+    prices, bars = await asyncio.gather(fetch_prices_safe([stock.code]), get_daily_bars(stock.id, stock.code, 2))
     price = prices.get(stock.code)
     if price:
         detail.current_price = int(float(price["lastPrice"]))
 
-    # 전일 종가와 오늘 거래량은 DB의 최근 일봉 두 개에서 읽는다. (오늘 봉은 일정 주기로 토스에서 갱신된다)
-    bars = await get_daily_bars(stock.id, stock.code, 2)
     if len(bars) == 2:
         prev_close = bars[0]["closePrice"]
         if detail.current_price is not None and prev_close:
@@ -370,7 +370,7 @@ async def create_stock_analysis(
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    stock = db.get(Stock, stock_id)
+    stock = await run_in_threadpool(db.get, Stock, stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 

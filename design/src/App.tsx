@@ -1,19 +1,22 @@
+import { lazy, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTheme } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import DashboardPage from './pages/DashboardPage';
-import StockDetailPage from './pages/StockDetailPage';
-import PortfolioPage from './pages/PortfolioPage';
-import RankingPage from './pages/RankingPage';
-import FeedPage from './pages/FeedPage';
-import AiAnalysisPage from './pages/AiAnalysisPage';
-import SettingsPage from './pages/SettingsPage';
-import NewsPage from './pages/NewsPage';
 import AppLayout from './components/layout/AppLayout';
+
+// 페이지마다 따로 받는다. 첫 화면(랜딩)은 바로 그리고, 차트 라이브러리처럼 큰 코드는 그 페이지에 들어갈 때만 받는다
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SignupPage = lazy(() => import('./pages/SignupPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const StockDetailPage = lazy(() => import('./pages/StockDetailPage'));
+const PortfolioPage = lazy(() => import('./pages/PortfolioPage'));
+const RankingPage = lazy(() => import('./pages/RankingPage'));
+const FeedPage = lazy(() => import('./pages/FeedPage'));
+const AiAnalysisPage = lazy(() => import('./pages/AiAnalysisPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const NewsPage = lazy(() => import('./pages/NewsPage'));
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -24,6 +27,8 @@ export default function App() {
   const { theme } = useTheme();
   return (
     <div style={{ background: theme.bg, color: theme.text, minHeight: '100vh' }}>
+      {/* 로그인 뒤 페이지는 AppLayout 안의 Suspense가 받으므로, 여기서는 로그인·회원가입 화면만 기다린다 */}
+      <Suspense fallback={null}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -40,6 +45,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </div>
   );
 }

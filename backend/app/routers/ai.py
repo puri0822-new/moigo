@@ -89,7 +89,7 @@ async def list_recommendations(db: Session = Depends(get_db)):
 @router.get("/stocks/{code}/reason", response_model=ApiResponse[StockAiReasonItem | None])
 async def get_stock_reason(code: str, db: Session = Depends(get_db)):
     """종목 상세의 AI 등락 이유. 없거나 오래됐으면 이 요청에서 AI가 새로 쓴다 (몇 초 걸릴 수 있음)."""
-    stock = db.query(Stock).filter(Stock.code == code).first()
+    stock = await run_in_threadpool(lambda: db.query(Stock).filter(Stock.code == code).first())
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
     row = await stock_reason.get_reason(db, stock)

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Outlet, useMatch } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import Header from './Header';
@@ -15,7 +16,10 @@ export default function AppLayout() {
       <Header />
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <main style={{ flex: 1, overflowY: 'auto', background: theme.bg }}>
-          <Outlet />
+          {/* 페이지 코드를 받는 동안 헤더와 우측 패널은 그대로 두고 본문만 비워 둔다 */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
         {!isStockPage && !isCompact && <GlobalRightPanel />}
       </div>

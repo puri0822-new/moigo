@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { loadFirebaseAuth } from '../lib/firebase';
 
 export default function LoginPage() {
   const { theme, mode, toggle } = useTheme();
@@ -11,6 +12,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // 구글 로그인 버튼을 누르기 전에 Firebase를 미리 받아 둔다
+  useEffect(() => { loadFirebaseAuth().catch(() => {}); }, []);
 
   const handleEmailLogin = async () => {
     setError('');
