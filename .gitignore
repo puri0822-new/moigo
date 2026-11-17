@@ -19,3 +19,7 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# 개인 메모 (루트의 작업 요약·아이디어 등)
+/*.txt
+/*.zip

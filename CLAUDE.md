@@ -60,4 +60,4 @@ Database setup: run `docs/schema.sql` on a fresh DB, then `docs/seed_stocks.sql`
 - `lib/api.ts` holds all API calls and response types. It has a fetch-based `request()` helper that attaches `localStorage.access_token` and throws `Error(message)` when `success` is false, plus an axios instance. `AuthContext` stores `access_token` and `nickname` in localStorage.
 - Styling uses **inline styles driven by `ThemeContext`** (`const { theme } = useTheme()`, e.g. `theme.bg` and `theme.text`). There are no CSS classes or CSS framework.
 - Charts use `lightweight-charts`. It cannot parse `oklch()` colors, so pass every color through `lib/color.ts#toRgb` first.
-- Pages poll for live data (stock detail every 3 s). `data/mockData.ts` still supplies the AI recommendations and insights that have no backend yet.
+- Pages poll for live data (stock detail every 3 s). There is no mock data left: every screen, including AI recommendations and insights, reads from the backend.
