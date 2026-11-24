@@ -4,6 +4,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useViewport } from '../lib/useViewport';
 import { loadFirebaseAuth } from '../lib/firebase';
+import { FS, FW, RADIUS, ON_BRAND, BRAND_GRADIENT } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 function LoginModal({ onClose }: { onClose: () => void }) {
   const { theme } = useTheme();
@@ -61,17 +63,17 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         style={{
           width: '100%', maxWidth: 400, margin: '0 24px',
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 20, padding: 32,
+          borderRadius: RADIUS.xl, padding: 32,
           display: 'flex', flexDirection: 'column', gap: 16,
           boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
         }}
       >
         {/* 헤더 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: 'linear-gradient(135deg, #4F6EF7, #7B5EA7)',
+              width: 36, height: 36, borderRadius: RADIUS.md,
+              background: BRAND_GRADIENT,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <svg width="18" height="18" viewBox="0 0 64 64" fill="none">
@@ -81,24 +83,25 @@ function LoginModal({ onClose }: { onClose: () => void }) {
               </svg>
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 800 }}>모이고 로그인</div>
-              <div style={{ fontSize: 12, color: theme.textMuted }}>AI 모의매매 시작하기</div>
+              <div style={{ fontSize: FS.title, fontWeight: FW.bold }}>모이고 로그인</div>
+              <div style={{ fontSize: FS.caption, color: theme.textMuted }}>AI 모의매매 시작하기</div>
             </div>
           </div>
-          <div
+          <Pressable
             onClick={onClose}
+            aria-label="닫기"
             style={{
-              width: 30, height: 30, borderRadius: 8,
+              width: 30, height: 30, borderRadius: RADIUS.md,
               background: theme.panel2, border: `1px solid ${theme.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 14, color: theme.textMuted,
+              cursor: 'pointer', fontSize: FS.body, color: theme.textMuted,
             }}
-          >✕</div>
+          >✕</Pressable>
         </div>
 
         {/* 이메일 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted }}>이메일</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label style={{ fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted }}>이메일</label>
           <input
             type="email"
             value={email}
@@ -106,17 +109,17 @@ function LoginModal({ onClose }: { onClose: () => void }) {
             placeholder="이메일을 입력하세요"
             onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
             style={{
-              padding: '11px 14px', borderRadius: 9,
-              border: `1px solid ${theme.border}`,
+              padding: '12px 16px', borderRadius: RADIUS.md,
+              border: `1px solid ${theme.inputBorder}`,
               background: theme.panel2, color: theme.text,
-              fontSize: 14, fontFamily: 'inherit', outline: 'none',
+              fontSize: FS.body, fontFamily: 'inherit', outline: 'none',
             }}
           />
         </div>
 
         {/* 비밀번호 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted }}>비밀번호</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label style={{ fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted }}>비밀번호</label>
           <input
             type="password"
             value={password}
@@ -124,28 +127,28 @@ function LoginModal({ onClose }: { onClose: () => void }) {
             placeholder="비밀번호를 입력하세요"
             onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
             style={{
-              padding: '11px 14px', borderRadius: 9,
-              border: `1px solid ${theme.border}`,
+              padding: '12px 16px', borderRadius: RADIUS.md,
+              border: `1px solid ${theme.inputBorder}`,
               background: theme.panel2, color: theme.text,
-              fontSize: 14, fontFamily: 'inherit', outline: 'none',
+              fontSize: FS.body, fontFamily: 'inherit', outline: 'none',
             }}
           />
-          <div style={{ textAlign: 'right', fontSize: 12, color: theme.ai, cursor: 'pointer' }}>
+          <div style={{ textAlign: 'right', fontSize: FS.caption, color: theme.aiFg, cursor: 'pointer' }}>
             비밀번호 찾기
           </div>
         </div>
 
         {error && (
-          <div style={{ fontSize: 12, color: theme.down, textAlign: 'center' }}>{error}</div>
+          <div style={{ fontSize: FS.caption, color: theme.down, textAlign: 'center' }}>{error}</div>
         )}
 
         <button
           onClick={handleEmailLogin}
           disabled={submitting}
           style={{
-            padding: '12px 0', borderRadius: 10,
-            background: 'linear-gradient(135deg, #4F6EF7, #7B5EA7)',
-            color: '#fff', fontSize: 15, fontWeight: 700,
+            padding: '12px 0', borderRadius: RADIUS.md,
+            background: BRAND_GRADIENT,
+            color: '#fff', fontSize: FS.title, fontWeight: FW.semibold,
             border: 'none', cursor: submitting ? 'default' : 'pointer',
             fontFamily: 'inherit', opacity: submitting ? 0.7 : 1,
           }}
@@ -155,28 +158,28 @@ function LoginModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, height: 1, background: theme.border }} />
-          <span style={{ fontSize: 12, color: theme.textMuted }}>또는</span>
+          <span style={{ fontSize: FS.caption, color: theme.textMuted }}>또는</span>
           <div style={{ flex: 1, height: 1, background: theme.border }} />
         </div>
 
         <button
           onClick={handleGoogleLogin}
           style={{
-            padding: '11px 0', borderRadius: 10,
+            padding: '12px 0', borderRadius: RADIUS.md,
             background: theme.panel2, color: theme.text,
-            fontSize: 14, fontWeight: 600, border: `1px solid ${theme.border}`,
+            fontSize: FS.body, fontWeight: FW.medium, border: `1px solid ${theme.border}`,
             cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
           Google로 로그인
         </button>
 
-        <div style={{ textAlign: 'center', fontSize: 13, color: theme.textMuted }}>
+        <div style={{ textAlign: 'center', fontSize: FS.body, color: theme.textMuted }}>
           계정이 없으신가요?{' '}
-          <span
+          <Pressable as="span"
             onClick={() => navigate('/signup')}
-            style={{ color: theme.ai, fontWeight: 600, cursor: 'pointer' }}
-          >회원가입</span>
+            style={{ color: theme.aiFg, fontWeight: FW.medium, cursor: 'pointer' }}
+          >회원가입</Pressable>
         </div>
       </div>
     </div>
@@ -259,10 +262,10 @@ export default function LandingPage() {
         borderBottom: `1px solid ${theme.border}`,
         background: theme.panel,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 17 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontWeight: FW.bold, fontSize: FS.title }}>
           <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: 'linear-gradient(135deg, #4F6EF7, #7B5EA7)',
+            width: 28, height: 28, borderRadius: RADIUS.md,
+            background: BRAND_GRADIENT,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
@@ -274,34 +277,34 @@ export default function LandingPage() {
           모이고
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div
+          <Pressable
             onClick={toggle}
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              padding: '6px 12px', borderRadius: 20, border: `1px solid ${theme.border}`,
-              cursor: 'pointer', fontSize: 13, fontWeight: 600, color: theme.textMuted,
+              padding: '8px 12px', borderRadius: RADIUS.pill, border: `1px solid ${theme.border}`,
+              cursor: 'pointer', fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted,
             }}
           >
             <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
             {!isMobile && <span>{mode === 'dark' ? '다크' : '라이트'}</span>}
-          </div>
-          <div
+          </Pressable>
+          <Pressable
             onClick={() => setShowLogin(true)}
             style={{
-              padding: isMobile ? '8px 16px' : '8px 20px', borderRadius: 10,
-              background: 'linear-gradient(135deg, #4F6EF7, #7B5EA7)',
-              color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              padding: isMobile ? '8px 16px' : '8px 20px', borderRadius: RADIUS.md,
+              background: BRAND_GRADIENT,
+              color: '#fff', fontSize: FS.body, fontWeight: FW.semibold, cursor: 'pointer',
             }}
           >
             로그인
-          </div>
+          </Pressable>
         </div>
       </div>
 
       {/* 히어로 섹션 */}
       <div style={{
-        background: 'linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)',
-        padding: isMobile ? '44px 20px' : '80px 40px',
+        background: BRAND_GRADIENT,
+        padding: isMobile ? '48px 20px' : '80px 40px',
         display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between',
         flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 32 : 24,
         position: 'relative', overflow: 'hidden',
@@ -311,53 +314,53 @@ export default function LandingPage() {
         <div style={{ position: 'absolute', left: '50%', top: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
 
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 520 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 16 }}>
+          <div style={{ fontSize: FS.body, fontWeight: FW.medium, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 16 }}>
             ✦ AI-Powered Mock Trading Platform
           </div>
-          <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 800, color: '#fff', lineHeight: 1.25, marginBottom: 20, letterSpacing: '-0.02em' }}>
+          <div style={{ fontSize: isMobile ? FS.display : 42, fontWeight: FW.bold, color: '#fff', lineHeight: 1.25, marginBottom: 20, letterSpacing: '-0.02em' }}>
             AI가 분석하고,<br />내가 결정하는<br />모의매매
           </div>
-          <div style={{ fontSize: isMobile ? 14 : 16, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, marginBottom: isMobile ? 28 : 36 }}>
+          <div style={{ fontSize: isMobile ? FS.body : FS.title, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, marginBottom: isMobile ? 32 : 40 }}>
             실제 시장 데이터 기반으로 AI와 함께<br />리스크 없이 투자 전략을 연습해보세요.
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <div
+            <Pressable
               onClick={() => setShowLogin(true)}
               style={{
-                padding: isMobile ? '13px 24px' : '14px 32px', borderRadius: 12,
-                background: '#fff', color: '#4F6EF7',
-                fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                padding: isMobile ? '12px 24px' : '16px 32px', borderRadius: RADIUS.lg,
+                background: '#fff', color: '#4361ee',
+                fontSize: FS.title, fontWeight: FW.bold, cursor: 'pointer',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
               }}
             >
               지금 시작하기 →
-            </div>
-            <div
+            </Pressable>
+            <Pressable
               onClick={() => setShowLogin(true)}
               style={{
-                padding: isMobile ? '13px 22px' : '14px 28px', borderRadius: 12,
+                padding: isMobile ? '12px 24px' : '16px 32px', borderRadius: RADIUS.lg,
                 background: 'rgba(255,255,255,0.15)',
                 border: '1px solid rgba(255,255,255,0.3)',
-                color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer',
+                color: '#fff', fontSize: FS.title, fontWeight: FW.medium, cursor: 'pointer',
               }}
             >
               로그인
-            </div>
+            </Pressable>
           </div>
         </div>
 
         {/* 우측 비교 차트 카드 */}
-        <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, display: 'flex', gap: 10 }}>
+        <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, display: 'flex', gap: 12 }}>
           {/* 일반 매매 */}
           <div style={{
             background: 'rgba(255,255,255,0.08)',
             backdropFilter: 'blur(8px)',
             border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 14, padding: isMobile ? '16px' : '20px 22px',
+            borderRadius: RADIUS.lg, padding: isMobile ? '16px' : '20px 24px',
             ...(isMobile ? { flex: '1 1 0', minWidth: 0 } : { width: 190 }),
           }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>일반 매매</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>+8.2%</div>
+            <div style={{ fontSize: FS.caption, color: 'rgba(255,255,255,0.5)', fontWeight: FW.semibold, letterSpacing: '0.06em', marginBottom: 12 }}>일반 매매</div>
+            <div style={{ fontSize: FS.display, fontWeight: FW.bold, color: 'rgba(255,255,255,0.6)', marginBottom: 16 }}>+8.2%</div>
             <svg width={isMobile ? '100%' : 146} height="80" viewBox="0 0 146 80" preserveAspectRatio="none" fill="none" style={{ display: 'block' }}>
               <line x1="0" y1="60" x2="146" y2="60" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
               <line x1="0" y1="40" x2="146" y2="40" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
@@ -376,44 +379,44 @@ export default function LandingPage() {
 
           {/* 모이고 사용 시 */}
           <div style={{
-            background: 'rgba(252,165,165,0.12)',
+            background: `${ON_BRAND.up}1f`,
             backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(252,165,165,0.3)',
-            borderRadius: 14, padding: isMobile ? '16px' : '20px 22px',
+            border: `1px solid ${ON_BRAND.up}4d`,
+            borderRadius: RADIUS.lg, padding: isMobile ? '16px' : '20px 24px',
             ...(isMobile ? { flex: '1 1 0', minWidth: 0 } : { width: 190 }),
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: '0.06em' }}>모이고 사용 시</div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#fca5a5', background: 'rgba(252,165,165,0.2)', border: '1px solid rgba(252,165,165,0.4)', borderRadius: 4, padding: '1px 5px' }}>✦ moigo</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
+              <div style={{ fontSize: FS.caption, color: 'rgba(255,255,255,0.7)', fontWeight: FW.semibold, letterSpacing: '0.06em' }}>모이고 사용 시</div>
+              <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: ON_BRAND.up, background: `${ON_BRAND.up}33`, border: `1px solid ${ON_BRAND.up}66`, borderRadius: RADIUS.sm, padding: '2px 4px' }}>✦ moigo</div>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#fca5a5', marginBottom: 14 }}>+24.3%</div>
+            <div style={{ fontSize: FS.display, fontWeight: FW.bold, color: ON_BRAND.up, marginBottom: 16 }}>+24.3%</div>
             <svg width={isMobile ? '100%' : 146} height="80" viewBox="0 0 146 80" preserveAspectRatio="none" fill="none" style={{ display: 'block' }}>
-              <line x1="0" y1="60" x2="146" y2="60" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
-              <line x1="0" y1="40" x2="146" y2="40" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
-              <line x1="0" y1="20" x2="146" y2="20" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
+              <line x1="0" y1="60" x2="146" y2="60" stroke={`${ON_BRAND.up}26`} strokeWidth="1" />
+              <line x1="0" y1="40" x2="146" y2="40" stroke={`${ON_BRAND.up}26`} strokeWidth="1" />
+              <line x1="0" y1="20" x2="146" y2="20" stroke={`${ON_BRAND.up}26`} strokeWidth="1" />
               <polyline
                 points="0,70 24,58 49,46 73,34 98,22 122,12 146,4"
                 fill="none"
-                stroke="#fca5a5"
+                stroke={ON_BRAND.up}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx="146" cy="4" r="4.5" fill="#fca5a5" />
-              <circle cx="146" cy="4" r="9" fill="#fca5a5" opacity="0.2" />
+              <circle cx="146" cy="4" r="4.5" fill={ON_BRAND.up} />
+              <circle cx="146" cy="4" r="9" fill={ON_BRAND.up} opacity="0.2" />
             </svg>
           </div>
         </div>
       </div>
 
       {/* AI 분석 화면 미리보기 */}
-      <div style={{ padding: '72px 40px 8px', maxWidth: 1120, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 56 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: theme.ai, letterSpacing: '0.1em', marginBottom: 12 }}>AI ANALYSIS</div>
-          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>AI가 고르고, 결과로 증명합니다</div>
-          <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 10 }}>01~03 화면의 추천 종목과 성적은 예시이고, 04는 실제 AI 추천 화면입니다</div>
+      <div style={{ padding: '80px 40px 8px', maxWidth: 1120, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: 64 }}>
+          <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.aiFg, letterSpacing: '0.1em', marginBottom: 12 }}>AI ANALYSIS</div>
+          <div style={{ fontSize: FS.display, fontWeight: FW.bold, letterSpacing: '-0.02em' }}>AI가 고르고, 결과로 증명합니다</div>
+          <div style={{ fontSize: FS.caption, color: theme.textMuted, marginTop: 12 }}>01~03 화면의 추천 종목과 성적은 예시이고, 04는 실제 AI 추천 화면입니다</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 72 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 80 }}>
           {aiPreviews.map((p, i) => (
             <div key={p.src} style={{
               display: 'flex', alignItems: 'center', gap: 48,
@@ -421,20 +424,20 @@ export default function LandingPage() {
             }}>
               <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{
-                  alignSelf: 'flex-start', fontSize: 12, fontWeight: 700, color: theme.ai,
-                  background: theme.aiSoft, borderRadius: 999, padding: '4px 10px',
+                  alignSelf: 'flex-start', fontSize: FS.caption, fontWeight: FW.semibold, color: theme.aiFg,
+                  background: theme.aiSoft, borderRadius: RADIUS.pill, padding: '4px 12px',
                 }}>
                   {String(i + 1).padStart(2, '0')} · {p.label}
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.35, letterSpacing: '-0.02em' }}>{p.title}</div>
-                <div style={{ fontSize: 14, color: theme.textMuted, lineHeight: 1.7 }}>{p.desc}</div>
+                <div style={{ fontSize: FS.heading, fontWeight: FW.bold, lineHeight: 1.35, letterSpacing: '-0.02em' }}>{p.title}</div>
+                <div style={{ fontSize: FS.body, color: theme.textMuted, lineHeight: 1.7 }}>{p.desc}</div>
               </div>
               <div style={{
-                flex: 1, minWidth: 0, borderRadius: 16, overflow: 'hidden',
+                flex: 1, minWidth: 0, borderRadius: RADIUS.xl, overflow: 'hidden',
                 border: `1px solid ${theme.border}`, background: theme.panel,
                 boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
               }}>
-                <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderBottom: `1px solid ${theme.border}` }}>
+                <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderBottom: `1px solid ${theme.border}` }}>
                   {['#ff5f57', '#febc2e', '#28c840'].map(c => (
                     <div key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
                   ))}
@@ -460,13 +463,13 @@ export default function LandingPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 48, flexDirection: 'row-reverse' }}>
             <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{
-                alignSelf: 'flex-start', fontSize: 12, fontWeight: 700, color: theme.ai,
-                background: theme.aiSoft, borderRadius: 999, padding: '4px 10px',
+                alignSelf: 'flex-start', fontSize: FS.caption, fontWeight: FW.semibold, color: theme.aiFg,
+                background: theme.aiSoft, borderRadius: RADIUS.pill, padding: '4px 12px',
               }}>
                 04 · 판단 근거
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.35, letterSpacing: '-0.02em' }}>왜 그렇게 봤는지까지 공개합니다</div>
-              <div style={{ fontSize: 14, color: theme.textMuted, lineHeight: 1.7 }}>
+              <div style={{ fontSize: FS.heading, fontWeight: FW.bold, lineHeight: 1.35, letterSpacing: '-0.02em' }}>왜 그렇게 봤는지까지 공개합니다</div>
+              <div style={{ fontSize: FS.body, color: theme.textMuted, lineHeight: 1.7 }}>
                 추천을 누르면 AI가 읽은 실제 뉴스와 판단 이유가 나오고, 종목마다 오늘 왜 올랐는지·내렸는지와 AI들의 의견을 한눈에 볼 수 있어요.
               </div>
             </div>
@@ -481,7 +484,7 @@ export default function LandingPage() {
                   alt={img.alt}
                   loading="lazy"
                   style={{
-                    display: 'block', height: 480, width: 'auto', maxWidth: '100%', borderRadius: 16,
+                    display: 'block', height: 480, width: 'auto', maxWidth: '100%', borderRadius: RADIUS.xl,
                     border: `1px solid ${theme.border}`, boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
                     ...(img.fade && {
                       maskImage: 'linear-gradient(to bottom, #000 75%, transparent)',
@@ -498,26 +501,26 @@ export default function LandingPage() {
       {/* 기능 소개 */}
       <div style={{ padding: isMobile ? '48px 16px' : '64px 40px', maxWidth: 960, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: theme.ai, letterSpacing: '0.1em', marginBottom: 12 }}>FEATURES</div>
-          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.02em' }}>모이고가 특별한 이유</div>
+          <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.aiFg, letterSpacing: '0.1em', marginBottom: 12 }}>FEATURES</div>
+          <div style={{ fontSize: FS.display, fontWeight: FW.bold, letterSpacing: '-0.02em' }}>모이고가 특별한 이유</div>
         </div>
         <div style={{ display: 'flex', gap: isMobile ? 12 : 20, flexDirection: isMobile ? 'column' : 'row' }}>
           {features.map(f => (
             <div key={f.title} style={{
               flex: 1,
               background: theme.panel, border: `1px solid ${theme.border}`,
-              borderRadius: 16, padding: '28px 24px',
-              display: 'flex', flexDirection: 'column', gap: 14,
+              borderRadius: RADIUS.xl, padding: '32px 24px',
+              display: 'flex', flexDirection: 'column', gap: 16,
             }}>
               <div style={{
-                width: 44, height: 44, borderRadius: 12,
-                background: theme.aiSoft, color: theme.ai,
+                width: 44, height: 44, borderRadius: RADIUS.lg,
+                background: theme.aiSoft, color: theme.aiFg,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 {f.icon}
               </div>
-              <div style={{ fontSize: 16, fontWeight: 800 }}>{f.title}</div>
-              <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.7 }}>{f.desc}</div>
+              <div style={{ fontSize: FS.title, fontWeight: FW.bold }}>{f.title}</div>
+              <div style={{ fontSize: FS.body, color: theme.textMuted, lineHeight: 1.7 }}>{f.desc}</div>
             </div>
           ))}
         </div>
@@ -526,26 +529,26 @@ export default function LandingPage() {
       {/* 하단 CTA */}
       <div style={{
         margin: isMobile ? '0 16px 48px' : '0 40px 64px',
-        background: 'linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 100%)',
-        borderRadius: 20, padding: isMobile ? '36px 20px' : '48px 40px',
+        background: BRAND_GRADIENT,
+        borderRadius: RADIUS.xl, padding: isMobile ? '40px 20px' : '48px 40px',
         textAlign: 'center', position: 'relative', overflow: 'hidden',
       }}>
         <div style={{ position: 'absolute', left: -40, top: -40, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
         <div style={{ position: 'absolute', right: -20, bottom: -40, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', marginBottom: 12 }}>지금 바로 시작해보세요</div>
-          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', marginBottom: 28 }}>무료로 가입하고 AI 모의매매를 경험해보세요.</div>
-          <div
+          <div style={{ fontSize: FS.display, fontWeight: FW.bold, color: '#fff', marginBottom: 12 }}>지금 바로 시작해보세요</div>
+          <div style={{ fontSize: FS.body, color: 'rgba(255,255,255,0.75)', marginBottom: 32 }}>무료로 가입하고 AI 모의매매를 경험해보세요.</div>
+          <Pressable
             onClick={() => setShowLogin(true)}
             style={{
               display: 'inline-block',
-              padding: '14px 40px', borderRadius: 12,
-              background: '#fff', color: '#4F6EF7',
-              fontSize: 15, fontWeight: 800, cursor: 'pointer',
+              padding: '16px 40px', borderRadius: RADIUS.lg,
+              background: '#fff', color: '#4361ee',
+              fontSize: FS.title, fontWeight: FW.bold, cursor: 'pointer',
             }}
           >
             무료로 시작하기
-          </div>
+          </Pressable>
         </div>
       </div>
 

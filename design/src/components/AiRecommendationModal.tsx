@@ -6,6 +6,8 @@ import AiIcon from './AiIcon';
 import { daysUntil } from '../lib/time';
 import { findAiProfile, useAiModels } from '../lib/aiModels';
 import type { AiRecommendation } from '../lib/aiRecommendations';
+import { FS, FW, RADIUS } from '../lib/tokens';
+import Pressable from './Pressable';
 
 // 검증일이 지났는데 결과가 아직 없으면(검증 작업 대기 중) '결과 집계 중'으로 보여준다
 export function resultLabel(evaluateAt: string): string {
@@ -25,11 +27,12 @@ export function formatDate(dateString: string): string {
 }
 
 export function HitBadge({ isHit }: { isHit: boolean }) {
-  const color = isHit ? '#16a34a' : '#ef4444';
+  const { theme } = useTheme();
+  const color = isHit ? theme.success : theme.error;
   return (
     <span style={{
-      flexShrink: 0, padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-      color, background: isHit ? 'rgba(22, 163, 74, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+      flexShrink: 0, padding: '4px 8px', borderRadius: RADIUS.pill, fontSize: FS.caption, fontWeight: FW.semibold,
+      color, background: isHit ? theme.successSoft : theme.errorSoft,
     }}>
       {isHit ? '적중' : '실패'}
     </span>
@@ -56,7 +59,7 @@ export default function AiRecommendationModal({ rec, onClose }: AiRecommendation
   }, [onClose]);
 
   const sectionTitle = (text: string) => (
-    <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>{text}</div>
+    <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted }}>{text}</div>
   );
 
   return (
@@ -74,47 +77,48 @@ export default function AiRecommendationModal({ rec, onClose }: AiRecommendation
         style={{
           width: '100%', maxWidth: 480, maxHeight: 'calc(100vh - 48px)', margin: '0 24px', overflowY: 'auto',
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 20, padding: 24,
+          borderRadius: RADIUS.xl, padding: 24,
           display: 'flex', flexDirection: 'column', gap: 20,
         }}
       >
         {/* 종목 */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <StockLogo name={rec.stockName} code={rec.stockCode} size={44} />
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>{rec.stockName}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            <div style={{ fontSize: FS.title, fontWeight: FW.bold }}>{rec.stockName}</div>
             <span style={{
-              padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-              color: theme.ai, background: theme.aiSoft,
+              padding: '2px 8px', borderRadius: RADIUS.md, fontSize: FS.caption, fontWeight: FW.medium,
+              color: theme.aiFg, background: theme.aiSoft,
             }}>
               {rec.sector}
             </span>
           </div>
           <span style={{
             marginLeft: 'auto', flexShrink: 0,
-            padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700,
+            padding: '4px 12px', borderRadius: RADIUS.md, fontSize: FS.caption, fontWeight: FW.semibold,
             color: opinionColor, border: `1px solid ${opinionColor}`,
           }}>
             {isBuy ? '매수' : '매도'}
           </span>
-          <div
+          <Pressable
             onClick={onClose}
-            style={{ flexShrink: 0, cursor: 'pointer', color: theme.textMuted, fontSize: 16, lineHeight: '26px' }}
+            aria-label="닫기"
+            style={{ flexShrink: 0, cursor: 'pointer', color: theme.textMuted, fontSize: FS.title, lineHeight: '26px', padding: '0 8px' }}
           >
             ✕
-          </div>
+          </Pressable>
         </div>
 
         {/* AI 추천 요약 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <AiIcon model={rec.aiModel} size={16} />
             {sectionTitle(`${ai.name}의 추천 이유`)}
           </div>
           <div style={{
-            padding: '14px 16px', borderRadius: 12,
+            padding: '16px 16px', borderRadius: RADIUS.lg,
             background: theme.aiSoft, borderLeft: `3px solid ${ai.color}`,
-            fontSize: 14, fontWeight: 600, lineHeight: 1.6,
+            fontSize: FS.body, fontWeight: FW.medium, lineHeight: 1.6,
           }}>
             {rec.reason}
           </div>
@@ -125,16 +129,16 @@ export default function AiRecommendationModal({ rec, onClose }: AiRecommendation
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {sectionTitle('검증 결과')}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '12px 16px', borderRadius: 12,
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '12px 16px', borderRadius: RADIUS.lg,
               background: theme.panel2, border: `1px solid ${theme.border}`,
             }}>
               <HitBadge isHit={result.isHit} />
-              <div style={{ fontSize: 13, color: theme.textMuted }}>
+              <div style={{ fontSize: FS.body, color: theme.textMuted }}>
                 {rec.priceAtRecommendation.toLocaleString()}원 → {result.priceAtEvaluation.toLocaleString()}원
               </div>
               <div style={{
-                marginLeft: 'auto', fontSize: 15, fontWeight: 800,
+                marginLeft: 'auto', fontSize: FS.title, fontWeight: FW.bold,
                 color: result.returnRate >= 0 ? theme.up : theme.down,
               }}>
                 {formatReturn(result.returnRate)}
@@ -142,14 +146,14 @@ export default function AiRecommendationModal({ rec, onClose }: AiRecommendation
             </div>
             {!result.isHit && result.failureReason && (
               <div style={{
-                padding: '12px 16px', borderRadius: 12,
-                background: 'rgba(239, 68, 68, 0.08)', borderLeft: '3px solid #ef4444',
+                padding: '12px 16px', borderRadius: RADIUS.lg,
+                background: theme.errorSoft, borderLeft: `3px solid ${theme.error}`,
                 display: 'flex', flexDirection: 'column', gap: 4,
               }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>
+                <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.error }}>
                   {ai.name}가 분석한 실패 원인
                 </div>
-                <div style={{ fontSize: 13, lineHeight: 1.6 }}>{result.failureReason}</div>
+                <div style={{ fontSize: FS.body, lineHeight: 1.6 }}>{result.failureReason}</div>
               </div>
             )}
           </div>
@@ -161,18 +165,18 @@ export default function AiRecommendationModal({ rec, onClose }: AiRecommendation
           {rec.evidence.map((ev, i) => {
             const body = (
               <>
-                <div style={{ fontSize: 11, color: theme.textMuted }}>
+                <div style={{ fontSize: FS.caption, color: theme.textMuted }}>
                   {ev.source} · {formatDate(ev.publishedAt)}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>{ev.title}</div>
-                <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.5 }}>
-                  <span style={{ color: theme.ai, fontWeight: 700 }}>→ </span>{ev.insight}
+                <div style={{ fontSize: FS.body, fontWeight: FW.semibold, lineHeight: 1.45 }}>{ev.title}</div>
+                <div style={{ fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.5 }}>
+                  <span style={{ color: theme.aiFg, fontWeight: FW.semibold }}>→ </span>{ev.insight}
                 </div>
               </>
             );
             const boxStyle = {
-              display: 'flex', flexDirection: 'column' as const, gap: 5,
-              padding: '12px 14px', borderRadius: 12,
+              display: 'flex', flexDirection: 'column' as const, gap: 4,
+              padding: '12px 16px', borderRadius: RADIUS.lg,
               background: theme.panel2, border: `1px solid ${theme.border}`,
             };
             // 원문 링크가 있으면 새 탭으로 연다
@@ -197,23 +201,23 @@ export default function AiRecommendationModal({ rec, onClose }: AiRecommendation
               : { label: rec.periodType === 'WEEKLY' ? '1주 추천' : '1달 추천', value: resultLabel(rec.evaluateAt), accent: true },
           ].map(item => (
             <div key={item.label}>
-              <div style={{ fontSize: 11, color: theme.textMuted }}>{item.label}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 3, color: item.accent ? theme.ai : theme.text }}>
+              <div style={{ fontSize: FS.caption, color: theme.textMuted }}>{item.label}</div>
+              <div style={{ fontSize: FS.body, fontWeight: FW.semibold, marginTop: 4, color: item.accent ? theme.aiFg : theme.text }}>
                 {item.value}
               </div>
             </div>
           ))}
         </div>
 
-        <div
+        <Pressable
           onClick={() => navigate(`/stock/${rec.stockCode}`)}
           style={{
-            padding: '12px 0', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
-            background: theme.ai, color: '#fff', fontSize: 14, fontWeight: 700,
+            padding: '12px 0', borderRadius: RADIUS.lg, cursor: 'pointer', textAlign: 'center',
+            background: theme.ai, color: '#fff', fontSize: FS.body, fontWeight: FW.semibold,
           }}
         >
           종목 상세 보기
-        </div>
+        </Pressable>
       </div>
     </div>
   );

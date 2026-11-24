@@ -3,6 +3,7 @@ import { createChart, LineSeries, LineStyle } from 'lightweight-charts';
 import { useTheme } from '../context/ThemeContext';
 import { toRgb } from '../lib/color';
 import type { ApiAssetPoint } from '../lib/api';
+import { FS, FW } from '../lib/tokens';
 
 interface Props {
   points: ApiAssetPoint[];
@@ -10,7 +11,8 @@ interface Props {
 }
 
 // 자산 추이는 한 줄짜리 그래프라 범례 없이 계열 색 하나만 쓴다 (상승·하락 색은 손익 표시에만 쓴다)
-const LINE_COLOR = { light: '#2a78d6', dark: '#3987e5' };
+// 브랜드 파랑(theme.ai)과 통일
+const LINE_COLOR = { light: '#4361ee', dark: '#4361ee' };
 
 export default function AssetTrendChart({ points, initialBalance }: Props) {
   const { theme, mode } = useTheme();
@@ -61,7 +63,7 @@ export default function AssetTrendChart({ points, initialBalance }: Props) {
 
   if (points.length < 2) {
     return (
-      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: theme.textMuted }}>
+      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.body, color: theme.textMuted }}>
         내일부터 자산 추이가 그려집니다
       </div>
     );
@@ -72,14 +74,14 @@ export default function AssetTrendChart({ points, initialBalance }: Props) {
   const profitRate = initialBalance > 0 ? (profit / initialBalance) * 100 : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* 가리킨 날짜의 값. 색으로만 구분하지 않도록 부호와 함께 적는다 */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.01em' }}>{shown.total_asset.toLocaleString()}원</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: profit >= 0 ? theme.up : theme.down }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: FS.heading, fontWeight: FW.bold, letterSpacing: '-0.01em' }}>{shown.total_asset.toLocaleString()}원</span>
+        <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: profit >= 0 ? theme.up : theme.down }}>
           원금 대비 {profit >= 0 ? '+' : ''}{profit.toLocaleString()}원 ({profit >= 0 ? '+' : ''}{profitRate.toFixed(2)}%)
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: theme.textMuted }}>
+        <span style={{ marginLeft: 'auto', fontSize: FS.caption, color: theme.textMuted }}>
           {shown.date} · 현금 {shown.cash.toLocaleString()}원 · 주식 {shown.stock_value.toLocaleString()}원
         </span>
       </div>

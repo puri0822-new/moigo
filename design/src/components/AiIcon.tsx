@@ -1,5 +1,6 @@
 import { findAiProfile, useAiModels } from '../lib/aiModels';
 import type { AiModel } from '../lib/aiModels';
+import { FW } from '../lib/tokens';
 
 interface AiIconProps {
   model: AiModel;
@@ -51,7 +52,7 @@ export default function AiIcon({ model, size = 28 }: AiIconProps) {
         width: size, height: size, borderRadius: Math.round(size * 0.28), flexShrink: 0,
         background: ai.color, color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: Math.round(size * 0.55), fontWeight: 800, lineHeight: 1,
+        fontSize: Math.round(size * 0.55), fontWeight: FW.bold, lineHeight: 1,
       }}>
         {ai.name[0]?.toUpperCase()}
       </div>

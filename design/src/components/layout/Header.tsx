@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { fetchStocks, type ApiStock } from '../../lib/api';
 import { useViewport } from '../../lib/useViewport';
 import NotificationBell from './NotificationBell';
+import { FS, FW, RADIUS, BRAND_GRADIENT } from '../../lib/tokens';
+import Pressable from '../Pressable';
 
 export default function Header() {
   const { theme, mode, toggle } = useTheme();
@@ -40,21 +42,21 @@ export default function Header() {
     <div style={{
       minHeight: 64, flexShrink: 0,
       display: 'flex', alignItems: 'center', flexWrap: isMobile ? 'wrap' : 'nowrap',
-      gap: isMobile ? 10 : isCompact ? 12 : 20,
-      padding: isMobile ? '10px 16px 0' : '0 24px',
+      gap: isMobile ? 12 : isCompact ? 12 : 20,
+      padding: isMobile ? '12px 16px 0' : '0 24px',
       borderBottom: `1px solid ${theme.border}`,
       background: theme.panel,
     }}>
-      <div
+      <Pressable
         onClick={() => navigate('/dashboard')}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          fontWeight: 800, fontSize: 17, letterSpacing: '-0.02em', cursor: 'pointer',
+          fontWeight: FW.bold, fontSize: FS.title, letterSpacing: '-0.02em', cursor: 'pointer',
         }}
       >
         <div style={{
-          width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-          background: `linear-gradient(135deg, #4F6EF7, #7B5EA7)`,
+          width: 28, height: 28, borderRadius: RADIUS.md, flexShrink: 0,
+          background: BRAND_GRADIENT,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <svg width="16" height="16" viewBox="0 0 64 64" fill="none">
@@ -67,7 +69,7 @@ export default function Header() {
           </svg>
         </div>
         {!isMobile && <span>모이고</span>}
-      </div>
+      </Pressable>
 
       {/* 네비게이션 */}
       <nav className="hide-scrollbar" style={{
@@ -84,18 +86,18 @@ export default function Header() {
         ].map(({ label, path }) => {
           const active = location.pathname === path;
           return (
-            <div
+            <Pressable
               key={label}
               onClick={() => navigate(path)}
               style={{
-                padding: isCompact ? '6px 10px' : '6px 14px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap',
-                fontSize: 14, fontWeight: active ? 700 : 500,
-                color: active ? theme.ai : theme.textMuted,
+                padding: isCompact ? '8px 12px' : '8px 16px', borderRadius: RADIUS.md, cursor: 'pointer', whiteSpace: 'nowrap',
+                fontSize: FS.body, fontWeight: active ? FW.semibold : FW.medium,
+                color: active ? theme.aiFg : theme.textMuted,
                 background: active ? theme.aiSoft : 'transparent',
               }}
             >
               {label}
-            </div>
+            </Pressable>
           );
         })}
       </nav>
@@ -103,25 +105,27 @@ export default function Header() {
       <div style={{ flex: 1, minWidth: 0, maxWidth: isMobile ? 'none' : 420, position: 'relative' }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          background: theme.panel2, border: `1px solid ${theme.border}`,
-          borderRadius: 9, padding: '9px 14px', color: theme.textMuted, fontSize: 13,
+          background: theme.panel2, border: `1px solid ${theme.inputBorder}`,
+          borderRadius: RADIUS.md, padding: '8px 16px', color: theme.textMuted, fontSize: FS.body,
         }}>
-          <span>🔍</span>
+          <span aria-hidden="true">🔍</span>
           <input
+            aria-label="종목 검색"
             value={query}
             onChange={e => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
             placeholder={isMobile ? '종목 검색' : '종목명 또는 코드 검색'}
             style={{
               flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
-              fontSize: 13, color: theme.text, fontFamily: 'inherit',
+              fontSize: FS.body, color: theme.text, fontFamily: 'inherit',
             }}
           />
           {open && (
-            <span
+            <Pressable as="span"
               onClick={() => { setOpen(false); setQuery(''); }}
-              style={{ cursor: 'pointer' }}
-            >✕</span>
+              aria-label="검색어 지우기"
+              style={{ cursor: 'pointer', padding: 4 }}
+            >✕</Pressable>
           )}
         </div>
 
@@ -136,8 +140,8 @@ export default function Header() {
           <div style={{
             position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
             background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
-            padding: '14px', fontSize: 13, color: theme.textMuted, zIndex: 20,
+            borderRadius: RADIUS.md, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+            padding: '16px', fontSize: FS.body, color: theme.textMuted, zIndex: 20,
           }}>
             {stocksStatus === 'error' ? '종목 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' : '검색 결과가 없습니다'}
           </div>
@@ -147,67 +151,68 @@ export default function Header() {
           <div style={{
             position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
             background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+            borderRadius: RADIUS.md, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
             overflow: 'hidden', zIndex: 20,
           }}>
             {results.map(s => (
-              <div
+              <Pressable
                 key={s.code}
                 onClick={() => { navigate(`/stock/${s.code}`); setOpen(false); setQuery(''); }}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '10px 14px', cursor: 'pointer',
+                  padding: '12px 16px', cursor: 'pointer',
                   borderBottom: `1px solid ${theme.border}`,
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</span>
-                  <span style={{ fontSize: 11, color: theme.textMuted }}>{s.code}</span>
+                  <span style={{ fontSize: FS.body, fontWeight: FW.medium }}>{s.name}</span>
+                  <span style={{ fontSize: FS.caption, color: theme.textMuted }}>{s.code}</span>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>
+                  <div style={{ fontSize: FS.body, fontWeight: FW.semibold }}>
                     {s.current_price != null ? `${s.current_price.toLocaleString()}원` : '-'}
                   </div>
                   {s.change_rate != null && (
                     <div style={{
-                      fontSize: 11, fontWeight: 600,
+                      fontSize: FS.caption, fontWeight: FW.medium,
                       color: s.change_rate >= 0 ? theme.up : theme.down,
                     }}>
                       {s.change_rate >= 0 ? '▲' : '▼'}{Math.abs(s.change_rate * 100).toFixed(2)}%
                     </div>
                   )}
                 </div>
-              </div>
+              </Pressable>
             ))}
           </div>
         )}
       </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, flexShrink: 0 }}>
-        <div
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, flexShrink: 0 }}>
+        <Pressable
           onClick={toggle}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '6px 10px', borderRadius: 20, border: `1px solid ${theme.border}`,
-            cursor: 'pointer', fontSize: 13, fontWeight: 600, color: theme.textMuted,
+            padding: '8px 12px', borderRadius: RADIUS.pill, border: `1px solid ${theme.border}`,
+            cursor: 'pointer', fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted,
           }}
         >
           <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
           {!isCompact && <span>{mode === 'dark' ? '다크' : '라이트'}</span>}
-        </div>
+        </Pressable>
         <NotificationBell />
         <div style={{ position: 'relative' }}>
-          <div
+          <Pressable
             onClick={() => setProfileOpen(prev => !prev)}
+            aria-label="내 메뉴"
             style={{
               width: 34, height: 34, borderRadius: '50%',
               background: theme.ai, border: `2px solid ${theme.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, color: theme.aiText, fontWeight: 700, cursor: 'pointer',
+              fontSize: FS.title, color: theme.aiText, fontWeight: FW.semibold, cursor: 'pointer',
             }}
           >
             {nickname ? nickname[0].toUpperCase() : '👤'}
-          </div>
+          </Pressable>
 
           {profileOpen && (
             <>
@@ -218,7 +223,7 @@ export default function Header() {
               <div style={{
                 position: 'absolute', top: 'calc(100% + 8px)', right: 0,
                 background: theme.panel, border: `1px solid ${theme.border}`,
-                borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+                borderRadius: RADIUS.lg, boxShadow: '0 8px 24px rgba(0,0,0,.25)',
                 overflow: 'hidden', zIndex: 20, minWidth: 200,
               }}>
                 {/* 사용자 정보 */}
@@ -230,51 +235,51 @@ export default function Header() {
                     width: 42, height: 42, borderRadius: '50%',
                     background: theme.ai, flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, color: theme.aiText, fontWeight: 700,
+                    fontSize: FS.title, color: theme.aiText, fontWeight: FW.semibold,
                   }}>
                     {nickname ? nickname[0].toUpperCase() : '?'}
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>
+                    <div style={{ fontSize: FS.body, fontWeight: FW.semibold }}>
                       {nickname || '사용자'}님
                     </div>
-                    <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 2 }}>
+                    <div style={{ fontSize: FS.caption, color: theme.textMuted, marginTop: 2 }}>
                       어서오세요!
                     </div>
                   </div>
                 </div>
 
                 {/* 메뉴 항목 */}
-                <div
+                <Pressable
                   onClick={() => { navigate('/portfolio'); setProfileOpen(false); }}
                   style={{
-                    padding: '12px 16px', cursor: 'pointer', fontSize: 13,
+                    padding: '12px 16px', cursor: 'pointer', fontSize: FS.body,
                     borderBottom: `1px solid ${theme.border}`,
-                    display: 'flex', alignItems: 'center', gap: 10,
+                    display: 'flex', alignItems: 'center', gap: 12,
                   }}
                 >
                   <span>📊</span> 내 포트폴리오 보기
-                </div>
-                <div
+                </Pressable>
+                <Pressable
                   onClick={() => { navigate('/settings'); setProfileOpen(false); }}
                   style={{
-                    padding: '12px 16px', cursor: 'pointer', fontSize: 13,
+                    padding: '12px 16px', cursor: 'pointer', fontSize: FS.body,
                     borderBottom: `1px solid ${theme.border}`,
-                    display: 'flex', alignItems: 'center', gap: 10,
+                    display: 'flex', alignItems: 'center', gap: 12,
                   }}
                 >
                   <span>⚙️</span> 회원 설정
-                </div>
-                <div
+                </Pressable>
+                <Pressable
                   onClick={async () => { await logout(); setProfileOpen(false); }}
                   style={{
-                    padding: '12px 16px', cursor: 'pointer', fontSize: 13,
-                    color: '#ef4444',
-                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '12px 16px', cursor: 'pointer', fontSize: FS.body,
+                    color: theme.error,
+                    display: 'flex', alignItems: 'center', gap: 12,
                   }}
                 >
                   <span>🚪</span> 로그아웃
-                </div>
+                </Pressable>
               </div>
             </>
           )}

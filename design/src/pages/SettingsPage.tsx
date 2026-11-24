@@ -5,6 +5,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPatch, apiPost, apiPut } from '../lib/api';
 import { useViewport } from '../lib/useViewport';
+import { FS, FW, RADIUS } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 interface MyProfile {
   email: string;
@@ -60,28 +62,28 @@ export default function SettingsPage() {
   }, []);
 
   const inputStyle = {
-    padding: '11px 14px', borderRadius: 9,
-    border: `1px solid ${theme.border}`,
+    padding: '12px 16px', borderRadius: RADIUS.md,
+    border: `1px solid ${theme.inputBorder}`,
     background: theme.panel2, color: theme.text,
-    fontSize: 14, fontFamily: 'inherit', outline: 'none', width: '100%',
+    fontSize: FS.body, fontFamily: 'inherit', outline: 'none', width: '100%',
     boxSizing: 'border-box' as const,
   };
 
   const buttonStyle = (enabled: boolean) => ({
-    padding: '10px 18px', borderRadius: 9, border: 'none', flexShrink: 0,
-    background: theme.ai, color: '#fff', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+    padding: '12px 20px', borderRadius: RADIUS.md, border: 'none', flexShrink: 0,
+    background: theme.ai, color: '#fff', fontSize: FS.body, fontWeight: FW.semibold, fontFamily: 'inherit',
     cursor: enabled ? 'pointer' : 'default', opacity: enabled ? 1 : 0.45,
   });
 
   const notice = (n: Notice) => n && (
-    <div style={{ fontSize: 12, fontWeight: 600, color: n.kind === 'ok' ? '#16a34a' : '#ef4444' }}>{n.text}</div>
+    <div style={{ fontSize: FS.caption, fontWeight: FW.medium, color: n.kind === 'ok' ? theme.success : theme.error }}>{n.text}</div>
   );
 
   if (loadError) {
-    return <div style={{ padding: 24, fontSize: 13, color: theme.textMuted }}>회원 정보를 불러오지 못했습니다: {loadError}</div>;
+    return <div style={{ padding: 24, fontSize: FS.body, color: theme.textMuted }}>회원 정보를 불러오지 못했습니다: {loadError}</div>;
   }
   if (!profile) {
-    return <div style={{ padding: 24, fontSize: 13, color: theme.textMuted }}>불러오는 중…</div>;
+    return <div style={{ padding: 24, fontSize: FS.body, color: theme.textMuted }}>불러오는 중…</div>;
   }
 
   const trimmedNickname = nickname.trim();
@@ -144,33 +146,33 @@ export default function SettingsPage() {
   const joinedDays = Math.floor((Date.now() - joined.getTime()) / 86_400_000) + 1;
 
   const badgeStyle = {
-    padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
+    padding: '4px 12px', borderRadius: RADIUS.pill, fontSize: FS.caption, fontWeight: FW.medium,
     background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.textMuted,
   };
 
   return (
-    <div style={{ padding: isMobile ? 16 : 24, maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 20, fontWeight: 800 }}>회원 설정</div>
+    <div style={{ padding: isMobile ? 16 : 24, maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ fontSize: FS.heading, fontWeight: FW.bold }}>회원 설정</div>
 
       <div style={{
-        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-        padding: 20, display: 'flex', alignItems: 'center', gap: 16,
+        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+        padding: 16, display: 'flex', alignItems: 'center', gap: 16,
       }}>
         <div style={{
           width: 64, height: 64, borderRadius: '50%', background: theme.ai, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 26, color: theme.aiText, fontWeight: 700,
+          fontSize: FS.display, color: theme.aiText, fontWeight: FW.semibold,
         }}>
           {profile.nickname[0]?.toUpperCase() ?? '?'}
         </div>
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: FS.title, fontWeight: FW.bold, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile.nickname}
           </div>
-          <div style={{ fontSize: 13, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: FS.body, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile.email}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             <span style={badgeStyle}>{profile.login_type === 'GOOGLE' ? 'Google' : '이메일'}</span>
             <span style={badgeStyle}>
               {joined.getFullYear()}.{joined.getMonth() + 1}.{joined.getDate()} 가입 · {joinedDays}일째
@@ -182,7 +184,7 @@ export default function SettingsPage() {
       <Section title="프로필">
         <Field label="이메일">
           <div style={{ ...inputStyle, color: theme.textMuted, background: 'transparent' }}>{profile.email}</div>
-          <div style={{ fontSize: 11, color: theme.textMuted }}>이메일은 변경할 수 없습니다</div>
+          <div style={{ fontSize: FS.caption, color: theme.textMuted }}>이메일은 변경할 수 없습니다</div>
         </Field>
         <Field label="닉네임">
           <input
@@ -193,7 +195,7 @@ export default function SettingsPage() {
             style={inputStyle}
           />
         </Field>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: FS.body, cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={marketing}
@@ -242,18 +244,18 @@ export default function SettingsPage() {
       <Section title="알림 설정">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>관심 종목 급등락 알림</div>
-            <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+            <div style={{ fontSize: FS.body, fontWeight: FW.medium }}>관심 종목 급등락 알림</div>
+            <div style={{ fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.6 }}>
               알림을 켠 관심 종목이 전일 종가 대비 5%, 10%, 15%… 를 넘게 오르거나 내리면 오른쪽 위 알림에 표시합니다.
               끄면 종목별 알림 설정과 관계없이 새 알림을 보내지 않습니다.
             </div>
           </div>
-          <div
+          <Pressable
             role="switch"
             aria-checked={profile.price_alert_enabled}
             onClick={togglePriceAlert}
             style={{
-              width: 44, height: 26, borderRadius: 13, flexShrink: 0, position: 'relative',
+              width: 44, height: 26, borderRadius: RADIUS.lg, flexShrink: 0, position: 'relative',
               background: profile.price_alert_enabled ? theme.ai : theme.border,
               cursor: savingAlert ? 'default' : 'pointer', opacity: savingAlert ? 0.6 : 1,
               transition: 'background 0.2s',
@@ -264,21 +266,21 @@ export default function SettingsPage() {
               width: 20, height: 20, borderRadius: '50%', background: '#fff',
               boxShadow: '0 1px 3px rgba(0,0,0,0.25)', transition: 'left 0.2s',
             }} />
-          </div>
+          </Pressable>
         </div>
         {notice(alertNotice)}
       </Section>
 
       <Section title="회원 탈퇴" danger>
-        <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.6 }}>
+        <div style={{ fontSize: FS.body, color: theme.textMuted, lineHeight: 1.6 }}>
           탈퇴하면 모의투자 계좌, 보유 종목, 거래 내역, 피드에 쓴 글과 댓글이 모두 삭제되며 되돌릴 수 없습니다.
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={() => setWithdrawOpen(true)}
             style={{
-              padding: '10px 18px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
-              background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', fontSize: 13, fontWeight: 700,
+              padding: '12px 20px', borderRadius: RADIUS.md, cursor: 'pointer', fontFamily: 'inherit',
+              background: 'transparent', border: `1px solid ${theme.error}`, color: theme.error, fontSize: FS.body, fontWeight: FW.semibold,
             }}
           >
             탈퇴하기
@@ -302,10 +304,10 @@ function Section({ title, danger, children }: { title: string; danger?: boolean;
   const { theme } = useTheme();
   return (
     <div style={{
-      background: theme.panel, border: `1px solid ${danger ? 'rgba(239, 68, 68, 0.45)' : theme.border}`, borderRadius: 14,
-      padding: 20, display: 'flex', flexDirection: 'column', gap: 14,
+      background: theme.panel, border: `1px solid ${danger ? theme.error : theme.border}`, borderRadius: RADIUS.lg,
+      padding: 16, display: 'flex', flexDirection: 'column', gap: 16,
     }}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: danger ? '#ef4444' : theme.text }}>{title}</div>
+      <div style={{ fontSize: FS.title, fontWeight: FW.semibold, color: danger ? theme.error : theme.text }}>{title}</div>
       {children}
     </div>
   );
@@ -314,8 +316,8 @@ function Section({ title, danger, children }: { title: string; danger?: boolean;
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const { theme } = useTheme();
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: theme.textMuted }}>{label}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: FS.caption, fontWeight: FW.medium, color: theme.textMuted }}>{label}</div>
       {children}
     </div>
   );
@@ -370,14 +372,14 @@ function WithdrawDialog({ profile, inputStyle, onClose, onDone }: WithdrawDialog
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 400, margin: '0 24px',
-          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 20, padding: 24,
-          display: 'flex', flexDirection: 'column', gap: 14,
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.xl, padding: 24,
+          display: 'flex', flexDirection: 'column', gap: 16,
         }}
       >
-        <div style={{ fontSize: 17, fontWeight: 800 }}>정말 탈퇴할까요?</div>
-        <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.6 }}>
+        <div style={{ fontSize: FS.title, fontWeight: FW.bold }}>정말 탈퇴할까요?</div>
+        <div style={{ fontSize: FS.body, color: theme.textMuted, lineHeight: 1.6 }}>
           계좌와 거래 내역, 피드 글이 모두 삭제되며 되돌릴 수 없습니다. 계속하려면 닉네임{' '}
-          <span style={{ color: theme.text, fontWeight: 700 }}>{profile.nickname}</span>을(를) 입력하세요.
+          <span style={{ color: theme.text, fontWeight: FW.semibold }}>{profile.nickname}</span>을(를) 입력하세요.
         </div>
         <input value={typed} onChange={e => setTyped(e.target.value)} placeholder={profile.nickname} style={inputStyle} />
         {profile.has_password && (
@@ -388,14 +390,14 @@ function WithdrawDialog({ profile, inputStyle, onClose, onDone }: WithdrawDialog
             style={inputStyle}
           />
         )}
-        {error && <div style={{ fontSize: 12, fontWeight: 600, color: '#ef4444' }}>{error}</div>}
+        {error && <div style={{ fontSize: FS.caption, fontWeight: FW.medium, color: theme.error }}>{error}</div>}
         <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
           <button
             onClick={onClose}
             disabled={submitting}
             style={{
-              flex: 1, padding: '11px 0', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-              background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.text, fontSize: 14, fontWeight: 600,
+              flex: 1, padding: '12px 0', borderRadius: RADIUS.md, cursor: 'pointer', fontFamily: 'inherit',
+              background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.text, fontSize: FS.body, fontWeight: FW.medium,
             }}
           >
             취소
@@ -404,8 +406,8 @@ function WithdrawDialog({ profile, inputStyle, onClose, onDone }: WithdrawDialog
             onClick={submit}
             disabled={!canSubmit}
             style={{
-              flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', fontFamily: 'inherit',
-              background: '#ef4444', color: '#fff', fontSize: 14, fontWeight: 700,
+              flex: 1, padding: '12px 0', borderRadius: RADIUS.md, border: 'none', fontFamily: 'inherit',
+              background: theme.error, color: theme.bg, fontSize: FS.body, fontWeight: FW.semibold,
               cursor: canSubmit ? 'pointer' : 'default', opacity: canSubmit ? 1 : 0.45,
             }}
           >

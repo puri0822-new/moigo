@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { FW } from '../lib/tokens';
 
 interface StockLogoProps {
   name: string;
@@ -40,7 +41,7 @@ export default function StockLogo({ name, code, size = 36 }: StockLogoProps) {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       color: theme.textMuted,
       fontSize: Math.round(size * 0.38),
-      fontWeight: 700,
+      fontWeight: FW.semibold,
       userSelect: 'none',
     }}>
       {name.charAt(0)}

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { COMPACT_MAX, MOBILE_MAX, useViewport } from '../../lib/useViewport';
+import { FS, FW, RADIUS } from '../../lib/tokens';
 
 export type OrderPriceType = 'limit' | 'market';
 
@@ -62,6 +63,10 @@ export default function OrderBox({
   const [floatPos, setFloatPos] = useState({ x: 0, y: 0 });
   // 휴대폰에서는 주문창이 화면 아래를 덮으므로 접힌 상태로 시작한다
   const [floatMinimized, setFloatMinimized] = useState(() => window.innerWidth < MOBILE_MAX);
+  // 주문 중일 때 어느 버튼을 눌렀는지 (그 버튼에만 "주문 중…" 표시)
+  const [pendingSide, setPendingSide] = useState<'buy' | 'sell'>('buy');
+  const priceId = useId();
+  const qtyId = useId();
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   useEffect(() => {
@@ -108,141 +113,176 @@ export default function OrderBox({
     setQty(Math.max(1, Math.floor(base * ratio)));
   };
 
+  // 가격·수량 ± 같은 작은 정사각 버튼. 터치 대상 최소 크기(24px)보다 넉넉하게 32px
+  const stepButton = (enabled: boolean) => ({
+    width: 32, height: 32, borderRadius: RADIUS.md, border: `1px solid ${theme.inputBorder}`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    fontSize: FS.title, color: theme.text, opacity: enabled ? 1 : 0.4,
+  });
+
+  const fieldBox = (muted: boolean) => ({
+    display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${theme.inputBorder}`,
+    borderRadius: RADIUS.md, padding: '4px 8px', background: muted ? theme.panel2 : 'transparent',
+  });
+
+  const sideLabel = (side: 'buy' | 'sell') => (side === 'buy' ? '매수' : '매도');
+
+  const submit = (side: 'buy' | 'sell') => {
+    if (submitting) return;
+    setPendingSide(side);
+    onOrder(side, qty);
+  };
+
   return (
-    <div style={{
+    <section aria-label={`${stockName} 모의주문`} style={{
       position: 'fixed', zIndex: 40,
       background: theme.panel, border: `1px solid ${theme.border}`,
       boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
       overflow: 'hidden',
       ...(isMobile
-        ? { left: 0, right: 0, bottom: 0, borderRadius: '14px 14px 0 0', maxHeight: '80vh', overflowY: 'auto' }
-        : { left: floatPos.x, top: floatPos.y, width: BOX_WIDTH, borderRadius: 14 }),
+        ? { left: 0, right: 0, bottom: 0, borderRadius: `${RADIUS.lg}px ${RADIUS.lg}px 0 0`, maxHeight: '80vh', overflowY: 'auto' }
+        : { left: floatPos.x, top: floatPos.y, width: BOX_WIDTH, borderRadius: RADIUS.lg }),
     }}>
-      {/* 드래그 핸들 */}
+      {/* 드래그 핸들 (휴대폰에서는 손잡이 전체가 접기/펼치기) */}
       <div
         onMouseDown={isMobile ? undefined : handleDragStart}
         onClick={isMobile ? () => setFloatMinimized(v => !v) : undefined}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 14px', borderBottom: floatMinimized ? 'none' : `1px solid ${theme.border}`,
+          padding: '8px 8px 8px 16px', borderBottom: floatMinimized ? 'none' : `1px solid ${theme.border}`,
           cursor: isMobile ? 'pointer' : 'grab', userSelect: 'none', background: theme.panel2,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <span style={{ fontSize: 11, color: theme.textMuted }}>⠿</span>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>{stockName} 모의주문</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span aria-hidden="true" style={{ fontSize: FS.caption, color: theme.textMuted }}>⠿</span>
+          <span style={{ fontSize: FS.body, fontWeight: FW.semibold }}>{stockName} 모의주문</span>
         </div>
-        <div
+        <button
+          type="button"
+          aria-expanded={!floatMinimized}
+          aria-label={floatMinimized ? '주문창 펼치기' : '주문창 접기'}
           onMouseDown={e => e.stopPropagation()}
           // 휴대폰에서는 손잡이 전체가 접기 버튼이라 두 번 토글되지 않게 막는다
           onClick={e => { e.stopPropagation(); setFloatMinimized(v => !v); }}
-          style={{ fontSize: 14, color: theme.textMuted, cursor: 'pointer', lineHeight: 1, padding: '2px 4px' }}
-        >{floatMinimized ? '▲' : '▼'}</div>
+          style={{ width: 32, height: 32, borderRadius: RADIUS.md, fontSize: FS.body, color: theme.textMuted }}
+        >{floatMinimized ? '▲' : '▼'}</button>
       </div>
 
       {!floatMinimized && (
-        <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 11 }}>
-          {/* 지정가 / 시장가 탭 */}
-          <div style={{ display: 'flex', background: theme.panel2, borderRadius: 8, padding: 3, gap: 3 }}>
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* 지정가 / 시장가 */}
+          <div role="group" aria-label="주문 방식" style={{ display: 'flex', background: theme.panel2, borderRadius: RADIUS.md, padding: 4, gap: 4 }}>
             {(['limit', 'market'] as const).map(t => (
-              <div key={t} onClick={() => onOrderTypeChange(t)} style={{
-                flex: 1, textAlign: 'center', padding: '6px 0', borderRadius: 6,
-                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              <button key={t} type="button" aria-pressed={orderType === t} onClick={() => onOrderTypeChange(t)} style={{
+                flex: 1, padding: '8px 0', borderRadius: RADIUS.md,
+                fontSize: FS.body, fontWeight: orderType === t ? FW.semibold : FW.medium,
                 background: orderType === t ? theme.panel : 'transparent',
                 color: orderType === t ? theme.text : theme.textMuted,
                 boxShadow: orderType === t ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
               }}>
                 {t === 'limit' ? '지정가' : '시장가'}
-              </div>
+              </button>
             ))}
           </div>
 
-          {/* 가격 입력 */}
+          {/* 가격 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: theme.textMuted }}>가격</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '6px 10px', background: orderType === 'market' ? theme.panel2 : 'transparent' }}>
-              <div onClick={() => orderType === 'limit' && setInputPrice(p => Math.max(0, p - 100))}
-                style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: orderType === 'limit' ? 'pointer' : 'default', flexShrink: 0, opacity: orderType === 'market' ? 0.4 : 1 }}>-</div>
+            <label htmlFor={priceId} style={{ fontSize: FS.caption, fontWeight: FW.medium, color: theme.textMuted }}>가격</label>
+            <div style={fieldBox(orderType === 'market')}>
+              <button type="button" aria-label="가격 100원 내리기" disabled={orderType === 'market'}
+                onClick={() => setInputPrice(p => Math.max(0, p - 100))} style={stepButton(orderType === 'limit')}>−</button>
               {orderType === 'market' ? (
-                <span style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 600, color: theme.textMuted }}>시장가</span>
+                <span id={priceId} style={{ flex: 1, textAlign: 'center', fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted }}>시장가</span>
               ) : (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                  <input type="text" inputMode="numeric"
+                  <input id={priceId} type="text" inputMode="numeric"
                     value={inputPrice === 0 ? '' : inputPrice.toLocaleString()}
                     onChange={e => { const raw = e.target.value.replace(/[^0-9]/g, ''); setInputPrice(raw === '' ? 0 : parseInt(raw, 10)); }}
                     placeholder="0"
-                    style={{ width: 0, flex: 1, textAlign: 'right', fontSize: 13, fontWeight: 600, border: 'none', outline: 'none', background: 'transparent', color: theme.text, fontFamily: 'inherit' }} />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted, flexShrink: 0 }}>원</span>
+                    style={{ width: 0, flex: 1, textAlign: 'right', fontSize: FS.body, fontWeight: FW.medium, border: 'none', background: 'transparent', color: theme.text, fontFamily: 'inherit', padding: '8px 2px' }} />
+                  <span style={{ fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted, flexShrink: 0 }}>원</span>
                 </div>
               )}
-              <div onClick={() => orderType === 'limit' && setInputPrice(p => p + 100)}
-                style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: orderType === 'limit' ? 'pointer' : 'default', flexShrink: 0, opacity: orderType === 'market' ? 0.4 : 1 }}>+</div>
+              <button type="button" aria-label="가격 100원 올리기" disabled={orderType === 'market'}
+                onClick={() => setInputPrice(p => p + 100)} style={stepButton(orderType === 'limit')}>+</button>
             </div>
             {orderType === 'limit' && (
-              <span style={{ fontSize: 10, color: theme.textMuted, lineHeight: 1.4 }}>
+              <span style={{ fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.4 }}>
                 지금 호가로 체결되지 않으면 미체결로 남아 지정가에 닿을 때 체결돼요 (당일 장 마감까지 유효)
               </span>
             )}
             {orderType === 'limit' && inputPrice > 0 && inputPrice < currentPrice * 0.9 && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: theme.down }}>
+              <span role="alert" style={{ fontSize: FS.caption, fontWeight: FW.medium, color: theme.warning }}>
                 ⚠ 현재가({currentPrice.toLocaleString()}원)보다 10% 이상 낮은 가격입니다
               </span>
             )}
           </div>
 
-          {/* 수량 입력 */}
+          {/* 수량 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: theme.textMuted }}>수량</span>
-              <span style={{ fontSize: 10, color: theme.textMuted }}>
+              <label htmlFor={qtyId} style={{ fontSize: FS.caption, fontWeight: FW.medium, color: theme.textMuted }}>수량</label>
+              <span style={{ fontSize: FS.caption, color: theme.textMuted }}>
                 매수 가능 {buyableQty.toLocaleString()}주 · 매도 가능 {heldQty.toLocaleString()}주
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '6px 10px' }}>
-              <div onClick={() => setQty(q => Math.max(1, q - 1))} style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>-</div>
+            <div style={fieldBox(false)}>
+              <button type="button" aria-label="수량 1주 줄이기" onClick={() => setQty(q => Math.max(1, q - 1))} style={stepButton(true)}>−</button>
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                <input type="text" inputMode="numeric"
+                <input id={qtyId} type="text" inputMode="numeric"
                   value={qty === 0 ? '' : qty.toLocaleString()}
                   onChange={e => { const raw = e.target.value.replace(/[^0-9]/g, ''); setQty(raw === '' ? 1 : Math.max(1, parseInt(raw, 10))); }}
                   placeholder="0"
-                  style={{ width: 0, flex: 1, textAlign: 'right', fontSize: 13, fontWeight: 600, border: 'none', outline: 'none', background: 'transparent', color: theme.text, fontFamily: 'inherit' }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted, flexShrink: 0 }}>주</span>
+                  style={{ width: 0, flex: 1, textAlign: 'right', fontSize: FS.body, fontWeight: FW.medium, border: 'none', background: 'transparent', color: theme.text, fontFamily: 'inherit', padding: '8px 2px' }} />
+                <span style={{ fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted, flexShrink: 0 }}>주</span>
               </div>
-              <div onClick={() => setQty(q => q + 1)} style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>+</div>
+              <button type="button" aria-label="수량 1주 늘리기" onClick={() => setQty(q => q + 1)} style={stepButton(true)}>+</button>
             </div>
-            <div style={{ display: 'flex', gap: 5 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
               {/* 비율 버튼 기준: 매수(가상현금으로 살 수 있는 수량) / 매도(보유 수량) */}
-              <div style={{ display: 'flex', background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 6, padding: 2, gap: 2, flexShrink: 0 }}>
+              <div role="group" aria-label="비율 기준" style={{ display: 'flex', background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: RADIUS.md, padding: 2, gap: 2, flexShrink: 0 }}>
                 {(['buy', 'sell'] as const).map(b => (
-                  <div key={b} onClick={() => setRatioBase(b)} style={{
-                    padding: '3px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: 'pointer',
+                  <button key={b} type="button" aria-pressed={ratioBase === b} onClick={() => setRatioBase(b)} style={{
+                    padding: '4px 8px', borderRadius: RADIUS.sm, fontSize: FS.caption, fontWeight: FW.semibold,
                     background: ratioBase === b ? (b === 'buy' ? theme.up : theme.down) : 'transparent',
-                    color: ratioBase === b ? theme.bg : theme.textMuted,
-                  }}>{b === 'buy' ? '매수' : '매도'}</div>
+                    color: ratioBase === b ? theme.aiText : theme.textMuted,
+                  }}>{sideLabel(b)}</button>
                 ))}
               </div>
-              {[['10%', 0.1], ['25%', 0.25], ['50%', 0.5], ['최대', 1]].map(([label, ratio]) => (
-                <div key={label as string}
-                  onClick={() => applyRatio(ratio as number)}
-                  style={{ flex: 1, textAlign: 'center', padding: '5px 0', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.textMuted }}
-                >{label}</div>
+              {([['10%', 0.1], ['25%', 0.25], ['50%', 0.5], ['최대', 1]] as const).map(([label, ratio]) => (
+                <button key={label} type="button"
+                  aria-label={`${sideLabel(ratioBase)} 가능 수량의 ${label}`}
+                  onClick={() => applyRatio(ratio)}
+                  style={{ flex: 1, padding: '8px 0', borderRadius: RADIUS.md, fontSize: FS.caption, fontWeight: FW.medium, background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.text }}
+                >{label}</button>
               ))}
             </div>
           </div>
 
           {/* 총 주문 금액 */}
-          <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 8, padding: '9px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: theme.textMuted }}>{orderType === 'market' ? '예상 주문 금액' : '총 주문 금액'}</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>{total.toLocaleString()}원</span>
+          <div style={{ background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: RADIUS.md, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: FS.caption, color: theme.textMuted }}>{orderType === 'market' ? '예상 주문 금액' : '총 주문 금액'}</span>
+            <span style={{ fontSize: FS.title, fontWeight: FW.bold }}>{total.toLocaleString()}원</span>
           </div>
 
-          {/* 매수 / 매도 버튼 */}
-          <div style={{ display: 'flex', gap: 8, opacity: submitting ? 0.6 : 1 }}>
-            <div onClick={() => onOrder('buy', qty)} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.up, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: submitting ? 'wait' : 'pointer' }}>매수</div>
-            <div onClick={() => onOrder('sell', qty)} style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 8, background: theme.down, color: theme.bg, fontWeight: 700, fontSize: 13, cursor: submitting ? 'wait' : 'pointer' }}>매도</div>
+          {/* 매수 / 매도. 주문 중에는 누른 쪽에 "주문 중…"을 보여주고 두 버튼 모두 막는다 */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['buy', 'sell'] as const).map(side => (
+              <button key={side} type="button" disabled={submitting} aria-busy={submitting && pendingSide === side}
+                onClick={() => submit(side)}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: RADIUS.md,
+                  background: side === 'buy' ? theme.up : theme.down,
+                  // 매수 빨강·매도 파랑 모두 흰 글자일 때 대비 5:1 이상 (검은 글자는 다크 모드에서 부족)
+                  color: theme.aiText,
+                  fontWeight: FW.semibold, fontSize: FS.body,
+                  opacity: submitting ? 0.6 : 1, cursor: submitting ? 'wait' : 'pointer',
+                }}
+              >{submitting && pendingSide === side ? `${sideLabel(side)} 주문 중…` : sideLabel(side)}</button>
+            ))}
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }

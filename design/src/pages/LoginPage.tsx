@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { loadFirebaseAuth } from '../lib/firebase';
+import { FS, FW, RADIUS } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 export default function LoginPage() {
   const { theme, mode, toggle } = useTheme();
@@ -45,84 +47,84 @@ export default function LoginPage() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{ position: 'absolute', top: 20, right: 24 }}>
-        <div
+        <Pressable
           onClick={toggle}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            padding: '6px 12px', borderRadius: 20, border: `1px solid ${theme.border}`,
-            cursor: 'pointer', fontSize: 13, fontWeight: 600, color: theme.textMuted,
+            padding: '8px 12px', borderRadius: RADIUS.pill, border: `1px solid ${theme.border}`,
+            cursor: 'pointer', fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted,
           }}
         >
           <span>{mode === 'dark' ? '🌙' : '☀️'}</span>
           <span>{mode === 'dark' ? '다크' : '라이트'}</span>
-        </div>
+        </Pressable>
       </div>
 
       <div style={{ width: '100%', maxWidth: 400, padding: '0 24px' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{
-            width: 52, height: 52, borderRadius: 14, background: theme.ai,
+            width: 52, height: 52, borderRadius: RADIUS.lg, background: theme.ai,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 20, color: theme.aiText, fontWeight: 800,
+            fontSize: FS.heading, color: theme.aiText, fontWeight: FW.bold,
             margin: '0 auto 16px',
           }}>AI</div>
-          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>모이고</div>
-          <div style={{ fontSize: 14, color: theme.textMuted, marginTop: 6 }}>
+          <div style={{ fontSize: FS.display, fontWeight: FW.bold, letterSpacing: '-0.02em' }}>모이고</div>
+          <div style={{ fontSize: FS.body, color: theme.textMuted, marginTop: 8 }}>
             AI가 함께하는 스마트 모의매매
           </div>
         </div>
 
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 16, padding: 28,
+          borderRadius: RADIUS.xl, padding: 32,
           display: 'flex', flexDirection: 'column', gap: 16,
         }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted }}>이메일</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={{ fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted }}>이메일</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="이메일을 입력하세요"
               style={{
-                padding: '11px 14px', borderRadius: 9,
-                border: `1px solid ${theme.border}`,
+                padding: '12px 16px', borderRadius: RADIUS.md,
+                border: `1px solid ${theme.inputBorder}`,
                 background: theme.panel2, color: theme.text,
-                fontSize: 14, fontFamily: 'inherit', outline: 'none',
+                fontSize: FS.body, fontFamily: 'inherit', outline: 'none',
               }}
             />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted }}>비밀번호</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={{ fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted }}>비밀번호</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="비밀번호를 입력하세요"
               style={{
-                padding: '11px 14px', borderRadius: 9,
-                border: `1px solid ${theme.border}`,
+                padding: '12px 16px', borderRadius: RADIUS.md,
+                border: `1px solid ${theme.inputBorder}`,
                 background: theme.panel2, color: theme.text,
-                fontSize: 14, fontFamily: 'inherit', outline: 'none',
+                fontSize: FS.body, fontFamily: 'inherit', outline: 'none',
               }}
             />
-            <div style={{ textAlign: 'right', fontSize: 12, color: theme.ai, cursor: 'pointer' }}>
+            <div style={{ textAlign: 'right', fontSize: FS.caption, color: theme.aiFg, cursor: 'pointer' }}>
               비밀번호 찾기
             </div>
           </div>
 
           {error && (
-            <div style={{ fontSize: 12, color: theme.down, textAlign: 'center' }}>{error}</div>
+            <div style={{ fontSize: FS.caption, color: theme.down, textAlign: 'center' }}>{error}</div>
           )}
 
           <button
             onClick={handleEmailLogin}
             disabled={submitting}
             style={{
-              padding: '12px 0', borderRadius: 10,
+              padding: '12px 0', borderRadius: RADIUS.md,
               background: theme.ai, color: theme.aiText,
-              fontSize: 15, fontWeight: 700, border: 'none',
+              fontSize: FS.title, fontWeight: FW.semibold, border: 'none',
               cursor: submitting ? 'default' : 'pointer', fontFamily: 'inherit', marginTop: 4,
               opacity: submitting ? 0.7 : 1,
             }}
@@ -132,16 +134,16 @@ export default function LoginPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, height: 1, background: theme.border }} />
-            <span style={{ fontSize: 12, color: theme.textMuted }}>또는</span>
+            <span style={{ fontSize: FS.caption, color: theme.textMuted }}>또는</span>
             <div style={{ flex: 1, height: 1, background: theme.border }} />
           </div>
 
           <button
             onClick={handleGoogleLogin}
             style={{
-              padding: '11px 0', borderRadius: 10,
+              padding: '12px 0', borderRadius: RADIUS.md,
               background: theme.panel2, color: theme.text,
-              fontSize: 14, fontWeight: 600, border: `1px solid ${theme.border}`,
+              fontSize: FS.body, fontWeight: FW.medium, border: `1px solid ${theme.border}`,
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
@@ -149,12 +151,12 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: theme.textMuted }}>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: FS.body, color: theme.textMuted }}>
           계정이 없으신가요?{' '}
-          <span
+          <Pressable as="span"
             onClick={() => navigate('/signup')}
-            style={{ color: theme.ai, fontWeight: 600, cursor: 'pointer' }}
-          >회원가입</span>
+            style={{ color: theme.aiFg, fontWeight: FW.medium, cursor: 'pointer' }}
+          >회원가입</Pressable>
         </div>
       </div>
     </div>

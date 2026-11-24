@@ -1,5 +1,7 @@
 import { useTheme } from '../../context/ThemeContext';
 import StockLogo from '../StockLogo';
+import { FS, FW, RADIUS } from '../../lib/tokens';
+import Pressable from '../Pressable';
 
 interface WatchAlertDialogProps {
   stockName: string;
@@ -19,36 +21,36 @@ export default function WatchAlertDialog({ stockName, stockCode, onAnswer }: Wat
       <div onClick={e => e.stopPropagation()} style={{
         width: 340, maxWidth: 'calc(100vw - 32px)', background: theme.panel,
         border: `1px solid ${theme.border}`,
-        borderRadius: 16, padding: '24px 20px',
+        borderRadius: RADIUS.xl, padding: '24px 20px',
         boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
         display: 'flex', flexDirection: 'column', gap: 16,
       }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
           <StockLogo name={stockName} code={stockCode} size={44} />
-          <div style={{ fontSize: 16, fontWeight: 800 }}>관심 종목에 추가했어요</div>
-          <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+          <div style={{ fontSize: FS.title, fontWeight: FW.bold }}>관심 종목에 추가했어요</div>
+          <div style={{ fontSize: FS.body, lineHeight: 1.6 }}>
             <b>{stockName}</b> 주가가 <b>5% 이상</b> 오르거나 내리면<br />알려드릴까요?
           </div>
-          <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+          <div style={{ fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.6 }}>
             전일 종가 대비 5%, 10%, 15%… 를 넘을 때마다<br />오른쪽 위 알림에 표시돼요. 회원 설정에서 끌 수 있어요.
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Pressable
             onClick={() => onAnswer(false)}
             style={{
-              flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 8,
-              border: `1px solid ${theme.border}`, fontSize: 13, fontWeight: 600,
+              flex: 1, textAlign: 'center', padding: '12px 0', borderRadius: RADIUS.md,
+              border: `1px solid ${theme.border}`, fontSize: FS.body, fontWeight: FW.medium,
               color: theme.textMuted, cursor: 'pointer',
             }}
-          >괜찮아요</div>
-          <div
+          >괜찮아요</Pressable>
+          <Pressable
             onClick={() => onAnswer(true)}
             style={{
-              flex: 1, textAlign: 'center', padding: '11px 0', borderRadius: 8,
-              background: theme.ai, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              flex: 1, textAlign: 'center', padding: '12px 0', borderRadius: RADIUS.md,
+              background: theme.ai, color: '#fff', fontWeight: FW.semibold, fontSize: FS.body, cursor: 'pointer',
             }}
-          >알림 받기</div>
+          >알림 받기</Pressable>
         </div>
       </div>
     </div>

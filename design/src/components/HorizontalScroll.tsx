@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import Pressable from './Pressable';
 
 interface HorizontalScrollProps {
   children: ReactNode;
@@ -43,8 +44,9 @@ export default function HorizontalScroll({ children, gap = 12 }: HorizontalScrol
         position: 'absolute', top: 0, bottom: 0, [side]: 0, width: 56, pointerEvents: 'none',
         background: `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${theme.bg}, transparent)`,
       }} />
-      <div
+      <Pressable
         onClick={() => scrollBy(side === 'left' ? -1 : 1)}
+        aria-label={side === 'left' ? '왼쪽으로 넘기기' : '오른쪽으로 넘기기'}
         style={{
           position: 'absolute', top: '50%', [side]: 6, transform: 'translateY(-50%)',
           width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',
@@ -56,7 +58,7 @@ export default function HorizontalScroll({ children, gap = 12 }: HorizontalScrol
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points={side === 'left' ? '15 18 9 12 15 6' : '9 18 15 12 9 6'} />
         </svg>
-      </div>
+      </Pressable>
     </>
   );
 

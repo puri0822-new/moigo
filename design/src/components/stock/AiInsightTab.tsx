@@ -6,6 +6,8 @@ import { findAiProfile, useAiModels } from '../../lib/aiModels';
 import { useAiRecommendations } from '../../lib/aiRecommendations';
 import type { ApiAiAnalysis, ApiStock, ApiStockAiReason } from '../../lib/api';
 import { BOT_META, REC_LABEL, type BotName, type Signal } from './shared';
+import { FS, FW, RADIUS } from '../../lib/tokens';
+import Pressable from '../Pressable';
 
 interface AiInsightTabProps {
   code: string | undefined;
@@ -46,18 +48,18 @@ export default function AiInsightTab({
       : null,
   ] as const).filter((x): x is { bot: BotName; comment: string; signal: Signal } => x != null) : [];
 
-  const cardStyle = { background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 14 } as const;
-  const sectionTitle = (text: string) => <div style={{ fontSize: 12, fontWeight: 700, color: theme.textMuted }}>{text}</div>;
+  const cardStyle = { background: theme.panel2, border: `1px solid ${theme.border}`, borderRadius: RADIUS.md, padding: 16 } as const;
+  const sectionTitle = (text: string) => <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted }}>{text}</div>;
 
   return <>
     {/* 오늘 등락 이유 */}
     <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>오늘 등락 이유</div>
-      <div style={{ fontSize: 13, lineHeight: 1.6, color: aiReason ? undefined : theme.textMuted }}>
+      <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted }}>오늘 등락 이유</div>
+      <div style={{ fontSize: FS.body, lineHeight: 1.6, color: aiReason ? undefined : theme.textMuted }}>
         {aiReasonStatus === 'loading' ? 'AI가 오늘 뉴스와 시장 흐름을 읽고 있어요…' : aiReason?.reason ?? 'AI 분석 준비 중입니다'}
       </div>
       {aiReason && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: theme.textMuted }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: FS.caption, color: theme.textMuted }}>
           <AiIcon model={aiReason.ai_model} size={12} />
           {findAiProfile(aiModels, aiReason.ai_model).name} · {new Date(aiReason.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준
         </div>
@@ -66,7 +68,7 @@ export default function AiInsightTab({
 
     {/* AI 추천 (아직 결과가 나오지 않은 실제 추천) */}
     {stockRecs.length === 0 ? (
-      <div style={{ ...cardStyle, fontSize: 12, color: theme.textMuted, lineHeight: 1.6 }}>
+      <div style={{ ...cardStyle, fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.6 }}>
         아직 이 종목을 추천한 AI가 없어요. AI 추천은 평일 장 마감 뒤(16시)에 새로 나옵니다.
       </div>
     ) : <>
@@ -81,12 +83,12 @@ export default function AiInsightTab({
         return (
           <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted }}>AI 종합 의견</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: gaugeColor }}>{gaugeLabel}</div>
+              <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted }}>AI 종합 의견</div>
+              <div style={{ fontSize: FS.caption, fontWeight: FW.bold, color: gaugeColor }}>{gaugeLabel}</div>
             </div>
             <div style={{ position: 'relative' }}>
               <div style={{
-                height: 8, borderRadius: 99,
+                height: 8, borderRadius: RADIUS.pill,
                 background: `linear-gradient(to right, ${theme.down}, ${theme.textMuted} 50%, ${theme.up})`,
                 opacity: 0.35,
               }} />
@@ -98,7 +100,7 @@ export default function AiInsightTab({
                 transition: 'left 0.4s ease',
               }} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.caption, fontWeight: FW.medium }}>
               <span style={{ color: theme.down }}>매도 {sellCount}</span>
               <span style={{ color: theme.textMuted }}>AI {stockRecs.length}개 추천</span>
               <span style={{ color: theme.up }}>매수 {buyCount}</span>
@@ -115,27 +117,27 @@ export default function AiInsightTab({
           <div key={rec.id} style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <AiIcon model={rec.aiModel} size={20} />
-              <span style={{ fontSize: 12, fontWeight: 700 }}>{findAiProfile(aiModels, rec.aiModel).name}</span>
-              <span style={{ fontSize: 10, color: theme.textMuted }}>{rec.periodType === 'WEEKLY' ? '1주' : '1달'} 추천</span>
-              <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>
+              <span style={{ fontSize: FS.caption, fontWeight: FW.semibold }}>{findAiProfile(aiModels, rec.aiModel).name}</span>
+              <span style={{ fontSize: FS.caption, color: theme.textMuted }}>{rec.periodType === 'WEEKLY' ? '1주' : '1달'} 추천</span>
+              <span style={{ marginLeft: 'auto', fontSize: FS.caption, fontWeight: FW.semibold, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: RADIUS.sm, padding: '2px 8px', flexShrink: 0 }}>
                 {rec.opinion === 'BUY' ? '매수' : '매도'}
               </span>
             </div>
-            <div style={{ fontSize: 12, lineHeight: 1.6, color: theme.text }}>{rec.reason}</div>
+            <div style={{ fontSize: FS.caption, lineHeight: 1.6, color: theme.text }}>{rec.reason}</div>
 
             {rec.evidence.length > 0 && (
-              <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.03em' }}>근거 뉴스</div>
+              <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted, letterSpacing: '0.03em' }}>근거 뉴스</div>
                 {rec.evidence.map((ev, i) => (
                   <a
                     key={i}
                     href={ev.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ display: 'flex', flexDirection: 'column', gap: 1, textDecoration: 'none', color: 'inherit', cursor: ev.url ? 'pointer' : 'default' }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 2, textDecoration: 'none', color: 'inherit', cursor: ev.url ? 'pointer' : 'default' }}
                   >
-                    <div style={{ fontSize: 11, fontWeight: 500, color: theme.text, lineHeight: 1.4 }}>· {ev.title}</div>
-                    <div style={{ fontSize: 10, color: theme.textMuted }}>
+                    <div style={{ fontSize: FS.caption, fontWeight: FW.medium, color: theme.text, lineHeight: 1.4 }}>· {ev.title}</div>
+                    <div style={{ fontSize: FS.caption, color: theme.textMuted }}>
                       {ev.source} · {new Date(ev.publishedAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}
                     </div>
                   </a>
@@ -157,32 +159,32 @@ export default function AiInsightTab({
         border: `1px solid ${theme.border}`,
         background: theme.panel2,
         color: theme.text,
-        borderRadius: 8,
-        padding: '10px 12px',
-        fontSize: 12,
-        fontWeight: 700,
+        borderRadius: RADIUS.md,
+        padding: '12px 12px',
+        fontSize: FS.caption,
+        fontWeight: FW.semibold,
         cursor: analyzing ? 'wait' : 'pointer',
         opacity: analyzing ? 0.7 : 1,
       }}
     >
       {analyzing ? '뉴스 분석 중…' : analysis ? '뉴스 다시 분석' : '뉴스 분석하기'}
     </button>
-    {error && <div style={{ fontSize: 12, color: theme.down }}>{error}</div>}
+    {error && <div style={{ fontSize: FS.caption, color: theme.down }}>{error}</div>}
 
     {status === 'loading' && (
-      <div style={{ ...cardStyle, color: theme.textMuted, fontSize: 13 }}>분석 결과를 불러오는 중…</div>
+      <div style={{ ...cardStyle, color: theme.textMuted, fontSize: FS.body }}>분석 결과를 불러오는 중…</div>
     )}
     {status === 'error' && (
-      <div style={{ ...cardStyle, color: theme.textMuted, fontSize: 13 }}>분석 결과를 불러오지 못했습니다</div>
+      <div style={{ ...cardStyle, color: theme.textMuted, fontSize: FS.body }}>분석 결과를 불러오지 못했습니다</div>
     )}
     {status === 'empty' && !analyzing && (
-      <div style={{ ...cardStyle, color: theme.textMuted, fontSize: 13 }}>
+      <div style={{ ...cardStyle, color: theme.textMuted, fontSize: FS.body }}>
         아직 분석 결과가 없습니다. 뉴스를 모아 AI가 요약·정리합니다.
       </div>
     )}
 
     {analysis && analysis.is_matched != null && newsInsights.length > 0 && (
-      <div style={{ fontSize: 11, color: theme.textMuted }}>
+      <div style={{ fontSize: FS.caption, color: theme.textMuted }}>
         AI 의견 {analysis.is_matched ? '일치' : '불일치'} · {timeAgo(analysis.analyzed_at)} 분석
       </div>
     )}
@@ -191,20 +193,20 @@ export default function AiInsightTab({
       return (
         <div key={ins.bot} style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 6, background: theme.aiSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+            <div style={{ width: 24, height: 24, borderRadius: RADIUS.md, background: theme.aiSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
               <img src={BOT_META[ins.bot].icon} alt={ins.bot} width={16} height={16} style={{ objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700 }}>{ins.bot}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>{ins.signal}</span>
+            <span style={{ fontSize: FS.caption, fontWeight: FW.semibold }}>{ins.bot}</span>
+            <span style={{ marginLeft: 'auto', fontSize: FS.caption, fontWeight: FW.semibold, color: signalColor, border: `1px solid ${signalColor}`, borderRadius: RADIUS.sm, padding: '2px 8px', flexShrink: 0 }}>{ins.signal}</span>
           </div>
-          <div style={{ fontSize: 12, lineHeight: 1.6, color: theme.text }}>{ins.comment}</div>
+          <div style={{ fontSize: FS.caption, lineHeight: 1.6, color: theme.text }}>{ins.comment}</div>
           {analysis && analysis.related_news.length > 0 && (
-            <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, letterSpacing: '0.03em' }}>근거 뉴스</div>
+            <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted, letterSpacing: '0.03em' }}>근거 뉴스</div>
               {analysis.related_news.slice(0, 5).map((src) => (
-                <div key={src.id} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <div style={{ fontSize: 11, fontWeight: 500, color: theme.text, lineHeight: 1.4 }}>· {src.title}</div>
-                  <div style={{ fontSize: 10, color: theme.textMuted }}>{src.source ?? ''} · {timeAgo(src.published_at)}</div>
+                <div key={src.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ fontSize: FS.caption, fontWeight: FW.medium, color: theme.text, lineHeight: 1.4 }}>· {src.title}</div>
+                  <div style={{ fontSize: FS.caption, color: theme.textMuted }}>{src.source ?? ''} · {timeAgo(src.published_at)}</div>
                 </div>
               ))}
             </div>
@@ -216,12 +218,12 @@ export default function AiInsightTab({
     {/* 같은 업종 종목 */}
     {similarStocks.length > 0 && <>
       {sectionTitle('같은 업종 종목')}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {similarStocks.map(s => (
-          <div key={s.code} style={{ padding: '5px 10px', borderRadius: 20, border: `1px solid ${theme.border}`, fontSize: 12, color: theme.textMuted, cursor: 'pointer' }}
+          <Pressable key={s.code} style={{ padding: '4px 12px', borderRadius: RADIUS.pill, border: `1px solid ${theme.border}`, fontSize: FS.caption, color: theme.textMuted, cursor: 'pointer' }}
             onClick={() => navigate(`/stock/${s.code}`)}>
             {s.name}
-          </div>
+          </Pressable>
         ))}
       </div>
     </>}

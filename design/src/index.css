@@ -1,6 +1,27 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+body {
+  /* Inter에는 한글이 없어 OS마다 다른 한글 폰트로 대체됐다. 한글·숫자 모두 Pretendard로 통일 */
+  font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
 a { color: inherit; text-decoration: none; }
+
+/* 버튼 기본 모양을 지우고 주변 글꼴을 따르게 한다 (모양은 각 컴포넌트 인라인 스타일이 정한다) */
+button { font: inherit; color: inherit; background: none; border: none; padding: 0; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+/* 키보드 포커스 표시. 인라인 outline:none을 덮어써야 해서 !important를 쓴다.
+   마우스 클릭에는 보이지 않고 Tab으로 이동할 때만 보인다 */
+:focus-visible {
+  outline: 2px solid var(--focus-ring, #4361ee) !important;
+  outline-offset: 2px;
+}
+/* 입력창은 클릭으로 들어가도 위치를 알 수 있게 포커스 때 항상 표시 */
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--focus-ring, #4361ee) !important;
+  outline-offset: 0;
+}
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: oklch(0.4 0.006 260); border-radius: 3px; }

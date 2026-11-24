@@ -53,6 +53,23 @@ export function apiPost<T>(path: string, data?: unknown) {
   return request<T>(path, { method: 'POST', body: data !== undefined ? JSON.stringify(data) : undefined });
 }
 
+// --- 회원가입 ---
+// 서버(core/security.py, routers/auth.py)와 같은 제한. 입력 중에 미리 안내하는 데 쓴다
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 64;
+export const NICKNAME_MAX = 50;
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+  nickname: string;
+  marketing_agreed: boolean;
+}
+
+export function signup(body: SignupRequest) {
+  return apiPost<unknown>('/auth/signup', body);
+}
+
 export function apiPut<T>(path: string, data?: unknown) {
   return request<T>(path, { method: 'PUT', body: data !== undefined ? JSON.stringify(data) : undefined });
 }

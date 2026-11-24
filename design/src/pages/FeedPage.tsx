@@ -7,10 +7,10 @@ export default function FeedPage() {
   // 휴대폰에서는 인기 글·종목 사이드바를 피드 아래로 내린다
   return (
     <div style={{
-      padding: isMobile ? 16 : 24, display: 'flex', gap: 20,
+      padding: isMobile ? 16 : 24, display: 'flex', gap: 24,
       flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'flex-start',
     }}>
-      <div style={{ flex: 1, minWidth: 0, maxWidth: 720 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <PostFeed />
       </div>
       <FeedSidebar fullWidth={isMobile} />

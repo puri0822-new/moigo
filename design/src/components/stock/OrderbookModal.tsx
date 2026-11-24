@@ -2,6 +2,8 @@ import { useTheme } from '../../context/ThemeContext';
 import StockLogo from '../StockLogo';
 import OrderbookLevels from './OrderbookLevels';
 import type { ApiOrderbook, ApiStockDetail } from '../../lib/api';
+import { FS, FW, RADIUS } from '../../lib/tokens';
+import Pressable from '../Pressable';
 
 interface OrderbookModalProps {
   stock: ApiStockDetail;
@@ -24,26 +26,27 @@ export default function OrderbookModal({ stock, currentPrice, orderbook, status,
       <div onClick={e => e.stopPropagation()} style={{
         width: 420, maxWidth: 'calc(100vw - 32px)', maxHeight: 'calc(100vh - 48px)',
         background: theme.panel, border: `1px solid ${theme.border}`,
-        borderRadius: 16, padding: 20,
+        borderRadius: RADIUS.xl, padding: 20,
         boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
         display: 'flex', flexDirection: 'column', gap: 12,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <StockLogo name={stock.name} code={stock.code} size={28} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>{stock.name} 호가</div>
-            <div style={{ fontSize: 11, color: theme.textMuted }}>현재가 {currentPrice.toLocaleString()}원 · 호가를 누르면 지정가로 입력</div>
+            <div style={{ fontSize: FS.title, fontWeight: FW.bold }}>{stock.name} 호가</div>
+            <div style={{ fontSize: FS.caption, color: theme.textMuted }}>현재가 {currentPrice.toLocaleString()}원 · 호가를 누르면 지정가로 입력</div>
           </div>
-          <div
+          <Pressable
             onClick={onClose}
+            aria-label="닫기"
             style={{
-              marginLeft: 'auto', width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+              marginLeft: 'auto', width: 28, height: 28, borderRadius: RADIUS.md, flexShrink: 0,
               border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: theme.textMuted, fontSize: 13,
+              cursor: 'pointer', color: theme.textMuted, fontSize: FS.body,
             }}
-          >✕</div>
+          >✕</Pressable>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, color: theme.textMuted, padding: '0 10px 6px', borderBottom: `1px solid ${theme.border}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: FS.caption, fontWeight: FW.medium, color: theme.textMuted, padding: '0 12px 8px', borderBottom: `1px solid ${theme.border}` }}>
           <span>호가</span><span>잔량</span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>

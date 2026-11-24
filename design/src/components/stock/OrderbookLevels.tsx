@@ -1,5 +1,7 @@
 import { useTheme } from '../../context/ThemeContext';
 import type { ApiOrderbook } from '../../lib/api';
+import { FS, FW, RADIUS } from '../../lib/tokens';
+import Pressable from '../Pressable';
 
 interface OrderbookLevelsProps {
   orderbook: ApiOrderbook | null;
@@ -16,7 +18,7 @@ export default function OrderbookLevels({ orderbook, status, levelCount, large, 
 
   if (!orderbook) {
     return (
-      <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
+      <div style={{ fontSize: FS.caption, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
         {status === 'error' ? '호가를 불러오지 못했습니다' : '호가를 불러오는 중...'}
       </div>
     );
@@ -25,19 +27,19 @@ export default function OrderbookLevels({ orderbook, status, levelCount, large, 
   const asks = orderbook.asks.slice(0, levelCount).reverse();
   const bids = orderbook.bids.slice(0, levelCount);
   if (asks.length === 0 && bids.length === 0) {
-    return <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>표시할 호가가 없습니다</div>;
+    return <div style={{ fontSize: FS.caption, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>표시할 호가가 없습니다</div>;
   }
   const maxVolume = Math.max(1, ...asks.map(l => l.volume), ...bids.map(l => l.volume));
   const row = (l: { price: number; volume: number }, side: 'ask' | 'bid') => {
     const color = side === 'ask' ? theme.down : theme.up;
     return (
-      <div
+      <Pressable
         key={`${side}-${l.price}`}
         onClick={() => onPick(l.price)}
         style={{
           position: 'relative', display: 'flex', justifyContent: 'space-between',
-          fontSize: large ? 14 : 12, padding: large ? '7px 10px' : '3px 6px',
-          borderRadius: 4, cursor: 'pointer', overflow: 'hidden',
+          fontSize: large ? FS.body : FS.caption, padding: large ? '8px 12px' : '4px 8px',
+          borderRadius: RADIUS.sm, cursor: 'pointer', overflow: 'hidden',
         }}
       >
         {/* 잔량 막대 */}
@@ -45,9 +47,9 @@ export default function OrderbookLevels({ orderbook, status, levelCount, large, 
           position: 'absolute', top: 0, bottom: 0, right: 0,
           width: `${(l.volume / maxVolume) * 100}%`, background: color, opacity: 0.12,
         }} />
-        <span style={{ position: 'relative', fontWeight: 600, color }}>{l.price.toLocaleString()}원</span>
+        <span style={{ position: 'relative', fontWeight: FW.medium, color }}>{l.price.toLocaleString()}원</span>
         <span style={{ position: 'relative', color: theme.textMuted }}>{l.volume.toLocaleString()}</span>
-      </div>
+      </Pressable>
     );
   };
   return <>

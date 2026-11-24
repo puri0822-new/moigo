@@ -6,6 +6,8 @@ import BannerStrikeChart from '../components/BannerStrikeChart';
 import { fetchMarketIndices, fetchStockRankings, type ApiMarketIndex, type ApiStockRanking } from '../lib/api';
 import { useViewport } from '../lib/useViewport';
 import { usePolling } from '../lib/usePolling';
+import { FS, FW, RADIUS, ON_BRAND, BRAND_GRADIENT } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 // 배너 배경 차트는 문구(약 300px)와 지수 카드(약 270px) 사이에 그리므로, 본문이 이만큼은 넓어야 보인다
 const BANNER_CHART_MIN_WIDTH = 900;
@@ -100,14 +102,14 @@ export default function DashboardPage() {
       {/* 가운데: 메인 콘텐츠 */}
       <div style={{
         flex: 1, minWidth: 0, padding: isMobile ? 16 : 24,
-        display: 'flex', flexDirection: 'column', gap: 14,
+        display: 'flex', flexDirection: 'column', gap: 16,
       }}>
         {/* 소개 배너 (휴대폰에서는 문구 아래로 지수 카드를 쌓는다) */}
         <div style={{
-          background: `linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)`,
-          borderRadius: 16, padding: isMobile ? '22px 20px' : '28px 32px',
+          background: BRAND_GRADIENT,
+          borderRadius: RADIUS.xl, padding: isMobile ? '24px 20px' : '32px 32px',
           display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between',
-          flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 18 : 16,
+          flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 20 : 16,
           position: 'relative', overflow: 'hidden', minHeight: 140,
         }}>
           {/* 배경 장식 */}
@@ -122,10 +124,10 @@ export default function DashboardPage() {
 
           {/* 텍스트 */}
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 10 }}>
+            <div style={{ fontSize: FS.caption, fontWeight: FW.medium, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 12 }}>
               ✦ AI-Powered Mock Trading
             </div>
-            <div style={{ fontSize: isMobile ? 19 : 22, fontWeight: 800, color: '#fff', lineHeight: 1.4, marginBottom: 14 }}>
+            <div style={{ fontSize: isMobile ? FS.heading : FS.heading, fontWeight: FW.bold, color: '#fff', lineHeight: 1.4, marginBottom: 16 }}>
               AI가 분석하고,<br />내가 결정하는 모의매매
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -133,19 +135,19 @@ export default function DashboardPage() {
                 { label: 'AI 포트폴리오 보러가기', path: '/ai-analysis' },
                 { label: '랭킹 보기', path: '/ranking' },
               ].map(item => (
-                <div
+                <Pressable
                   key={item.label}
                   onClick={() => navigate(item.path)}
                   style={{
-                    padding: '7px 16px', borderRadius: 20,
+                    padding: '8px 16px', borderRadius: RADIUS.pill,
                     background: 'rgba(255,255,255,0.15)',
                     border: '1px solid rgba(255,255,255,0.25)',
-                    fontSize: 12, fontWeight: 600, color: '#fff',
+                    fontSize: FS.caption, fontWeight: FW.medium, color: '#fff',
                     cursor: 'pointer',
                   }}
                 >
                   {item.label}
-                </div>
+                </Pressable>
               ))}
             </div>
           </div>
@@ -158,7 +160,7 @@ export default function DashboardPage() {
             {marketIndices.length === 0 && indicesError && (
               <div style={{
                 background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 12, padding: '12px 16px', fontSize: 12, color: 'rgba(255,255,255,0.8)',
+                borderRadius: RADIUS.lg, padding: '12px 16px', fontSize: FS.caption, color: 'rgba(255,255,255,0.8)',
               }}>
                 지수를 불러오지 못했습니다
               </div>
@@ -182,20 +184,20 @@ export default function DashboardPage() {
                   background: 'rgba(255,255,255,0.12)',
                   backdropFilter: 'blur(8px)',
                   border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: 12, padding: '10px 16px',
+                  borderRadius: RADIUS.lg, padding: '12px 16px',
                   display: 'flex', alignItems: 'center', gap: 12,
                   ...(isMobile ? { flex: '1 1 150px', minWidth: 0 } : { minWidth: 200 }),
                 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginBottom: 3 }}>{idx.name}</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>{idx.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: isUp ? '#fca5a5' : '#93c5fd', marginTop: 2 }}>
+                    <div style={{ fontSize: FS.caption, color: 'rgba(255,255,255,0.7)', fontWeight: FW.medium, marginBottom: 4 }}>{idx.name}</div>
+                    <div style={{ fontSize: FS.title, fontWeight: FW.bold, color: '#fff' }}>{idx.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: isUp ? ON_BRAND.up : ON_BRAND.down, marginTop: 2 }}>
                       {isUp ? '▲' : '▼'} {Math.abs(idx.change).toFixed(2)} ({Math.abs(changePct).toFixed(2)}%)
                     </div>
                   </div>
                   <svg width={W} height={H} style={{ flexShrink: 0 }}>
                     <line x1={0} y1={baseY} x2={W} y2={baseY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3 3" />
-                    <polyline points={pts} fill="none" stroke={isUp ? '#fca5a5' : '#93c5fd'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                    <polyline points={pts} fill="none" stroke={isUp ? ON_BRAND.up : ON_BRAND.down} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
                   </svg>
                 </div>
               );
@@ -205,31 +207,31 @@ export default function DashboardPage() {
 
         {/* 거래량 차트 헤더 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>실시간 거래량 차트</div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ fontSize: FS.title, fontWeight: FW.bold }}>실시간 거래량 차트</div>
+          <div style={{ display: 'flex', gap: 8 }}>
             {(['거래량', '급상승', '급하락'] as const).map(tab => (
-              <div
+              <Pressable
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
-                  fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20,
+                  fontSize: FS.caption, fontWeight: FW.medium, padding: '4px 12px', borderRadius: RADIUS.pill,
                   cursor: 'pointer',
                   background: activeTab === tab ? theme.ai : theme.panel2,
                   color: activeTab === tab ? '#fff' : theme.textMuted,
                   border: `1px solid ${activeTab === tab ? theme.ai : theme.border}`,
                 }}
-              >{tab}</div>
+              >{tab}</Pressable>
             ))}
           </div>
         </div>
 
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 1,
+          display: 'flex', flexDirection: 'column', gap: 2,
           background: theme.border, border: `1px solid ${theme.border}`,
-          borderRadius: 12, overflow: 'hidden',
+          borderRadius: RADIUS.lg, overflow: 'hidden',
         }}>
           {rankingsStatus !== 'ready' && (
-            <div style={{ padding: '28px 18px', background: theme.panel, textAlign: 'center', fontSize: 13, color: theme.textMuted }}>
+            <div style={{ padding: '32px 20px', background: theme.panel, textAlign: 'center', fontSize: FS.body, color: theme.textMuted }}>
               {rankingsStatus === 'loading' ? '시세를 불러오는 중...' : '시세를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'}
             </div>
           )}
@@ -249,22 +251,22 @@ export default function DashboardPage() {
             const signal = aiRec ? (REC_LABEL[aiRec.recommendation] ?? '중립') : null;
             const signalColor = signal === '매수' ? theme.up : signal === '매도' ? theme.down : theme.textMuted;
             return (
-              <div
+              <Pressable
                 key={s.code}
                 onClick={() => navigate(`/stock/${s.code}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
-                  padding: isMobile ? '12px 14px' : '13px 18px', background: theme.panel, cursor: 'pointer',
+                  padding: isMobile ? '12px 16px' : '12px 20px', background: theme.panel, cursor: 'pointer',
                 }}
               >
-                <div style={{ width: 22, flexShrink: 0, fontSize: 13, fontWeight: 700, color: theme.textMuted }}>
+                <div style={{ width: 22, flexShrink: 0, fontSize: FS.body, fontWeight: FW.semibold, color: theme.textMuted }}>
                   {i + 1}
                 </div>
                 <StockLogo name={s.name} code={s.code} size={36} />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                      <span style={{ fontSize: FS.body, fontWeight: FW.semibold, flexShrink: 0 }}>{s.name}</span>
                       {aiRec && signal && (
                         <div
                           key={`${s.code}-${aiRec.bot}-${aiRec.recommendation}`}
@@ -277,31 +279,31 @@ export default function DashboardPage() {
                             alt={aiRec.bot}
                             width={12}
                             height={12}
-                            style={{ borderRadius: 3, flexShrink: 0 }}
+                            style={{ borderRadius: RADIUS.sm, flexShrink: 0 }}
                             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                           />
-                          <span style={{ fontSize: 11, color: theme.textMuted, fontWeight: 600, flexShrink: 0 }}>{aiRec.bot}</span>
+                          <span style={{ fontSize: FS.caption, color: theme.textMuted, fontWeight: FW.medium, flexShrink: 0 }}>{aiRec.bot}</span>
                           {/* 휴대폰에서는 종목명·가격 자리가 모자라 요약은 빼고 의견만 보인다 */}
                           {!isMobile && (
-                            <span style={{ fontSize: 11, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {shortAiLine(aiRec.summary)}</span>
+                            <span style={{ fontSize: FS.caption, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {shortAiLine(aiRec.summary)}</span>
                           )}
                           <span style={{
                             flexShrink: 0,
-                            fontSize: 10, fontWeight: 700, color: signalColor,
-                            border: `1px solid ${signalColor}`, borderRadius: 4,
-                            padding: '1px 5px',
+                            fontSize: FS.caption, fontWeight: FW.semibold, color: signalColor,
+                            border: `1px solid ${signalColor}`, borderRadius: RADIUS.sm,
+                            padding: '2px 4px',
                           }}>{signal}</span>
                         </div>
                       )}
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.price}</span>
+                    <span style={{ fontSize: FS.body, fontWeight: FW.semibold, flexShrink: 0 }}>{s.price}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: 11 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: FS.caption }}>
                     <span style={{ color: theme.textMuted }}>거래량 {s.volume}</span>
-                    <span style={{ fontWeight: 700, color: changeColor, flexShrink: 0 }}>{changeLabel}</span>
+                    <span style={{ fontWeight: FW.semibold, color: changeColor, flexShrink: 0 }}>{changeLabel}</span>
                   </div>
                 </div>
-              </div>
+              </Pressable>
             );
           })}
         </div>

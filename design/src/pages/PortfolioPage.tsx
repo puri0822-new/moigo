@@ -8,6 +8,8 @@ import { apiGet, fetchWatchlist, getAssetHistory, removeWatchlist, setWatchAlert
 import type { ApiAssetHistory, ApiWatchlist } from '../lib/api';
 import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
 import { useViewport } from '../lib/useViewport';
+import { FS, FW, RADIUS } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 const TREND_PERIODS = [['1개월', 30], ['3개월', 90], ['1년', 365]] as const;
 
@@ -56,6 +58,8 @@ export default function PortfolioPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [watchlist, setWatchlist] = useState<ApiWatchlist | null>(null);
+  // 관심 종목 목록을 못 불러왔거나, 알림 켜기·삭제가 실패했을 때 표 위에 보여줄 문구
+  const [watchlistError, setWatchlistError] = useState('');
   const [trendDays, setTrendDays] = useState<number>(90);
   const [assetHistory, setAssetHistory] = useState<ApiAssetHistory | null>(null);
   const [assetHistoryStatus, setAssetHistoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -72,7 +76,10 @@ export default function PortfolioPage() {
       // 이미 받아 둔 값이 있으면 일시적인 실패로 화면을 0원으로 바꾸지 않는다
       setStatus(prev => (prev === 'ready' ? prev : 'error'));
     });
-    fetchWatchlist().then(res => setWatchlist(res.data)).catch(() => {});
+    fetchWatchlist()
+      .then(res => { setWatchlist(res.data); setWatchlistError(''); })
+      // 이미 보여주던 목록이 있으면 일시적인 실패로 지우지 않는다
+      .catch(() => setWatchlistError(prev => prev || '관심 종목을 불러오지 못했어요. 잠시 후 자동으로 다시 시도해요'));
   };
   usePolling(load, PORTFOLIO_POLL_MS);
 
@@ -92,6 +99,7 @@ export default function PortfolioPage() {
   const toggleWatchAlert = (stockId: number, enabled: boolean) => {
     setWatchlist(prev => prev && { ...prev, items: prev.items.map(w => w.stock_id === stockId ? { ...w, alert_enabled: enabled } : w) });
     setWatchAlert(stockId, enabled).catch(() => {
+      setWatchlistError(`알림을 ${enabled ? '켜지' : '끄지'} 못했어요. 다시 시도해 주세요`);
       setWatchlist(prev => prev && { ...prev, items: prev.items.map(w => w.stock_id === stockId ? { ...w, alert_enabled: !enabled } : w) });
     });
   };
@@ -99,26 +107,29 @@ export default function PortfolioPage() {
   const unwatch = (stockId: number) => {
     const before = watchlist;
     setWatchlist(prev => prev && { ...prev, items: prev.items.filter(w => w.stock_id !== stockId) });
-    removeWatchlist(stockId).catch(() => setWatchlist(before));
+    removeWatchlist(stockId).catch(() => {
+      setWatchlist(before);
+      setWatchlistError('관심 종목에서 빼지 못했어요. 다시 시도해 주세요');
+    });
   };
 
   if (status === 'loading') {
     return (
-      <div style={{ padding: 24, color: '#888', fontSize: 14 }}>불러오는 중...</div>
+      <div style={{ padding: 24, color: theme.textMuted, fontSize: FS.body }}>불러오는 중...</div>
     );
   }
 
   if (status === 'error') {
     return (
       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{ fontSize: 14, color: theme.textMuted }}>포트폴리오를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>
-        <div
+        <div style={{ fontSize: FS.body, color: theme.textMuted }}>포트폴리오를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>
+        <Pressable
           onClick={() => { setStatus('loading'); load(); }}
           style={{
-            fontSize: 13, fontWeight: 600, padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
+            fontSize: FS.body, fontWeight: FW.medium, padding: '8px 16px', borderRadius: RADIUS.md, cursor: 'pointer',
             background: theme.ai, color: theme.aiText,
           }}
-        >다시 시도</div>
+        >다시 시도</Pressable>
       </div>
     );
   }
@@ -129,8 +140,8 @@ export default function PortfolioPage() {
   const profitColor = totalProfit >= 0 ? theme.up : theme.down;
 
   return (
-    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto', height: '100%' }}>
-      <div style={{ fontSize: 18, fontWeight: 800 }}>내 포트폴리오</div>
+    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 24, overflowY: 'auto', height: '100%' }}>
+      <div style={{ fontSize: FS.heading, fontWeight: FW.bold }}>내 포트폴리오</div>
 
       {/* 자산 요약 (좁으면 두 줄로 내려간다) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -146,12 +157,12 @@ export default function PortfolioPage() {
         ].map(card => (
           <div key={card.label} style={{
             flex: '1 1 150px', minWidth: 0, background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 12, padding: isMobile ? '14px 16px' : '16px 20px',
-            display: 'flex', flexDirection: 'column', gap: 6,
+            borderRadius: RADIUS.lg, padding: 16,
+            display: 'flex', flexDirection: 'column', gap: 8,
           }}>
-            <div style={{ fontSize: 12, color: theme.textMuted, fontWeight: 600 }}>{card.label}</div>
+            <div style={{ fontSize: FS.caption, color: theme.textMuted, fontWeight: FW.medium }}>{card.label}</div>
             <div style={{
-              fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em',
+              fontSize: FS.title, fontWeight: FW.bold, letterSpacing: '-0.01em',
               color: card.color ?? theme.text,
             }}>
               {card.value}
@@ -164,24 +175,24 @@ export default function PortfolioPage() {
       <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
         <div style={{
           flex: '3 1 420px', minWidth: 0, background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 12, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12,
+          borderRadius: RADIUS.lg, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>자산 추이</div>
+            <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>자산 추이</div>
             <div style={{ display: 'flex', gap: 4 }}>
               {TREND_PERIODS.map(([label, days]) => (
-                <div key={label} onClick={() => setTrendDays(days)} style={{
-                  fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                <Pressable key={label} onClick={() => setTrendDays(days)} style={{
+                  fontSize: FS.caption, fontWeight: FW.medium, padding: '4px 12px', borderRadius: RADIUS.md, cursor: 'pointer',
                   background: trendDays === days ? theme.ai : 'transparent',
                   color: trendDays === days ? theme.aiText : theme.textMuted,
-                }}>{label}</div>
+                }}>{label}</Pressable>
               ))}
             </div>
           </div>
           {assetHistory ? (
             <AssetTrendChart points={assetHistory.points} initialBalance={assetHistory.initial_balance} />
           ) : (
-            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: theme.textMuted }}>
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.body, color: theme.textMuted }}>
               {assetHistoryStatus === 'error' ? '자산 추이를 불러오지 못했습니다' : '자산 추이를 불러오는 중...'}
             </div>
           )}
@@ -189,9 +200,9 @@ export default function PortfolioPage() {
 
         <div style={{
           flex: '2 1 340px', minWidth: 0, background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 12, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12,
+          borderRadius: RADIUS.lg, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
         }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>보유 비중</div>
+          <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>보유 비중</div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <HoldingsDonut holdings={portfolio?.holdings ?? []} />
           </div>
@@ -199,16 +210,16 @@ export default function PortfolioPage() {
       </div>
 
       {/* 보유 종목 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>보유 종목</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>보유 종목</div>
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 12, overflowX: 'auto', overflowY: 'hidden',
+          borderRadius: RADIUS.lg, overflowX: 'auto', overflowY: 'hidden',
         }}>
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 80px 110px 110px 90px', minWidth: 520,
-            padding: '10px 16px', borderBottom: `1px solid ${theme.border}`,
-            fontSize: 12, fontWeight: 700, color: theme.textMuted,
+            padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
+            fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted,
           }}>
             <span>종목명</span>
             <span style={{ textAlign: 'right' }}>보유수량</span>
@@ -217,7 +228,7 @@ export default function PortfolioPage() {
             <span style={{ textAlign: 'right' }}>수익률</span>
           </div>
           {portfolio?.holdings.length === 0 && (
-            <div style={{ padding: '20px 16px', fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
+            <div style={{ padding: '20px 16px', fontSize: FS.body, color: theme.textMuted, textAlign: 'center' }}>
               보유 종목이 없습니다
             </div>
           )}
@@ -228,19 +239,19 @@ export default function PortfolioPage() {
               <div key={h.stock_id} style={{
                 display: 'grid', gridTemplateColumns: '1fr 80px 110px 110px 90px', minWidth: 520,
                 padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
-                fontSize: 13, alignItems: 'center',
+                fontSize: FS.body, alignItems: 'center',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <StockLogo name={h.stock_name} code={h.stock_code} size={28} />
                   <div>
-                    <div style={{ fontWeight: 700 }}>{h.stock_name}</div>
-                    <div style={{ fontSize: 11, color: theme.textMuted }}>{h.stock_code}</div>
+                    <div style={{ fontWeight: FW.semibold }}>{h.stock_name}</div>
+                    <div style={{ fontSize: FS.caption, color: theme.textMuted }}>{h.stock_code}</div>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.quantity}주</div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.avg_price.toLocaleString()}원</div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>{h.eval_amount.toLocaleString()}원</div>
-                <div style={{ textAlign: 'right', fontWeight: 700, color: changeColor }}>{changeLabel}</div>
+                <div style={{ textAlign: 'right', fontWeight: FW.medium }}>{h.quantity}주</div>
+                <div style={{ textAlign: 'right', fontWeight: FW.medium }}>{h.avg_price.toLocaleString()}원</div>
+                <div style={{ textAlign: 'right', fontWeight: FW.medium }}>{h.eval_amount.toLocaleString()}원</div>
+                <div style={{ textAlign: 'right', fontWeight: FW.semibold, color: changeColor }}>{changeLabel}</div>
               </div>
             );
           })}
@@ -248,21 +259,21 @@ export default function PortfolioPage() {
       </div>
 
       {/* 관심 종목 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>관심 종목</div>
+          <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>관심 종목</div>
           {watchlist && !watchlist.price_alert_enabled && (
-            <div style={{ fontSize: 12, color: theme.textMuted }}>회원 설정에서 급등락 알림이 꺼져 있어 알림이 오지 않아요</div>
+            <div style={{ fontSize: FS.caption, color: theme.textMuted }}>회원 설정에서 급등락 알림이 꺼져 있어 알림이 오지 않아요</div>
           )}
         </div>
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 12, overflowX: 'auto', overflowY: 'hidden',
+          borderRadius: RADIUS.lg, overflowX: 'auto', overflowY: 'hidden',
         }}>
           <div style={{
             display: 'grid', gridTemplateColumns: '1fr 110px 170px 70px 50px', minWidth: 560,
-            padding: '10px 16px', borderBottom: `1px solid ${theme.border}`,
-            fontSize: 12, fontWeight: 700, color: theme.textMuted,
+            padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
+            fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted,
           }}>
             <span>종목명</span>
             <span style={{ textAlign: 'right' }}>현재가</span>
@@ -270,8 +281,11 @@ export default function PortfolioPage() {
             <span style={{ textAlign: 'center' }}>±5% 알림</span>
             <span />
           </div>
+          {watchlistError && (
+            <div role="alert" style={{ padding: '12px 16px', fontSize: FS.body, color: theme.error, background: theme.errorSoft }}>⚠ {watchlistError}</div>
+          )}
           {watchlist?.items.length === 0 && (
-            <div style={{ padding: '20px 16px', fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
+            <div style={{ padding: '20px 16px', fontSize: FS.body, color: theme.textMuted, textAlign: 'center' }}>
               관심 종목이 없습니다. 종목 상세에서 ♡를 눌러 추가해 보세요
             </div>
           )}
@@ -283,47 +297,47 @@ export default function PortfolioPage() {
               <div key={w.stock_id} style={{
                 display: 'grid', gridTemplateColumns: '1fr 110px 170px 70px 50px', minWidth: 560,
                 padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
-                fontSize: 13, alignItems: 'center',
+                fontSize: FS.body, alignItems: 'center',
               }}>
-                <div onClick={() => navigate(`/stock/${w.stock_code}`)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <Pressable onClick={() => navigate(`/stock/${w.stock_code}`)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                   <StockLogo name={w.stock_name} code={w.stock_code} size={28} />
                   <div>
-                    <div style={{ fontWeight: 700 }}>{w.stock_name}</div>
-                    <div style={{ fontSize: 11, color: theme.textMuted }}>{w.stock_code}</div>
+                    <div style={{ fontWeight: FW.semibold }}>{w.stock_name}</div>
+                    <div style={{ fontSize: FS.caption, color: theme.textMuted }}>{w.stock_code}</div>
                   </div>
-                </div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>{hasPrice ? `${w.current_price!.toLocaleString()}원` : '-'}</div>
-                <div style={{ textAlign: 'right', fontWeight: 700, color: changeColor }}>
+                </Pressable>
+                <div style={{ textAlign: 'right', fontWeight: FW.medium }}>{hasPrice ? `${w.current_price!.toLocaleString()}원` : '-'}</div>
+                <div style={{ textAlign: 'right', fontWeight: FW.semibold, color: changeColor }}>
                   {hasPrice ? `${sign}${Math.abs(w.change!).toLocaleString()}원 (${Math.abs(w.change_rate!).toFixed(2)}%)` : '-'}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <div
+                  <Pressable
                     onClick={() => toggleWatchAlert(w.stock_id, !w.alert_enabled)}
                     title={w.alert_enabled ? '알림 끄기' : '알림 켜기'}
                     style={{
-                      width: 30, height: 30, borderRadius: 8, cursor: 'pointer',
+                      width: 30, height: 30, borderRadius: RADIUS.md, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       background: w.alert_enabled ? theme.aiSoft : 'transparent',
                       border: `1px solid ${w.alert_enabled ? theme.ai : theme.border}`,
-                      color: w.alert_enabled ? theme.ai : theme.textMuted,
+                      color: w.alert_enabled ? theme.aiFg : theme.textMuted,
                     }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill={w.alert_enabled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                     </svg>
-                  </div>
+                  </Pressable>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  <div
+                  <Pressable
                     onClick={() => unwatch(w.stock_id)}
                     title="관심 종목에서 빼기"
-                    style={{ cursor: 'pointer', color: '#ef4444', display: 'flex' }}
+                    style={{ cursor: 'pointer', color: theme.up, display: 'flex' }}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#ef4444" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill={theme.up} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                     </svg>
-                  </div>
+                  </Pressable>
                 </div>
               </div>
             );
@@ -332,17 +346,17 @@ export default function PortfolioPage() {
       </div>
 
       {/* 거래 내역 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>거래 내역</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>거래 내역</div>
           {(() => {
             const sells = history.filter(t => t.realized_profit !== null);
             if (sells.length === 0) return null;
             const total = sells.reduce((sum, t) => sum + t.realized_profit!, 0);
             return (
-              <div style={{ fontSize: 12, color: theme.textMuted }}>
+              <div style={{ fontSize: FS.caption, color: theme.textMuted }}>
                 실현 손익 합계{' '}
-                <span style={{ fontWeight: 700, color: total >= 0 ? theme.up : theme.down }}>
+                <span style={{ fontWeight: FW.semibold, color: total >= 0 ? theme.up : theme.down }}>
                   {total >= 0 ? '+' : '-'}{Math.abs(total).toLocaleString()}원
                 </span>
               </div>
@@ -351,12 +365,12 @@ export default function PortfolioPage() {
         </div>
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
-          borderRadius: 12, overflowX: 'auto', overflowY: 'hidden',
+          borderRadius: RADIUS.lg, overflowX: 'auto', overflowY: 'hidden',
         }}>
           <div style={{
             display: 'grid', gridTemplateColumns: HISTORY_COLUMNS, minWidth: 720,
-            padding: '10px 16px', borderBottom: `1px solid ${theme.border}`,
-            fontSize: 12, fontWeight: 700, color: theme.textMuted,
+            padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
+            fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted,
           }}>
             <span>날짜</span>
             <span>구분</span>
@@ -367,7 +381,7 @@ export default function PortfolioPage() {
             <span style={{ textAlign: 'right' }}>실현 손익</span>
           </div>
           {history.length === 0 && (
-            <div style={{ padding: '20px 16px', fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
+            <div style={{ padding: '20px 16px', fontSize: FS.body, color: theme.textMuted, textAlign: 'center' }}>
               거래 내역이 없습니다
             </div>
           )}
@@ -379,26 +393,26 @@ export default function PortfolioPage() {
             return (
               <div key={t.id} style={{
                 display: 'grid', gridTemplateColumns: HISTORY_COLUMNS, minWidth: 720,
-                padding: '11px 16px', borderBottom: `1px solid ${theme.border}`,
-                fontSize: 13, alignItems: 'center',
+                padding: '12px 16px', borderBottom: `1px solid ${theme.border}`,
+                fontSize: FS.body, alignItems: 'center',
               }}>
-                <span style={{ color: theme.textMuted, fontSize: 12 }}>{date}</span>
-                <span style={{ fontWeight: 700, fontSize: 12, color: isBuy ? theme.up : theme.down }}>
+                <span style={{ color: theme.textMuted, fontSize: FS.caption }}>{date}</span>
+                <span style={{ fontWeight: FW.semibold, fontSize: FS.caption, color: isBuy ? theme.up : theme.down }}>
                   {isBuy ? '매수' : '매도'}
                 </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <StockLogo name={t.stock_name} code={t.stock_code} size={22} />
-                  <span style={{ fontWeight: 600 }}>{t.stock_name}</span>
+                  <span style={{ fontWeight: FW.medium }}>{t.stock_name}</span>
                 </div>
                 <span style={{ textAlign: 'right' }}>{t.quantity}주</span>
                 <span style={{ textAlign: 'right' }}>{t.price.toLocaleString()}원</span>
-                <span style={{ textAlign: 'right', fontWeight: 600 }}>{t.total_amount.toLocaleString()}원</span>
+                <span style={{ textAlign: 'right', fontWeight: FW.medium }}>{t.total_amount.toLocaleString()}원</span>
                 {t.realized_profit === null ? (
                   <span style={{ textAlign: 'right', color: theme.textMuted }}>-</span>
                 ) : (
                   <span
                     title={`평균 매수가 ${t.avg_buy_price!.toLocaleString()}원`}
-                    style={{ textAlign: 'right', fontWeight: 700, color: t.realized_profit >= 0 ? theme.up : theme.down }}
+                    style={{ textAlign: 'right', fontWeight: FW.semibold, color: t.realized_profit >= 0 ? theme.up : theme.down }}
                   >
                     {t.realized_profit >= 0 ? '+' : '-'}{Math.abs(t.realized_profit).toLocaleString()}원 ({Math.abs(t.realized_profit_rate!).toFixed(2)}%)
                   </span>

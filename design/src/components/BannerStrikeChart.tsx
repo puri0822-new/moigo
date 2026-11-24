@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
+import { ON_BRAND } from '../lib/tokens';
 
 // 가로 300 × 세로 100 좌표에 그린 선. 크게 오르내리며(번개처럼 꺾이며) 전체적으로는 완만하게 우상향한다
 const W = 300;
@@ -7,7 +8,7 @@ const H = 100;
 const Y = [88, 50, 68, 30, 48, 10];
 const LINE = 'M' + Y.map((y, i) => `${(i / (Y.length - 1)) * W},${y}`).join(' L');
 const AREA = `${LINE} L${W},${H} L0,${H} Z`;
-const COLOR = '#ff8a94';
+const COLOR = ON_BRAND.up;
 
 // 14초 한 바퀴: 앞 절반 동안 그려지고, 다 그려지면 번쩍인 뒤 잠시 머물다 한 번에 사라진다
 const CYCLE_MS = 14_000;

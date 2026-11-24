@@ -12,6 +12,8 @@ import type { AiRecommendation, PeriodType } from '../lib/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
 import type { AiModel } from '../lib/aiModels';
 import { useViewport } from '../lib/useViewport';
+import { FS, FW, RADIUS, BRAND_GRADIENT } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 type PeriodFilter = 'ALL' | PeriodType;
 const PERIOD_FILTERS: [PeriodFilter, string][] = [['ALL', '전체'], ['WEEKLY', '주간'], ['MONTHLY', '월간']];
@@ -41,11 +43,11 @@ export default function AiAnalysisPage() {
   useEffect(() => setPastLimit(PAST_PAGE_SIZE), [period, pastAi]);
 
   return (
-    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* 소개 배너 */}
       <div style={{
-        background: `linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)`,
-        borderRadius: 16, padding: isMobile ? '22px 20px' : '26px 32px',
+        background: BRAND_GRADIENT,
+        borderRadius: RADIUS.xl, padding: isMobile ? '24px 20px' : '24px 32px',
         position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',
       }}>
@@ -53,26 +55,26 @@ export default function AiAnalysisPage() {
         <div style={{ position: 'absolute', right: 120, bottom: -70, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
         <div style={{ position: 'relative', flex: 1, minWidth: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 8 }}>
+            <div style={{ fontSize: FS.caption, fontWeight: FW.medium, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.08em', marginBottom: 8 }}>
               ✦ AI 추천 성적표
             </div>
-            <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: '#fff', lineHeight: 1.45 }}>
+            <div style={{ fontSize: isMobile ? FS.title : FS.heading, fontWeight: FW.bold, color: '#fff', lineHeight: 1.45 }}>
               AI가 뉴스를 분석해 종목을 추천하고,<br />1주·1달 뒤 실제 결과로 성적을 공개합니다
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {['뉴스 수집·분석', '매수/매도 추천', '결과 검증'].map((step, i) => (
               <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {i > 0 && <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>→</span>}
+                {i > 0 && <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: FS.caption }}>→</span>}
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px', borderRadius: 20,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', borderRadius: RADIUS.pill,
                   background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)',
-                  fontSize: 12, fontWeight: 600, color: '#fff',
+                  fontSize: FS.caption, fontWeight: FW.medium, color: '#fff',
                 }}>
                   <span style={{
-                    width: 16, height: 16, borderRadius: '50%', background: '#fff', color: '#4F6EF7',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800,
+                    width: 16, height: 16, borderRadius: '50%', background: '#fff', color: '#4361ee',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.caption, fontWeight: FW.bold,
                   }}>
                     {i + 1}
                   </span>
@@ -88,14 +90,14 @@ export default function AiAnalysisPage() {
       </div>
 
       {status !== 'ready' && (
-        <div style={{ fontSize: 13, color: theme.textMuted }}>
+        <div style={{ fontSize: FS.body, color: theme.textMuted }}>
           {status === 'loading' ? 'AI 추천을 불러오는 중…' : 'AI 추천을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.'}
         </div>
       )}
       {status === 'ready' && current.length === 0 && past.length === 0 && (
         <div style={{
-          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-          padding: '24px', fontSize: 13, color: theme.textMuted, lineHeight: 1.6, textAlign: 'center',
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+          padding: '24px', fontSize: FS.body, color: theme.textMuted, lineHeight: 1.6, textAlign: 'center',
         }}>
           아직 AI 추천이 없습니다. 평일 장 마감 뒤(16시)에 AI가 그날 뉴스를 분석해 첫 추천을 올립니다.
         </div>
@@ -107,28 +109,28 @@ export default function AiAnalysisPage() {
       </div>
       {past.length > 0 ? <AiHitRateTrendChart /> : status === 'ready' && current.length > 0 && (
         <div style={{
-          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-          padding: '20px 24px', fontSize: 13, color: theme.textMuted, lineHeight: 1.6,
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+          padding: '20px 24px', fontSize: FS.body, color: theme.textMuted, lineHeight: 1.6,
         }}>
           아직 검증이 끝난 추천이 없어 적중률 추이가 없습니다. 첫 결과는{' '}
           <b style={{ color: theme.text }}>{formatDate(current.reduce((min, r) => (r.evaluateAt < min ? r.evaluateAt : min), current[0].evaluateAt))}</b>에 나옵니다.
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {PERIOD_FILTERS.map(([key, label]) => (
-          <div
+          <Pressable
             key={key}
             onClick={() => setPeriod(key)}
             style={{
-              fontSize: 13, fontWeight: 600, padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
+              fontSize: FS.body, fontWeight: FW.medium, padding: '8px 16px', borderRadius: RADIUS.pill, cursor: 'pointer',
               background: period === key ? theme.ai : theme.panel2,
               color: period === key ? '#fff' : theme.textMuted,
               border: `1px solid ${period === key ? theme.ai : theme.border}`,
             }}
           >
             {label}
-          </div>
+          </Pressable>
         ))}
       </div>
 
@@ -139,11 +141,11 @@ export default function AiAnalysisPage() {
         const hitRate = hitRateOf(past, ai.model);
         return (
           <section key={ai.model} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <AiIcon model={ai.model} size={26} />
-              <div style={{ fontSize: 16, fontWeight: 700 }}>
+              <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>
                 {ai.name}{' '}
-                <span style={{ fontSize: 13, fontWeight: 600, color: theme.textMuted }}>
+                <span style={{ fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted }}>
                   적중률 <span style={{ color: ai.color }}>{hitRate == null ? '-' : `${Math.round(hitRate * 100)}%`}</span>
                 </span>
               </div>
@@ -151,8 +153,8 @@ export default function AiAnalysisPage() {
 
             {recs.length === 0 ? (
               <div style={{
-                background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-                padding: '28px 0', textAlign: 'center', fontSize: 13, color: theme.textMuted,
+                background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+                padding: '32px 0', textAlign: 'center', fontSize: FS.body, color: theme.textMuted,
               }}>
                 추천한 종목이 없습니다
               </div>
@@ -162,69 +164,69 @@ export default function AiAnalysisPage() {
                   const isBuy = r.opinion === 'BUY';
                   const opinionColor = isBuy ? theme.up : theme.down;
                   return (
-                    <div
+                    <Pressable
                       key={r.id}
                       onClick={() => setSelected(r)}
                       style={{
                         width: 220, flexShrink: 0, cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', gap: 10,
-                        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+                        display: 'flex', flexDirection: 'column', gap: 12,
+                        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
                         padding: 16,
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                         <StockLogo name={r.stockName} code={r.stockCode} size={32} />
                         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-                          <div style={{ fontSize: 14, fontWeight: 700 }}>{r.stockName}</div>
+                          <div style={{ fontSize: FS.body, fontWeight: FW.semibold }}>{r.stockName}</div>
                           <span style={{
-                            padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 600,
-                            color: theme.ai, background: theme.aiSoft,
+                            padding: '2px 8px', borderRadius: RADIUS.md, fontSize: FS.caption, fontWeight: FW.medium,
+                            color: theme.aiFg, background: theme.aiSoft,
                           }}>
                             {r.sector}
                           </span>
                         </div>
                         <span style={{
                           marginLeft: 'auto', flexShrink: 0,
-                          padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                          padding: '4px 8px', borderRadius: RADIUS.md, fontSize: FS.caption, fontWeight: FW.semibold,
                           color: opinionColor, border: `1px solid ${opinionColor}`,
                         }}>
                           {isBuy ? '매수' : '매도'}
                         </span>
                       </div>
                       <div style={{
-                        fontSize: 12, color: theme.textMuted, lineHeight: 1.5,
+                        fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.5,
                         // 긴 요약은 두 줄까지만 보여주고, 전체는 상세 창에서 본다
                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       }}>
                         {r.reason}
                       </div>
-                      <div style={{ marginTop: 'auto', fontSize: 12, color: theme.textMuted }}>
-                        추천가 <span style={{ color: theme.text, fontWeight: 700 }}>{r.priceAtRecommendation.toLocaleString()}원</span>
+                      <div style={{ marginTop: 'auto', fontSize: FS.caption, color: theme.textMuted }}>
+                        추천가 <span style={{ color: theme.text, fontWeight: FW.semibold }}>{r.priceAtRecommendation.toLocaleString()}원</span>
                         {/* 중간 집계: 추천 후 지금까지의 가격 변화와, 추천 방향대로 가고 있는지 */}
                         {r.live && (
                           <div style={{ marginTop: 4 }}>
-                            현재 <span style={{ color: theme.text, fontWeight: 700 }}>{r.live.price.toLocaleString()}원</span>{' '}
-                            <span style={{ fontWeight: 700, color: r.live.returnRate >= 0 ? theme.up : theme.down }}>({formatReturn(r.live.returnRate)})</span>
+                            현재 <span style={{ color: theme.text, fontWeight: FW.semibold }}>{r.live.price.toLocaleString()}원</span>{' '}
+                            <span style={{ fontWeight: FW.semibold, color: r.live.returnRate >= 0 ? theme.up : theme.down }}>({formatReturn(r.live.returnRate)})</span>
                           </div>
                         )}
                       </div>
                       <div style={{
-                        paddingTop: 10, borderTop: `1px solid ${theme.border}`,
-                        fontSize: 11, color: theme.textMuted,
+                        paddingTop: 12, borderTop: `1px solid ${theme.border}`,
+                        fontSize: FS.caption, color: theme.textMuted,
                       }}>
                         {r.periodType === 'WEEKLY' ? '1주' : '1달'} 추천 ·{' '}
-                        <span style={{ color: theme.ai, fontWeight: 700 }}>{resultLabel(r.evaluateAt)}</span>
+                        <span style={{ color: theme.aiFg, fontWeight: FW.semibold }}>{resultLabel(r.evaluateAt)}</span>
                         {r.live && (
                           <span style={{
-                            float: 'right', fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap',
-                            color: directionalReturn(r) > 0 ? '#16a34a' : '#ef4444',
-                            background: directionalReturn(r) > 0 ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)',
+                            float: 'right', fontSize: FS.caption, fontWeight: FW.semibold, borderRadius: RADIUS.sm, padding: '2px 4px', whiteSpace: 'nowrap',
+                            color: directionalReturn(r) > 0 ? theme.success : theme.error,
+                            background: directionalReturn(r) > 0 ? theme.successSoft : theme.errorSoft,
                           }}>
                             {directionalReturn(r) > 0 ? '맞히는 중' : '빗나가는 중'}
                           </span>
                         )}
                       </div>
-                    </div>
+                    </Pressable>
                   );
                 })}
               </HorizontalScroll>
@@ -236,17 +238,17 @@ export default function AiAnalysisPage() {
       {/* 지난 추천 성적표 */}
       <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>지난 추천 성적표</div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>지난 추천 성적표</div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
             {([['ALL', '전체'], ...pastModels.map(p => [p.model, p.name])] as ['ALL' | AiModel, string][]).map(([key, label]) => {
               const active = pastAi === key;
               return (
-                <div
+                <Pressable
                   key={key}
                   onClick={() => setPastAi(key)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: FS.caption, fontWeight: FW.medium, padding: '4px 12px', borderRadius: RADIUS.pill, cursor: 'pointer',
                     background: active ? theme.ai : theme.panel2,
                     color: active ? '#fff' : theme.textMuted,
                     border: `1px solid ${active ? theme.ai : theme.border}`,
@@ -254,73 +256,73 @@ export default function AiAnalysisPage() {
                 >
                   {key !== 'ALL' && <AiIcon model={key} size={13} />}
                   {label}
-                </div>
+                </Pressable>
               );
             })}
           </div>
         </div>
         {pastRecs.length === 0 ? (
           <div style={{
-            background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-            padding: '28px 0', textAlign: 'center', fontSize: 13, color: theme.textMuted,
+            background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+            padding: '32px 0', textAlign: 'center', fontSize: FS.body, color: theme.textMuted,
           }}>
             아직 검증된 추천이 없습니다
           </div>
         ) : (
           <div style={{
-            background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
+            background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
             overflow: 'hidden',
           }}>
             {pastRecs.slice(0, pastLimit).map((r, i) => {
               const result = r.result!;
               const isBuy = r.opinion === 'BUY';
               return (
-                <div
+                <Pressable
                   key={r.id}
                   onClick={() => setSelected(r)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 12, padding: 16, cursor: 'pointer',
                     borderTop: i === 0 ? 'none' : `1px solid ${theme.border}`,
                   }}
                 >
                   <AiIcon model={r.aiModel} size={18} />
                   <StockLogo name={r.stockName} code={r.stockCode} size={30} />
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700 }}>{r.stockName}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: isBuy ? theme.up : theme.down }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: FS.body, fontWeight: FW.semibold }}>{r.stockName}</span>
+                      <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: isBuy ? theme.up : theme.down }}>
                         {isBuy ? '매수' : '매도'}
                       </span>
                     </div>
-                    <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
+                    <div style={{ fontSize: FS.caption, color: theme.textMuted, marginTop: 2 }}>
                       {r.periodType === 'WEEKLY' ? '1주' : '1달'} 추천 · {formatDate(r.recommendedAt)} → {formatDate(result.evaluatedAt)}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: result.returnRate >= 0 ? theme.up : theme.down }}>
+                    <div style={{ fontSize: FS.body, fontWeight: FW.bold, color: result.returnRate >= 0 ? theme.up : theme.down }}>
                       {formatReturn(result.returnRate)}
                     </div>
-                    <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
+                    <div style={{ fontSize: FS.caption, color: theme.textMuted, marginTop: 2 }}>
                       {r.priceAtRecommendation.toLocaleString()} → {result.priceAtEvaluation.toLocaleString()}
                     </div>
                   </div>
                   <div style={{ width: 44, display: 'flex', justifyContent: 'flex-end' }}>
                     <HitBadge isHit={result.isHit} />
                   </div>
-                </div>
+                </Pressable>
               );
             })}
             {pastRemaining > 0 && (
-              <div
+              <Pressable
                 onClick={() => setPastLimit(n => n + PAST_PAGE_SIZE)}
                 style={{
                   padding: '12px 0', textAlign: 'center', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, color: theme.textMuted,
+                  fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted,
                   borderTop: `1px solid ${theme.border}`,
                 }}
               >
                 더보기 ({pastRemaining}개 남음)
-              </div>
+              </Pressable>
             )}
           </div>
         )}

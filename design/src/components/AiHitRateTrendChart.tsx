@@ -3,6 +3,8 @@ import { useTheme } from '../context/ThemeContext';
 import { formatDate } from './AiRecommendationModal';
 import { hitRateTrend, useAiRecommendations } from '../lib/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
+import { FS, FW, RADIUS } from '../lib/tokens';
+import Pressable from './Pressable';
 
 const HEIGHT = 220;
 const PAD = { top: 16, right: 84, bottom: 28, left: 40 };
@@ -72,47 +74,47 @@ export default function AiHitRateTrendChart() {
 
   return (
     <div style={{
-      background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-      padding: 18, display: 'flex', flexDirection: 'column', gap: 12,
+      background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+      padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: 15, fontWeight: 700 }}>적중률 추이</div>
-        <div style={{ fontSize: 12, color: theme.textMuted }}>주별 누적</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: FS.title, fontWeight: FW.semibold }}>적중률 추이</div>
+        <div style={{ fontSize: FS.caption, color: theme.textMuted }}>주별 누적</div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {series.map(ai => (
-            <div key={ai.model} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: theme.textMuted }}>
-              <span style={{ width: 14, height: 3, borderRadius: 2, background: ai.color }} />
+            <div key={ai.model} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: FS.caption, color: theme.textMuted }}>
+              <span style={{ width: 14, height: 3, borderRadius: RADIUS.sm, background: ai.color }} />
               {ai.name}
             </div>
           ))}
-          <div
+          <Pressable
             onClick={() => setShowTable(v => !v)}
             style={{
-              fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 6, cursor: 'pointer',
+              fontSize: FS.caption, fontWeight: FW.medium, padding: '4px 8px', borderRadius: RADIUS.md, cursor: 'pointer',
               color: theme.textMuted, border: `1px solid ${theme.border}`,
             }}
           >
             {showTable ? '그래프로 보기' : '표로 보기'}
-          </div>
+          </Pressable>
         </div>
       </div>
 
       {showTable ? (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.caption }}>
           <thead>
             <tr style={{ color: theme.textMuted }}>
-              <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 600 }}>주</th>
+              <th style={{ textAlign: 'left', padding: '8px 4px', fontWeight: FW.medium }}>주</th>
               {series.map(ai => (
-                <th key={ai.model} style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 600 }}>{ai.name}</th>
+                <th key={ai.model} style={{ textAlign: 'right', padding: '8px 4px', fontWeight: FW.medium }}>{ai.name}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.map(d => (
               <tr key={d.week} style={{ borderTop: `1px solid ${theme.border}` }}>
-                <td style={{ padding: '6px 4px' }}>{formatDate(d.week)}</td>
+                <td style={{ padding: '8px 4px' }}>{formatDate(d.week)}</td>
                 {series.map(ai => (
-                  <td key={ai.model} style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 600 }}>{pct(d.rates[ai.model])}</td>
+                  <td key={ai.model} style={{ textAlign: 'right', padding: '8px 4px', fontWeight: FW.medium }}>{pct(d.rates[ai.model])}</td>
                 ))}
               </tr>
             ))}
@@ -174,16 +176,16 @@ export default function AiHitRateTrendChart() {
           {hover != null && (
             <div style={{
               position: 'absolute', top: PAD.top, left: tooltipLeft, pointerEvents: 'none', minWidth: 130,
-              background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 8,
-              boxShadow: '0 6px 18px rgba(0,0,0,.2)', padding: '8px 10px', fontSize: 12,
+              background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.md,
+              boxShadow: '0 6px 18px rgba(0,0,0,.2)', padding: '8px 12px', fontSize: FS.caption,
               display: 'flex', flexDirection: 'column', gap: 4,
             }}>
               <div style={{ color: theme.textMuted }}>{formatDate(data[hover].week)} 주</div>
               {series.map(ai => (
-                <div key={ai.model} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: ai.color }} />
+                <div key={ai.model} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: RADIUS.sm, background: ai.color }} />
                   <span style={{ color: theme.textMuted }}>{ai.name}</span>
-                  <span style={{ marginLeft: 'auto', fontWeight: 700 }}>{pct(data[hover].rates[ai.model])}</span>
+                  <span style={{ marginLeft: 'auto', fontWeight: FW.semibold }}>{pct(data[hover].rates[ai.model])}</span>
                 </div>
               ))}
             </div>

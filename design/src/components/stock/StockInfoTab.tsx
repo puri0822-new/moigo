@@ -1,5 +1,6 @@
 import { useTheme } from '../../context/ThemeContext';
 import type { ApiStockDetail, ApiStockInfo } from '../../lib/api';
+import { FS, FW, RADIUS } from '../../lib/tokens';
 
 function formatMarketCap(won: number) {
   const eok = Math.round(won / 100_000_000);
@@ -21,11 +22,11 @@ export default function StockInfoTab({ stock, info, status }: StockInfoTabProps)
   return (
     <div style={{
       background: theme.panel, border: `1px solid ${theme.border}`,
-      borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
+      borderRadius: RADIUS.lg, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
     }}>
-      <div style={{ fontSize: 13, fontWeight: 700 }}>종목정보</div>
+      <div style={{ fontSize: FS.body, fontWeight: FW.semibold }}>종목정보</div>
       {!info ? (
-        <div style={{ fontSize: 12, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
+        <div style={{ fontSize: FS.caption, color: theme.textMuted, padding: '20px 0', textAlign: 'center' }}>
           {status === 'error' ? '종목정보를 불러오지 못했습니다' : '종목정보를 불러오는 중...'}
         </div>
       ) : (
@@ -45,10 +46,10 @@ export default function StockInfoTab({ stock, info, status }: StockInfoTabProps)
           ] as [string, string][]).map(([label, value]) => (
             <div key={label} style={{
               display: 'flex', justifyContent: 'space-between', gap: 12,
-              padding: '10px 0', borderBottom: `1px solid ${theme.border}`, fontSize: 13,
+              padding: '12px 0', borderBottom: `1px solid ${theme.border}`, fontSize: FS.body,
             }}>
               <span style={{ color: theme.textMuted, flexShrink: 0 }}>{label}</span>
-              <span style={{ fontWeight: 600, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+              <span style={{ fontWeight: FW.medium, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
             </div>
           ))}
         </div>

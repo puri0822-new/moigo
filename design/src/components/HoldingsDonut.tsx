@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { FS, FW, RADIUS as RAD } from '../lib/tokens';
 
 interface Holding {
   stock_id: number;
@@ -15,8 +16,8 @@ interface Props {
 const MAX_SLICES = 6;
 // 색각 이상에서도 이웃한 조각이 구분되도록 검증한 순서. 순서를 바꾸거나 색을 더 만들어 쓰지 않는다
 const SLICE_COLORS = {
-  light: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300'],
-  dark: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300'],
+  light: ['#4361ee', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300'],
+  dark: ['#4361ee', '#d95926', '#199e70', '#c98500', '#d55181', '#008300'],
 };
 
 const SIZE = 168;
@@ -50,7 +51,7 @@ export default function HoldingsDonut({ holdings }: Props) {
 
   if (total === 0) {
     return (
-      <div style={{ height: SIZE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: theme.textMuted }}>
+      <div style={{ height: SIZE, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: FS.body, color: theme.textMuted }}>
         보유 종목이 없습니다
       </div>
     );
@@ -107,17 +108,17 @@ export default function HoldingsDonut({ holdings }: Props) {
             onMouseEnter={() => setHovered(a.key)}
             onMouseLeave={() => setHovered(null)}
             style={{
-              display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 8px', borderRadius: 6,
+              display: 'flex', alignItems: 'flex-start', gap: 8, padding: '4px 8px', borderRadius: RAD.md,
               background: hovered === a.key ? theme.panel2 : 'transparent',
             }}
           >
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: a.color, flexShrink: 0, marginTop: 4 }} />
+            <span style={{ width: 10, height: 10, borderRadius: RAD.sm, background: a.color, flexShrink: 0, marginTop: 4 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 13 }}>
-                <span style={{ flex: 1, minWidth: 0, fontWeight: 700, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{a.name}</span>
-                <span style={{ fontWeight: 700, flexShrink: 0 }}>{a.pct.toFixed(1)}%</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.body }}>
+                <span style={{ flex: 1, minWidth: 0, fontWeight: FW.semibold, wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{a.name}</span>
+                <span style={{ fontWeight: FW.semibold, flexShrink: 0 }}>{a.pct.toFixed(1)}%</span>
               </div>
-              <div style={{ fontSize: 11, color: theme.textMuted }}>{a.amount.toLocaleString()}원</div>
+              <div style={{ fontSize: FS.caption, color: theme.textMuted }}>{a.amount.toLocaleString()}원</div>
             </div>
           </div>
         ))}

@@ -7,6 +7,8 @@ import {
   fetchMarketIssues, fetchStockTopIssues, fetchWatchlist,
   type ApiIssueStock, type ApiMarketNewsIssue, type ApiNewsIssue,
 } from '../lib/api';
+import { FS, FW, RADIUS } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -19,7 +21,7 @@ function SentimentBadge({ sentiment, reason }: { sentiment: ApiNewsIssue['sentim
   const color = sentiment === 'POSITIVE' ? theme.up : sentiment === 'NEGATIVE' ? theme.down : theme.textMuted;
   return (
     <span title={reason ? `AI 판단: ${reason}` : 'AI 판단'} style={{
-      flexShrink: 0, fontSize: 11, fontWeight: 800, padding: '2px 7px', borderRadius: 6, marginTop: 2, cursor: 'help',
+      flexShrink: 0, fontSize: FS.caption, fontWeight: FW.bold, padding: '2px 8px', borderRadius: RADIUS.md, marginTop: 2, cursor: 'help',
       color, border: `1px solid ${color}`, background: theme.panel,
     }}>{SENTIMENT_LABEL[sentiment]}</span>
   );
@@ -32,20 +34,20 @@ function IssueCard({ issue, rank, stocks }: { issue: ApiNewsIssue; rank: number;
 
   return (
     <div style={{ padding: '16px 0', borderBottom: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
         <div style={{
-          fontSize: 16, fontWeight: 800, width: 22, flexShrink: 0, paddingTop: 1,
-          color: rank <= 3 ? theme.ai : theme.textMuted,
+          fontSize: FS.title, fontWeight: FW.bold, width: 22, flexShrink: 0, paddingTop: 2,
+          color: rank <= 3 ? theme.aiFg : theme.textMuted,
         }}>{rank}</div>
 
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {stocks.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {stocks.map(s => (
-                <span key={s.id} onClick={() => navigate(`/stock/${s.code}`)} style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, cursor: 'pointer',
+                <Pressable as="span" key={s.id} onClick={() => navigate(`/stock/${s.code}`)} style={{
+                  fontSize: FS.caption, fontWeight: FW.semibold, padding: '2px 8px', borderRadius: RADIUS.md, cursor: 'pointer',
                   background: theme.panel2, color: theme.text, border: `1px solid ${theme.border}`,
-                }}>{s.name}</span>
+                }}>{s.name}</Pressable>
               ))}
             </div>
           )}
@@ -53,27 +55,27 @@ function IssueCard({ issue, rank, stocks }: { issue: ApiNewsIssue; rank: number;
             <SentimentBadge sentiment={issue.sentiment} reason={issue.sentiment_reason} />
             <a href={issue.url} target="_blank" rel="noopener noreferrer" style={{
               flex: 1, minWidth: 0,
-              fontSize: 15, fontWeight: 700, lineHeight: 1.45, color: 'inherit', textDecoration: 'none',
+              fontSize: FS.title, fontWeight: FW.semibold, lineHeight: 1.45, color: 'inherit', textDecoration: 'none',
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}>{issue.title}</a>
           </div>
           {issue.sentiment_reason && (
-            <div style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.5 }}>
-              <span style={{ color: theme.ai, fontWeight: 700 }}>AI</span> {issue.sentiment_reason}
+            <div style={{ fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.5 }}>
+              <span style={{ color: theme.aiFg, fontWeight: FW.semibold }}>AI</span> {issue.sentiment_reason}
             </div>
           )}
           {issue.summary && (
             <div style={{
-              fontSize: 12, color: theme.textMuted, lineHeight: 1.5,
+              fontSize: FS.caption, color: theme.textMuted, lineHeight: 1.5,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}>{issue.summary}</div>
           )}
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, fontSize: 11, color: theme.textMuted }}>
-            <span style={{ padding: '2px 8px', borderRadius: 999, background: theme.aiSoft, color: theme.ai, fontWeight: 700 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, fontSize: FS.caption, color: theme.textMuted }}>
+            <span style={{ padding: '2px 8px', borderRadius: RADIUS.pill, background: theme.aiSoft, color: theme.aiFg, fontWeight: FW.semibold }}>
               언론사 {issue.source_count}곳 보도
             </span>
             {issue.tags.slice(0, 3).map(tag => (
-              <span key={tag} style={{ padding: '2px 8px', borderRadius: 999, background: theme.panel2, color: theme.text }}>#{tag}</span>
+              <span key={tag} style={{ padding: '2px 8px', borderRadius: RADIUS.pill, background: theme.panel2, color: theme.text }}>#{tag}</span>
             ))}
             <span>최근 보도 {timeAgo(issue.latest_published_at)}</span>
           </div>
@@ -85,24 +87,24 @@ function IssueCard({ issue, rank, stocks }: { issue: ApiNewsIssue; rank: number;
             onError={e => { e.currentTarget.style.display = 'none'; }}
             style={{
               width: 112, height: 76, flexShrink: 0, objectFit: 'cover',
-              borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.panel2,
+              borderRadius: RADIUS.md, border: `1px solid ${theme.border}`, background: theme.panel2,
             }}
           />
         )}
       </div>
 
       {issue.related.length > 0 && (
-        <div style={{ paddingLeft: 36 }}>
+        <div style={{ paddingLeft: 40 }}>
           <button onClick={() => setOpen(o => !o)} style={{
-            background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 12, color: theme.textMuted,
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: FS.caption, color: theme.textMuted,
           }}>
             {open ? '관련 기사 접기 ▲' : `같은 소식 다른 기사 ${issue.article_count - 1}건 ▼`}
           </button>
           {open && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
               {issue.related.map(r => (
                 <a key={r.url} href={r.url} target="_blank" rel="noopener noreferrer" style={{
-                  fontSize: 12, color: 'inherit', textDecoration: 'none', display: 'flex', gap: 8, minWidth: 0,
+                  fontSize: FS.caption, color: 'inherit', textDecoration: 'none', display: 'flex', gap: 8, minWidth: 0,
                 }}>
                   <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>· {r.title}</span>
                   <span style={{ color: theme.textMuted, flexShrink: 0 }}>{r.source ?? ''}</span>
@@ -172,19 +174,19 @@ export default function NewsPage() {
   const status = selected ? stockStatus : marketStatus;
   const chip = (label: string, active: boolean, onClick: () => void, watched = false) => (
     <button key={label} onClick={onClick} style={{
-      flexShrink: 0, cursor: 'pointer', padding: '7px 14px', borderRadius: 999, fontSize: 13,
-      fontWeight: active ? 700 : 500, whiteSpace: 'nowrap',
+      flexShrink: 0, cursor: 'pointer', padding: '8px 16px', borderRadius: RADIUS.pill, fontSize: FS.body,
+      fontWeight: active ? FW.semibold : FW.medium, whiteSpace: 'nowrap',
       border: `1px solid ${active ? theme.ai : theme.border}`,
       background: active ? theme.aiSoft : theme.panel,
-      color: active ? theme.ai : theme.text,
+      color: active ? theme.aiFg : theme.text,
     }}>{watched ? '★ ' : ''}{label}</button>
   );
 
   return (
-    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 920, width: '100%', margin: '0 auto' }}>
+    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div>
-        <div style={{ fontSize: 20, fontWeight: 800 }}>핵심 뉴스</div>
-        <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 3 }}>
+        <div style={{ fontSize: FS.heading, fontWeight: FW.bold }}>핵심 뉴스</div>
+        <div style={{ fontSize: FS.body, color: theme.textMuted, marginTop: 4 }}>
           최근 7일간 여러 언론사가 함께 다룬 소식을 묶어, 크게 보도된 순서로 보여줍니다
         </div>
       </div>
@@ -195,24 +197,24 @@ export default function NewsPage() {
       </div>
 
       <div style={{
-        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-        padding: isMobile ? '4px 14px' : '4px 20px',
+        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+        padding: isMobile ? '4px 16px' : '4px 20px',
       }}>
         {status === 'loading' && (
-          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: theme.textMuted }}>
+          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: FS.body, color: theme.textMuted }}>
             {selected ? `${selected.name} 기사를 모아 이슈를 추리는 중...` : '거래대금 상위 종목의 기사를 모아 이슈를 추리는 중... (처음엔 20초 정도 걸려요)'}
           </div>
         )}
         {status === 'error' && (
-          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: theme.textMuted }}>
+          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: FS.body, color: theme.textMuted }}>
             핵심 뉴스를 불러오지 못했습니다{' '}
             <button onClick={() => setRetry(r => r + 1)} style={{
-              background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: theme.ai, fontSize: 13,
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: theme.aiFg, fontSize: FS.body,
             }}>다시 시도</button>
           </div>
         )}
         {status === 'ready' && (selected ? stockIssues : marketIssues).length === 0 && (
-          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: 13, color: theme.textMuted }}>
+          <div style={{ padding: '48px 0', textAlign: 'center', fontSize: FS.body, color: theme.textMuted }}>
             최근 크게 다뤄진 이슈가 없습니다
           </div>
         )}

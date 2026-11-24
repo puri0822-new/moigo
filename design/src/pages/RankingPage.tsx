@@ -4,6 +4,8 @@ import { useTheme } from '../context/ThemeContext';
 import { apiGet } from '../lib/api';
 import StockLogo from '../components/StockLogo';
 import { useViewport } from '../lib/useViewport';
+import { FS, FW, RADIUS, ON_BRAND } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 interface ApiRankUser {
   rank: number;
@@ -71,14 +73,14 @@ export default function RankingPage() {
 
   if (status !== 'ready' || users.length === 0) {
     return (
-      <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 800 }}>랭킹</div>
-          <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 3 }}>총 자산 기준 실시간 순위</div>
+          <div style={{ fontSize: FS.heading, fontWeight: FW.bold }}>랭킹</div>
+          <div style={{ fontSize: FS.body, color: theme.textMuted, marginTop: 4 }}>총 자산 기준 실시간 순위</div>
         </div>
         <div style={{
-          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-          padding: '48px 0', textAlign: 'center', fontSize: 13, color: theme.textMuted,
+          background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg,
+          padding: '48px 0', textAlign: 'center', fontSize: FS.body, color: theme.textMuted,
         }}>
           {status === 'loading' ? '랭킹을 불러오는 중...' : status === 'error' ? '랭킹을 불러오지 못했습니다' : '아직 랭킹에 표시할 사용자가 없습니다'}
         </div>
@@ -87,16 +89,16 @@ export default function RankingPage() {
   }
 
   return (
-    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ padding: isMobile ? 16 : 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* 헤더 */}
       <div>
-        <div style={{ fontSize: 20, fontWeight: 800 }}>랭킹</div>
-        <div style={{ fontSize: 13, color: theme.textMuted, marginTop: 3 }}>총 자산 기준 실시간 순위</div>
+        <div style={{ fontSize: FS.heading, fontWeight: FW.bold }}>랭킹</div>
+        <div style={{ fontSize: FS.body, color: theme.textMuted, marginTop: 4 }}>총 자산 기준 실시간 순위</div>
       </div>
 
       {/* 내 순위 요약 */}
       {myUser && <div style={{
-        background: theme.ai, borderRadius: 14, padding: '16px 20px',
+        background: theme.ai, borderRadius: RADIUS.lg, padding: 16,
         display: 'flex', alignItems: 'center', gap: 16,
         position: 'relative', overflow: 'hidden',
       }}>
@@ -105,20 +107,20 @@ export default function RankingPage() {
         <div style={{
           width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, fontWeight: 800, color: '#fff', flexShrink: 0,
+          fontSize: FS.title, fontWeight: FW.bold, color: '#fff', flexShrink: 0,
         }}>
           {myUser.nickname[0]?.toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>내 순위</div>
+          <div style={{ fontSize: FS.caption, color: 'rgba(255,255,255,0.7)', fontWeight: FW.medium }}>내 순위</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{myRank}위</span>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>{myUser.totalAsset.toLocaleString()}원</span>
+            <span style={{ fontSize: FS.heading, fontWeight: FW.bold, color: '#fff' }}>{myRank}위</span>
+            <span style={{ fontSize: FS.body, color: 'rgba(255,255,255,0.8)' }}>{myUser.totalAsset.toLocaleString()}원</span>
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>수익</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: myUser.profitAmount >= 0 ? '#fca5a5' : '#93c5fd', marginTop: 2 }}>
+          <div style={{ fontSize: FS.caption, color: 'rgba(255,255,255,0.7)' }}>수익</div>
+          <div style={{ fontSize: FS.title, fontWeight: FW.bold, color: myUser.profitAmount >= 0 ? ON_BRAND.up : ON_BRAND.down, marginTop: 2 }}>
             {profitLabel(myUser.profitAmount, myUser.profitRate)}
           </div>
         </div>
@@ -131,42 +133,42 @@ export default function RankingPage() {
           return (
             <div key={user.id} style={{
               flex: 1, minWidth: 0, background: theme.panel, border: `2px solid ${isCenter ? medalColors[0] : theme.border}`,
-              borderRadius: 14, padding: isMobile ? '14px 8px' : '18px 14px',
+              borderRadius: RADIUS.lg, padding: isMobile ? '16px 8px' : '20px 16px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
               minHeight: realRank === 1 ? 190 : realRank === 2 ? 160 : 150,
               justifyContent: 'center',
               boxShadow: isCenter ? `0 4px 20px ${medalColors[0]}33` : 'none',
               position: 'relative',
             }}>
-              <div style={{ fontSize: isCenter ? 28 : 22 }}>{medalLabels[realRank - 1]}</div>
+              <div style={{ fontSize: isCenter ? FS.display : FS.heading }}>{medalLabels[realRank - 1]}</div>
               <div style={{
                 width: isCenter ? 48 : 40, height: isCenter ? 48 : 40,
                 borderRadius: '50%', background: `${medalColors[realRank - 1]}22`,
                 border: `2px solid ${medalColors[realRank - 1]}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: isCenter ? 18 : 15, fontWeight: 800,
+                fontSize: FS.title, fontWeight: FW.bold,
                 color: medalColors[realRank - 1],
               }}>
                 {user.nickname[0]?.toUpperCase()}
               </div>
-              <div style={{ fontSize: isCenter ? 14 : 13, fontWeight: 700, textAlign: 'center' }}>{user.nickname}</div>
-              <div style={{ fontSize: isCenter ? 15 : 13, fontWeight: 800 }}>{(user.totalAsset / 10000).toFixed(0)}만원</div>
-              <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', color: user.profitAmount >= 0 ? theme.up : theme.down }}>
+              <div style={{ fontSize: FS.body, fontWeight: FW.semibold, textAlign: 'center' }}>{user.nickname}</div>
+              <div style={{ fontSize: isCenter ? FS.title : FS.body, fontWeight: FW.bold }}>{(user.totalAsset / 10000).toFixed(0)}만원</div>
+              <div style={{ fontSize: FS.caption, fontWeight: FW.semibold, textAlign: 'center', color: user.profitAmount >= 0 ? theme.up : theme.down }}>
                 {profitLabel(user.profitAmount, user.profitRate)}
               </div>
               {/* Top3 투자 종목 */}
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', marginTop: 2 }}>
                 {user.top3.map(s => (
-                  <div key={s.code} onClick={() => navigate(`/stock/${s.code}`)} style={{
-                    display: 'flex', alignItems: 'center', gap: 3,
-                    padding: '2px 6px', borderRadius: 6,
+                  <Pressable key={s.code} onClick={() => navigate(`/stock/${s.code}`)} style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '2px 8px', borderRadius: RADIUS.md,
                     background: theme.panel2, border: `1px solid ${theme.border}`,
-                    fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                    fontSize: FS.caption, fontWeight: FW.medium, cursor: 'pointer',
                     color: s.profitRate >= 0 ? theme.up : theme.down,
                   }}>
                     <StockLogo name={s.name} code={s.code} size={12} />
                     {s.name.length > 4 ? s.name.slice(0, 4) : s.name}
-                  </div>
+                  </Pressable>
                 ))}
               </div>
             </div>
@@ -175,12 +177,12 @@ export default function RankingPage() {
       </div>
 
       {/* 4위 이하 리스트 */}
-      {rest.length > 0 && <div style={{ background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14, overflowX: 'auto', overflowY: 'hidden' }}>
+      {rest.length > 0 && <div style={{ background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: RADIUS.lg, overflowX: 'auto', overflowY: 'hidden' }}>
         {/* 컬럼 헤더 */}
         <div style={{
           display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr', minWidth: 620,
-          padding: '10px 20px', borderBottom: `1px solid ${theme.border}`,
-          fontSize: 11, fontWeight: 700, color: theme.textMuted,
+          padding: '12px 20px', borderBottom: `1px solid ${theme.border}`,
+          fontSize: FS.caption, fontWeight: FW.semibold, color: theme.textMuted,
         }}>
           <span>순위</span>
           <span>닉네임</span>
@@ -195,50 +197,50 @@ export default function RankingPage() {
           return (
             <div key={user.id} style={{
               display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr', minWidth: 620,
-              padding: '13px 20px', borderBottom: `1px solid ${theme.border}`,
-              alignItems: 'center', fontSize: 13,
+              padding: '12px 20px', borderBottom: `1px solid ${theme.border}`,
+              alignItems: 'center', fontSize: FS.body,
               background: isMe ? theme.aiSoft : 'transparent',
             }}>
-              <span style={{ fontWeight: 700, color: theme.textMuted }}>{rank}</span>
+              <span style={{ fontWeight: FW.semibold, color: theme.textMuted }}>{rank}</span>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%',
                   background: isMe ? theme.ai : theme.panel2,
                   border: `1px solid ${isMe ? theme.ai : theme.border}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700,
+                  fontSize: FS.body, fontWeight: FW.semibold,
                   color: isMe ? '#fff' : theme.textMuted,
                   flexShrink: 0,
                 }}>
                   {user.nickname[0]?.toUpperCase()}
                 </div>
-                <span style={{ fontWeight: isMe ? 700 : 500 }}>
-                  {user.nickname}{isMe && <span style={{ fontSize: 11, color: theme.ai, marginLeft: 5, fontWeight: 700 }}>나</span>}
+                <span style={{ fontWeight: isMe ? FW.semibold : FW.medium }}>
+                  {user.nickname}{isMe && <span style={{ fontSize: FS.caption, color: theme.aiFg, marginLeft: 4, fontWeight: FW.semibold }}>나</span>}
                 </span>
               </div>
 
-              <div style={{ textAlign: 'right', fontWeight: 700 }}>
+              <div style={{ textAlign: 'right', fontWeight: FW.semibold }}>
                 {(user.totalAsset / 10000).toFixed(0)}만원
               </div>
 
-              <div style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap', color: user.profitAmount >= 0 ? theme.up : theme.down }}>
+              <div style={{ textAlign: 'right', fontWeight: FW.semibold, whiteSpace: 'nowrap', color: user.profitAmount >= 0 ? theme.up : theme.down }}>
                 {profitLabel(user.profitAmount, user.profitRate)}
               </div>
 
               <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                {user.top3.length === 0 && <span style={{ fontSize: 11, color: theme.textMuted }}>보유 종목 없음</span>}
+                {user.top3.length === 0 && <span style={{ fontSize: FS.caption, color: theme.textMuted }}>보유 종목 없음</span>}
                 {user.top3.map(s => (
-                  <div key={s.code} onClick={() => navigate(`/stock/${s.code}`)} style={{
+                  <Pressable key={s.code} onClick={() => navigate(`/stock/${s.code}`)} style={{
                     display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '3px 7px', borderRadius: 6,
+                    padding: '4px 8px', borderRadius: RADIUS.md,
                     background: theme.panel2, border: `1px solid ${theme.border}`,
-                    fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                    fontSize: FS.caption, fontWeight: FW.medium, cursor: 'pointer',
                     color: s.profitRate >= 0 ? theme.up : theme.down,
                   }}>
                     <StockLogo name={s.name} code={s.code} size={14} />
                     {s.name.length > 5 ? s.name.slice(0, 5) : s.name}
-                  </div>
+                  </Pressable>
                 ))}
               </div>
             </div>

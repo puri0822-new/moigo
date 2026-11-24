@@ -6,6 +6,8 @@ import StockLogo from './StockLogo';
 import { useAiRecommendations } from '../lib/aiRecommendations';
 import type { AiRecommendation } from '../lib/aiRecommendations';
 import { findAiProfile, useAiModels } from '../lib/aiModels';
+import { FS, FW, RADIUS, ON_BRAND } from '../lib/tokens';
+import Pressable from './Pressable';
 
 const ROTATE_MS = 6000;
 
@@ -32,10 +34,10 @@ export default function AiRecCard() {
   const isBuy = rec.opinion === 'BUY';
 
   return (
-    <div
+    <Pressable
       onClick={() => navigate(`/stock/${rec.stockCode}`)}
       style={{
-        background: theme.ai, borderRadius: 14, padding: '20px 18px',
+        background: theme.ai, borderRadius: RADIUS.lg, padding: '20px 20px',
         display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer',
         position: 'relative', overflow: 'hidden', minHeight: 180, flexShrink: 0,
       }}
@@ -44,37 +46,38 @@ export default function AiRecCard() {
       <div style={{ position: 'absolute', right: 20, bottom: -30, width: 70, height: 70, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
 
       <div key={`rec-header-${rec.id}`} className="ai-rec-slide" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div style={{ width: 28, height: 28, borderRadius: RADIUS.md, flexShrink: 0, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           <AiIcon model={rec.aiModel} size={20} />
         </div>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>
+        <span style={{ fontSize: FS.caption, fontWeight: FW.semibold, color: 'rgba(255,255,255,0.85)' }}>
           {ai.name} · {rec.periodType === 'WEEKLY' ? '1주' : '1달'} 추천
         </span>
-        <div
+        <Pressable
           onClick={e => { e.stopPropagation(); setHidden(true); }}
-          style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: 6, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}
-        >✕</div>
+          aria-label="이 추천 숨기기"
+          style={{ marginLeft: 'auto', width: 28, height: 28, borderRadius: RADIUS.md, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: FS.caption, color: 'rgba(255,255,255,0.7)', flexShrink: 0 }}
+        >✕</Pressable>
       </div>
 
       <div key={`rec-body-${rec.id}`} className="ai-rec-slide">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <StockLogo name={rec.stockName} code={rec.stockCode} size={20} />
-          <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
+          <span style={{ fontSize: FS.title, fontWeight: FW.bold, color: '#fff' }}>{rec.stockName}</span>
           <span style={{
-            fontSize: 11, fontWeight: 700, borderRadius: 5, padding: '2px 7px',
-            color: isBuy ? '#fca5a5' : '#93c5fd', border: `1px solid ${isBuy ? '#fca5a5' : '#93c5fd'}`,
+            fontSize: FS.caption, fontWeight: FW.semibold, borderRadius: RADIUS.sm, padding: '2px 8px',
+            color: isBuy ? ON_BRAND.up : ON_BRAND.down, border: `1px solid ${isBuy ? ON_BRAND.up : ON_BRAND.down}`,
           }}>
             {isBuy ? '매수' : '매도'}
           </span>
         </div>
         <div style={{
-          fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, wordBreak: 'keep-all',
+          fontSize: FS.caption, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, wordBreak: 'keep-all',
           display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {rec.reason}
         </div>
       </div>
-    </div>
+    </Pressable>
   );
 }
 

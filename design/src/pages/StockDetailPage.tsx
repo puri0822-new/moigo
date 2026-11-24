@@ -14,6 +14,7 @@ import AiInsightTab from '../components/stock/AiInsightTab';
 import MyTradingTab from '../components/stock/MyTradingTab';
 import OrderBox, { type OrderPriceType } from '../components/stock/OrderBox';
 import WatchAlertDialog from '../components/stock/WatchAlertDialog';
+import ConfirmDialog from '../components/ConfirmDialog';
 import {
   addWatchlist, cancelOrder, createOrder, createStockAnalysis, fetchSimilarStocks, fetchStockAiReason, fetchStockAnalysis, fetchStockByCode, fetchStockCandles,
   fetchStockInfo, fetchStockNews, fetchStockOrderbook, fetchWatchlist, getOrders, getPortfolio, removeWatchlist, setWatchAlert,
@@ -22,6 +23,8 @@ import {
 } from '../lib/api';
 import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
 import { useViewport } from '../lib/useViewport';
+import { FS, FW, RADIUS } from '../lib/tokens';
+import Pressable from '../components/Pressable';
 
 // 탭 이름은 막대 하나의 단위다. 분 = 오늘 1분봉, 일 = 일봉, 주 = 주봉, 월 = 월봉, 년 = 년봉.
 // count는 서버에서 가져올 막대 개수(넉넉히 요청하면 있는 만큼 전부 온다), visibleBars는 처음 화면에 보여줄 최근 막대 개수.
@@ -76,6 +79,9 @@ export default function StockDetailPage() {
   const [askAlert, setAskAlert] = useState(false);
   const [mainTab, setMainTab] = useState<'chart' | 'info' | 'news' | 'community'>('chart');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  // 취소를 물어보는 중인 미체결 주문
+  const [cancelTargetId, setCancelTargetId] = useState<number | null>(null);
+  const [canceling, setCanceling] = useState(false);
   const [rightTab, setRightTab] = useState<'insight' | 'portfolio'>('insight');
   const { isMobile, isCompact } = useViewport();
 
@@ -404,15 +410,21 @@ export default function StockDetailPage() {
     }
   };
 
-  const handleCancel = async (orderId: number) => {
+  const confirmCancel = async () => {
+    if (cancelTargetId == null) return;
+    setCanceling(true);
     try {
-      await cancelOrder(orderId);
+      await cancelOrder(cancelTargetId);
       showToast('주문을 취소했어요', true);
     } catch (err) {
       showToast(err instanceof Error ? err.message : '주문 취소에 실패했습니다', false);
+    } finally {
+      setCanceling(false);
+      setCancelTargetId(null);
     }
     loadAccountData();
   };
+  const cancelTarget = cancelTargetId == null ? null : orders.find(o => o.id === cancelTargetId) ?? null;
 
   // 호가를 누르면 그 가격으로 지정가 주문을 넣을 수 있게 채워준다
   const pickOrderbookPrice = (price: number) => {
@@ -424,13 +436,13 @@ export default function StockDetailPage() {
   if (stockStatus !== 'ready' || !stock) {
     return (
       <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ color: stockStatus === 'loading' ? theme.textMuted : theme.down, fontSize: 14 }}>
+        <div style={{ color: stockStatus === 'loading' ? theme.textMuted : theme.down, fontSize: FS.body }}>
           {stockStatus === 'loading' && '종목 정보를 불러오는 중...'}
           {stockStatus === 'notFound' && '종목 정보를 찾을 수 없습니다.'}
           {stockStatus === 'error' && '종목 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'}
         </div>
         {stockStatus !== 'loading' && (
-          <button onClick={() => navigate('/dashboard')} style={{ alignSelf: 'flex-start', color: theme.ai, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
+          <button onClick={() => navigate('/dashboard')} style={{ alignSelf: 'flex-start', color: theme.aiFg, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: FS.body }}>
             ← 홈으로
           </button>
         )}
@@ -445,7 +457,7 @@ export default function StockDetailPage() {
     <div style={{
       display: 'flex', minHeight: '100%',
       flexDirection: isCompact ? 'column' : 'row', alignItems: isCompact ? 'stretch' : 'flex-start',
-      paddingBottom: isMobile ? 56 : 0,
+      paddingBottom: isMobile ? 64 : 0,
     }}>
       {/* 메인 콘텐츠 */}
       <div style={{
@@ -456,9 +468,9 @@ export default function StockDetailPage() {
           onClick={() => navigate(-1)}
           style={{
             alignSelf: 'flex-start',
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '7px 12px', borderRadius: 8, border: `1px solid ${theme.border}`,
-            fontSize: 13, fontWeight: 600, color: theme.textMuted,
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 12px', borderRadius: RADIUS.md, border: `1px solid ${theme.border}`,
+            fontSize: FS.body, fontWeight: FW.medium, color: theme.textMuted,
             cursor: 'pointer', background: 'transparent', fontFamily: 'inherit',
           }}
         >
@@ -467,37 +479,37 @@ export default function StockDetailPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <StockLogo name={stock.name} code={stock.code} size={48} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 22, fontWeight: 800 }}>{stock.name}</span>
-              <span style={{ fontSize: 13, color: theme.textMuted, fontWeight: 500 }}>{stock.code}</span>
+              <span style={{ fontSize: FS.heading, fontWeight: FW.bold }}>{stock.name}</span>
+              <span style={{ fontSize: FS.body, color: theme.textMuted, fontWeight: FW.medium }}>{stock.code}</span>
               <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {/* 관심 종목 (하트) */}
-                <div
+                <Pressable
                   onClick={toggleLike}
                   title={liked ? '관심 종목에서 빼기' : '관심 종목에 추가'}
                   style={{
-                    width: 34, height: 34, borderRadius: 10,
+                    width: 34, height: 34, borderRadius: RADIUS.md,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer',
-                    background: liked ? 'rgba(239,68,68,0.08)' : theme.panel2,
-                    border: `1px solid ${liked ? '#ef4444' : theme.border}`,
-                    color: liked ? '#ef4444' : theme.textMuted,
+                    background: liked ? `${theme.up}14` : theme.panel2,
+                    border: `1px solid ${liked ? theme.up : theme.border}`,
+                    color: liked ? theme.up : theme.textMuted,
                     transition: 'all 0.2s',
                   }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#ef4444' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? theme.up : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
-                </div>
+                </Pressable>
               </div>
             </div>
             {stock.sector && (
               <div style={{
                 display: 'inline-flex', alignItems: 'center',
-                fontSize: 12, fontWeight: 600, color: theme.ai,
+                fontSize: FS.caption, fontWeight: FW.medium, color: theme.aiFg,
                 background: theme.aiSoft, border: `1px solid ${theme.ai}`,
-                borderRadius: 6, padding: '2px 8px', alignSelf: 'flex-start',
+                borderRadius: RADIUS.md, padding: '2px 8px', alignSelf: 'flex-start',
               }}>
                 {stock.sector}
               </div>
@@ -505,8 +517,8 @@ export default function StockDetailPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 8 : 14, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: isMobile ? 26 : 30, fontWeight: 800, letterSpacing: '-0.01em' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: isMobile ? 8 : 16, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: isMobile ? FS.display : FS.display, fontWeight: FW.bold, letterSpacing: '-0.01em' }}>
             {stock.current_price != null ? `${stock.current_price.toLocaleString()}원` : '-'}
           </div>
           {changePct != null && stock.current_price != null && (() => {
@@ -525,12 +537,12 @@ export default function StockDetailPage() {
               }
             }
             return (
-              <div style={{ fontSize: 14, fontWeight: 700, color: rate >= 0 ? theme.up : theme.down }}>
+              <div style={{ fontSize: FS.body, fontWeight: FW.semibold, color: rate >= 0 ? theme.up : theme.down }}>
                 {`${label} ${rate >= 0 ? '+' : ''}${Math.round(changeWon).toLocaleString()}원 (${Math.abs(rate).toFixed(2)}%)`}
               </div>
             );
           })()}
-          <div style={{ fontSize: 12, color: theme.textMuted }}>
+          <div style={{ fontSize: FS.caption, color: theme.textMuted }}>
             거래량 {stock.volume != null ? stock.volume.toLocaleString() : '-'}
           </div>
         </div>
@@ -543,16 +555,16 @@ export default function StockDetailPage() {
             ['news', '뉴스 · 공시'],
             ['community', '커뮤니티'],
           ] as const).map(([key, label]) => (
-            <div
+            <Pressable
               key={key}
               onClick={() => setMainTab(key)}
               style={{
-                padding: '10px 16px', fontSize: 13, fontWeight: mainTab === key ? 700 : 500,
-                color: mainTab === key ? theme.ai : theme.textMuted,
+                padding: '12px 16px', fontSize: FS.body, fontWeight: mainTab === key ? FW.semibold : FW.medium,
+                color: mainTab === key ? theme.aiFg : theme.textMuted,
                 borderBottom: mainTab === key ? `2px solid ${theme.ai}` : '2px solid transparent',
                 cursor: 'pointer', whiteSpace: 'nowrap',
               }}
-            >{label}</div>
+            >{label}</Pressable>
           ))}
         </div>
 
@@ -560,17 +572,17 @@ export default function StockDetailPage() {
         {mainTab === 'chart' && <>
           <div style={{
             background: theme.panel, border: `1px solid ${theme.border}`,
-            borderRadius: 12, height: 260, display: 'flex', flexDirection: 'column',
+            borderRadius: RADIUS.lg, height: 260, display: 'flex', flexDirection: 'column',
             // 세로 flex 안에서 내용이 길어져도 차트 박스가 줄어들어 높이가 0이 되지 않게 한다
             flexShrink: 0,
           }}>
-            <div style={{ display: 'flex', gap: 6, padding: '10px 14px', borderBottom: `1px solid ${theme.border}` }}>
+            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderBottom: `1px solid ${theme.border}` }}>
               {periods.map(p => (
-                <div key={p} onClick={() => setPeriod(p)} style={{
-                  fontSize: 12, fontWeight: 600, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+                <Pressable key={p} onClick={() => setPeriod(p)} style={{
+                  fontSize: FS.caption, fontWeight: FW.medium, padding: '4px 12px', borderRadius: RADIUS.md, cursor: 'pointer',
                   background: period === p ? theme.ai : 'transparent',
                   color: period === p ? theme.aiText : theme.textMuted,
-                }}>{p}</div>
+                }}>{p}</Pressable>
               ))}
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
@@ -579,7 +591,7 @@ export default function StockDetailPage() {
               ) : (
                 <div style={{
                   height: '100%', display: 'flex', flexDirection: 'column', gap: 8,
-                  alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: 13,
+                  alignItems: 'center', justifyContent: 'center', color: theme.textMuted, fontSize: FS.body,
                 }}>
                   {candlesStatus === 'loading' && '차트 데이터를 불러오는 중...'}
                   {candlesStatus === 'ready' && '표시할 차트 데이터가 없습니다'}
@@ -589,8 +601,8 @@ export default function StockDetailPage() {
                       <button
                         onClick={() => setCandlesReloadKey(k => k + 1)}
                         style={{
-                          padding: '5px 12px', borderRadius: 6, border: `1px solid ${theme.border}`,
-                          fontSize: 12, fontWeight: 600, color: theme.ai,
+                          padding: '4px 12px', borderRadius: RADIUS.md, border: `1px solid ${theme.border}`,
+                          fontSize: FS.caption, fontWeight: FW.medium, color: theme.aiFg,
                           cursor: 'pointer', background: 'transparent', fontFamily: 'inherit',
                         }}
                       >
@@ -607,15 +619,15 @@ export default function StockDetailPage() {
             {/* 호가 */}
             <div style={{
               flex: 1, background: theme.panel, border: `1px solid ${theme.border}`,
-              borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 6,
+              borderRadius: RADIUS.lg, padding: 16, display: 'flex', flexDirection: 'column', gap: 8,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>호가</div>
-                <div
+                <div style={{ fontSize: FS.body, fontWeight: FW.semibold }}>호가</div>
+                <Pressable
                   onClick={() => setOrderbookExpanded(true)}
                   title="호가 크게 보기"
                   style={{
-                    width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`,
+                    width: 24, height: 24, borderRadius: RADIUS.md, border: `1px solid ${theme.border}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: 'pointer', color: theme.textMuted,
                   }}
@@ -624,12 +636,12 @@ export default function StockDetailPage() {
                     <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
                     <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
                   </svg>
-                </div>
+                </Pressable>
               </div>
               <OrderbookLevels orderbook={orderbook} status={orderbookStatus} levelCount={ORDERBOOK_LEVELS} large={false} onPick={pickOrderbookPrice} />
             </div>
 
-            <StockOrderList orders={stockOrders} onCancel={handleCancel} />
+            <StockOrderList orders={stockOrders} onCancel={setCancelTargetId} />
           </div>
         </>}
 
@@ -659,21 +671,21 @@ export default function StockDetailPage() {
         {/* 탭 */}
         <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, flexShrink: 0 }}>
           {([['insight', 'AI 인사이트'], ['portfolio', '내 모의매매']] as const).map(([key, label]) => (
-            <div
+            <Pressable
               key={key}
               onClick={() => setRightTab(key)}
               style={{
-                flex: 1, textAlign: 'center', padding: '14px 0',
-                fontSize: 13, fontWeight: rightTab === key ? 700 : 500,
-                color: rightTab === key ? theme.ai : theme.textMuted,
+                flex: 1, textAlign: 'center', padding: '16px 0',
+                fontSize: FS.body, fontWeight: rightTab === key ? FW.semibold : FW.medium,
+                color: rightTab === key ? theme.aiFg : theme.textMuted,
                 borderBottom: rightTab === key ? `2px solid ${theme.ai}` : '2px solid transparent',
                 cursor: 'pointer',
               }}
-            >{label}</div>
+            >{label}</Pressable>
           ))}
         </div>
 
-        <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* AI 인사이트 탭 */}
           {rightTab === 'insight' && (
             <AiInsightTab
@@ -711,14 +723,31 @@ export default function StockDetailPage() {
       {/* 관심 종목 추가 후 급등락 알림 여부 */}
       {askAlert && <WatchAlertDialog stockName={stock.name} stockCode={stock.code} onAnswer={answerAlert} />}
 
+      {/* 미체결 주문 취소 확인 */}
+      {cancelTarget && (
+        <ConfirmDialog
+          title="미체결 주문을 취소할까요?"
+          message={`${cancelTarget.order_type === 'BUY' ? '매수' : '매도'} ${cancelTarget.quantity.toLocaleString()}주 · ${cancelTarget.price.toLocaleString()}원`}
+          confirmLabel="주문 취소"
+          cancelLabel="그대로 두기"
+          danger
+          busy={canceling}
+          onConfirm={confirmCancel}
+          onCancel={() => setCancelTargetId(null)}
+        />
+      )}
+
       {toast && (
-        <div style={{
+        <div role="status" aria-live="polite" style={{
           position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
-          // 실패 알림은 주가 등락 색(빨강/파랑)과 헷갈리지 않게 중립색으로 보여준다
-          background: toast.ok ? theme.up : theme.text,
-          borderRadius: 10, padding: '12px 20px', fontSize: 13, fontWeight: 600,
-          color: theme.bg, boxShadow: '0 8px 24px rgba(0,0,0,.3)', zIndex: 50, whiteSpace: 'nowrap',
+          // 성공은 초록, 실패는 중립색. 빨강은 주가 상승색이라 결과 알림에 쓰지 않는다.
+          // 색만으로 구분하지 않게 앞에 기호도 붙인다
+          background: toast.ok ? theme.success : theme.text,
+          borderRadius: RADIUS.md, padding: '12px 20px', fontSize: FS.body, fontWeight: FW.medium,
+          color: theme.bg, boxShadow: '0 8px 24px rgba(0,0,0,.3)', zIndex: 50,
+          maxWidth: 'calc(100vw - 32px)', display: 'flex', alignItems: 'center', gap: 8,
         }}>
+          <span aria-hidden="true" style={{ fontWeight: FW.bold }}>{toast.ok ? '✓' : '⚠'}</span>
           {toast.msg}
         </div>
       )}
