@@ -49,7 +49,7 @@ def _load_posts(
     liked_by_me = exists().where(PostLike.post_id == Post.id, PostLike.user_id == me.id).correlate(Post)
 
     query = (
-        select(Post, User.nickname, User.is_demo, Stock, like_count, comment_count, liked_by_me)
+        select(Post, User.nickname, User.avatar_url, User.is_demo, Stock, like_count, comment_count, liked_by_me)
         .join(User, User.id == Post.user_id)
         .outerjoin(Stock, Stock.id == Post.stock_id)
         .where(*where)
@@ -69,6 +69,7 @@ def _load_posts(
         {
             "id": post.id,
             "author": nickname,
+            "author_avatar_url": avatar_url,
             "author_is_demo": is_demo,
             "is_mine": post.user_id == me.id,
             "content": post.content,
@@ -79,7 +80,7 @@ def _load_posts(
             "liked": liked,
             "created_at": post.created_at,
         }
-        for post, nickname, is_demo, stock, likes, comments, liked in db.execute(query).all()
+        for post, nickname, avatar_url, is_demo, stock, likes, comments, liked in db.execute(query).all()
     ]
 
 
@@ -102,10 +103,11 @@ def _get_post_or_404(db: Session, post_id: int) -> Post:
     return post
 
 
-def _comment_dict(comment: PostComment, nickname: str, me: User, is_demo: bool = False) -> dict:
+def _comment_dict(comment: PostComment, nickname: str, me: User, is_demo: bool = False, avatar_url: str | None = None) -> dict:
     return {
         "id": comment.id,
         "author": nickname,
+        "author_avatar_url": avatar_url,
         "author_is_demo": is_demo,
         "is_mine": comment.user_id == me.id,
         "content": comment.content,
@@ -279,13 +281,16 @@ def list_comments(
 ):
     _get_post_or_404(db, post_id)
     rows = db.execute(
-        select(PostComment, User.nickname, User.is_demo)
+        select(PostComment, User.nickname, User.avatar_url, User.is_demo)
         .join(User, User.id == PostComment.user_id)
         .where(PostComment.post_id == post_id)
         .order_by(PostComment.id)
     ).all()
 
-    data = [_comment_dict(comment, nickname, current_user, is_demo) for comment, nickname, is_demo in rows]
+    data = [
+        _comment_dict(comment, nickname, current_user, is_demo, avatar_url)
+        for comment, nickname, avatar_url, is_demo in rows
+    ]
     return {"success": True, "data": data, "message": "요청 성공"}
 
 
@@ -302,7 +307,11 @@ def create_comment(
     db.commit()
     db.refresh(comment)
 
-    return {"success": True, "data": _comment_dict(comment, current_user.nickname, current_user, current_user.is_demo), "message": "댓글을 달았습니다"}
+    return {
+        "success": True,
+        "data": _comment_dict(comment, current_user.nickname, current_user, current_user.is_demo, current_user.avatar_url),
+        "message": "댓글을 달았습니다",
+    }
 
 
 @router.delete("/{post_id}/comments/{comment_id}")

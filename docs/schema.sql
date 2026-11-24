@@ -16,6 +16,7 @@ CREATE TABLE users (
     email           VARCHAR(255)    NOT NULL UNIQUE,
     password_hash   VARCHAR(255)    NULL,
     nickname        VARCHAR(50)     NOT NULL,
+    avatar_url          VARCHAR(255)    NULL,                    -- 프로필 사진 (/uploads/avatars/...), 없으면 NULL
     login_type          VARCHAR(20)     NOT NULL DEFAULT 'LOCAL',
     social_id           VARCHAR(255)    NULL,
     marketing_agreed    BOOLEAN         NOT NULL DEFAULT FALSE,

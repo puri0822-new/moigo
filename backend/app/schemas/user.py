@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class MyProfile(BaseModel):
     email: str
     nickname: str
+    avatar_url: str | None = None
     login_type: str
     # 구글로만 가입한 회원은 비밀번호가 없어서 비밀번호 변경 칸을 숨긴다
     has_password: bool

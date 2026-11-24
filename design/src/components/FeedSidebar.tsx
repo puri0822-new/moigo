@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import StockLogo from './StockLogo';
 import DemoBadge from './DemoBadge';
+import UserAvatar from './UserAvatar';
 import {
   fetchPopularPosts, fetchTrendingStocks, fetchWeeklyRanking,
   type ApiPost, type ApiTrendingStock, type ApiWeeklyRanker,
@@ -86,14 +87,7 @@ export default function FeedSidebar() {
         return (
           <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {rankNumber(user.rank)}
-            <div style={{
-              width: 24, height: 24, borderRadius: '50%', flexShrink: 0, fontSize: 10, fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: user.is_me ? theme.ai : theme.panel2, color: user.is_me ? theme.aiText : theme.textMuted,
-              border: `1px solid ${user.is_me ? theme.ai : theme.border}`,
-            }}>
-              {user.nickname.slice(0, 1).toUpperCase()}
-            </div>
+            <UserAvatar name={user.nickname} avatarUrl={user.avatar_url} size={24} accent={user.is_me} />
             <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: user.is_me ? 800 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nickname}{user.is_demo && <DemoBadge />}</span>
             <div style={{ textAlign: 'right', flexShrink: 0, color }}>
               <div style={{ fontSize: 12, fontWeight: 700 }}>{user.profit_amount >= 0 ? '+' : '-'}{Math.abs(user.profit_amount).toLocaleString()}원</div>

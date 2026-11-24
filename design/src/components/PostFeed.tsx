@@ -8,6 +8,7 @@ import {
   type ApiComment, type ApiPost, type ApiStock, type PostSort,
 } from '../lib/api';
 import DemoBadge from './DemoBadge';
+import UserAvatar from './UserAvatar';
 import { timeAgo } from '../lib/time';
 
 const PAGE_SIZE = 20;
@@ -26,7 +27,7 @@ interface Props {
 
 export default function PostFeed({ stockId, stockName }: Props) {
   const { theme } = useTheme();
-  const { nickname } = useAuth();
+  const { nickname, avatarUrl } = useAuth();
   const navigate = useNavigate();
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -248,14 +249,6 @@ export default function PostFeed({ stockId, stockName }: Props) {
     fontSize: 13, fontFamily: 'inherit', outline: 'none',
   };
   const linkButton = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 };
-  const avatar = (name: string, size: number) => (
-    <div style={{
-      width: size, height: size, borderRadius: '50%', background: theme.aiSoft, color: theme.ai, flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.42, fontWeight: 800,
-    }}>
-      {name.slice(0, 1)}
-    </div>
-  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -286,7 +279,7 @@ export default function PostFeed({ stockId, stockName }: Props) {
           background: theme.panel, border: `1px solid ${theme.border}`,
         }}
       >
-        {avatar(nickname || '?', 34)}
+        <UserAvatar name={nickname || '?'} avatarUrl={avatarUrl} size={34} accent />
         <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {draft.trim() ? draft : stockName ? `${stockName}에 대한 생각을 나눠보세요` : '투자 아이디어나 오늘의 매매를 나눠보세요'}
         </span>
@@ -482,7 +475,7 @@ export default function PostFeed({ stockId, stockName }: Props) {
       {status === 'ready' && posts.map(post => (
         <div key={post.id} style={{ ...card, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {avatar(post.author, 32)}
+            <UserAvatar name={post.author} avatarUrl={post.author_avatar_url} size={32} />
             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>{post.author}{post.author_is_demo && <DemoBadge />}</span>
               <span style={{ fontSize: 11, color: theme.textMuted }}>{timeAgo(post.created_at)}</span>
@@ -578,7 +571,7 @@ export default function PostFeed({ stockId, stockName }: Props) {
               {commentsStatus === 'ready' && comments.length === 0 && <div style={{ fontSize: 12, color: theme.textMuted }}>첫 댓글을 남겨보세요</div>}
               {comments.map(c => (
                 <div key={c.id} style={{ display: 'flex', gap: 8 }}>
-                  {avatar(c.author, 24)}
+                  <UserAvatar name={c.author} avatarUrl={c.author_avatar_url} size={24} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                       <span style={{ fontSize: 12, fontWeight: 700 }}>{c.author}{c.author_is_demo && <DemoBadge />}</span>

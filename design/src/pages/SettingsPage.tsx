@@ -1,22 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { apiGet, apiPatch, apiPost, apiPut } from '../lib/api';
-
-interface MyProfile {
-  email: string;
-  nickname: string;
-  login_type: string;
-  has_password: boolean;
-  marketing_agreed: boolean;
-  price_alert_enabled: boolean;
-  created_at: string;
-}
+import { apiGet, apiPatch, apiPost, apiPut, deleteAvatar, uploadAvatar, type MyProfile } from '../lib/api';
+import UserAvatar from '../components/UserAvatar';
 
 const NICKNAME_MAX = 50;
 const PASSWORD_MIN = 8;
+const AVATAR_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
 type Notice = { kind: 'ok' | 'error'; text: string } | null;
 
@@ -24,8 +17,9 @@ const errorText = (err: unknown) => (err instanceof Error ? err.message : '요�
 
 export default function SettingsPage() {
   const { theme } = useTheme();
-  const { updateNickname, logout } = useAuth();
+  const { updateNickname, updateAvatarUrl, logout } = useAuth();
   const navigate = useNavigate();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -34,6 +28,8 @@ export default function SettingsPage() {
   const [marketing, setMarketing] = useState(false);
   const [profileNotice, setProfileNotice] = useState<Notice>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [avatarNotice, setAvatarNotice] = useState<Notice>(null);
+  const [savingAvatar, setSavingAvatar] = useState(false);
 
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -84,6 +80,46 @@ export default function SettingsPage() {
   const trimmedNickname = nickname.trim();
   const profileChanged = trimmedNickname !== profile.nickname || marketing !== profile.marketing_agreed;
   const canSaveProfile = profileChanged && trimmedNickname.length > 0 && !savingProfile;
+
+  const onAvatarPick = async (file: File | undefined) => {
+    if (!file) return;
+    setAvatarNotice(null);
+    if (!AVATAR_TYPES.includes(file.type)) {
+      setAvatarNotice({ kind: 'error', text: 'JPG, PNG, WebP 사진만 올릴 수 있습니다' });
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setAvatarNotice({ kind: 'error', text: '프로필 사진은 2MB 이하만 올릴 수 있습니다' });
+      return;
+    }
+    setSavingAvatar(true);
+    try {
+      const next = await uploadAvatar(file);
+      setProfile(next);
+      updateAvatarUrl(next.avatar_url);
+      setAvatarNotice({ kind: 'ok', text: '프로필 사진을 올렸습니다' });
+    } catch (err) {
+      setAvatarNotice({ kind: 'error', text: errorText(err) });
+    } finally {
+      setSavingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
+  const removeAvatar = async () => {
+    setSavingAvatar(true);
+    setAvatarNotice(null);
+    try {
+      const res = await deleteAvatar();
+      setProfile(res.data);
+      updateAvatarUrl(null);
+      setAvatarNotice({ kind: 'ok', text: '프로필 사진을 삭제했습니다' });
+    } catch (err) {
+      setAvatarNotice({ kind: 'error', text: errorText(err) });
+    } finally {
+      setSavingAvatar(false);
+    }
+  };
 
   const saveProfile = async () => {
     if (!canSaveProfile) return;
@@ -178,14 +214,7 @@ export default function SettingsPage() {
       }}>
         <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ position: 'absolute', right: 90, bottom: -70, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
-        <div style={{
-          width: 72, height: 72, borderRadius: '50%', flexShrink: 0, position: 'relative',
-          background: 'rgba(255,255,255,0.18)', border: '3px solid rgba(255,255,255,0.45)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, color: '#fff', fontWeight: 800,
-        }}>
-          {profile.nickname[0]?.toUpperCase() ?? '?'}
-        </div>
+        <UserAvatar name={profile.nickname} avatarUrl={profile.avatar_url} size={72} />
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile.nickname}
@@ -202,7 +231,47 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Section title="프로필" icon="user" description="다른 사용자에게 보이는 이름과 수신 동의">
+      <Section title="프로필" icon="user" description="다른 사용자에게 보이는 이름과 사진, 수신 동의">
+        <Field label="프로필 사진">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <UserAvatar name={profile.nickname} avatarUrl={profile.avatar_url} size={56} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  disabled={savingAvatar}
+                  onClick={() => avatarInputRef.current?.click()}
+                  style={buttonStyle(!savingAvatar)}
+                >
+                  {profile.avatar_url ? '사진 바꾸기' : '사진 올리기'}
+                </button>
+                {profile.avatar_url && (
+                  <button
+                    type="button"
+                    disabled={savingAvatar}
+                    onClick={removeAvatar}
+                    style={{
+                      ...buttonStyle(!savingAvatar),
+                      background: 'transparent', color: theme.textMuted,
+                      border: `1px solid ${theme.border}`,
+                    }}
+                  >
+                    삭제
+                  </button>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: theme.textMuted }}>JPG, PNG, WebP · 2MB 이하</div>
+              {notice(avatarNotice)}
+            </div>
+          </div>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            style={{ display: 'none' }}
+            onChange={e => onAvatarPick(e.target.files?.[0])}
+          />
+        </Field>
         <Field label="이메일">
           <div style={{ ...inputStyle, color: theme.textMuted, background: 'transparent' }}>{profile.email}</div>
           <div style={{ fontSize: 11, color: theme.textMuted }}>이메일은 변경할 수 없습니다</div>

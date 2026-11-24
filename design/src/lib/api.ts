@@ -200,6 +200,7 @@ export async function fetchStockOrderbook(stockId: number): Promise<ApiOrderbook
 export interface ApiPost {
   id: number;
   author: string; // 작성자 닉네임
+  author_avatar_url: string | null;
   author_is_demo: boolean; // 전시용 체험 계정이 쓴 글
   is_mine: boolean;
   content: string;
@@ -214,6 +215,7 @@ export interface ApiPost {
 export interface ApiComment {
   id: number;
   author: string;
+  author_avatar_url: string | null;
   author_is_demo: boolean;
   is_mine: boolean;
   content: string;
@@ -307,10 +309,41 @@ export interface ApiWeeklyRanker {
   rank: number;
   user_id: number;
   nickname: string;
+  avatar_url: string | null;
   is_demo: boolean; // 전시용 체험 계정
   profit_amount: number; // 최근 7일 동안 번 금액
   profit_rate: number; // 7일 전 총 자산 대비 %
   is_me: boolean;
+}
+
+export interface MyProfile {
+  email: string;
+  nickname: string;
+  avatar_url: string | null;
+  login_type: string;
+  has_password: boolean;
+  marketing_agreed: boolean;
+  price_alert_enabled: boolean;
+  created_at: string;
+}
+
+/** 프로필 사진을 올리고 갱신된 회원 정보를 받는다 */
+export async function uploadAvatar(file: File): Promise<MyProfile> {
+  const form = new FormData();
+  form.append('file', file);
+  const token = localStorage.getItem('access_token');
+  const res = await fetch(`${API_BASE_URL}/users/me/avatar`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const body = (await res.json()) as ApiResponse<MyProfile>;
+  if (!res.ok || !body.success) throw new Error(body.message || '프로필 사진을 올리지 못했습니다');
+  return body.data;
+}
+
+export function deleteAvatar() {
+  return apiDelete<MyProfile>('/users/me/avatar');
 }
 
 export function fetchWeeklyRanking(limit = 5) {

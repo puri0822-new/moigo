@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiGet } from '../../lib/api';
 import type { ApiStock } from '../../lib/api';
 import NotificationBell from './NotificationBell';
+import UserAvatar from '../UserAvatar';
 
 interface SearchStock {
   name: string;
@@ -15,7 +16,7 @@ interface SearchStock {
 
 export default function Header() {
   const { theme, mode, toggle } = useTheme();
-  const { logout, nickname } = useAuth();
+  const { logout, nickname, avatarUrl } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [query, setQuery] = useState('');
@@ -180,16 +181,8 @@ export default function Header() {
         </div>
         <NotificationBell />
         <div style={{ position: 'relative' }}>
-          <div
-            onClick={() => setProfileOpen(prev => !prev)}
-            style={{
-              width: 34, height: 34, borderRadius: '50%',
-              background: theme.ai, border: `2px solid ${theme.border}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, color: theme.aiText, fontWeight: 700, cursor: 'pointer',
-            }}
-          >
-            {nickname ? nickname[0].toUpperCase() : '👤'}
+          <div onClick={() => setProfileOpen(prev => !prev)} style={{ cursor: 'pointer' }}>
+            <UserAvatar name={nickname || '?'} avatarUrl={avatarUrl} size={34} accent />
           </div>
 
           {profileOpen && (
@@ -209,14 +202,7 @@ export default function Header() {
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '16px', borderBottom: `1px solid ${theme.border}`,
                 }}>
-                  <div style={{
-                    width: 42, height: 42, borderRadius: '50%',
-                    background: theme.ai, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 18, color: theme.aiText, fontWeight: 700,
-                  }}>
-                    {nickname ? nickname[0].toUpperCase() : '?'}
-                  </div>
+                  <UserAvatar name={nickname || '?'} avatarUrl={avatarUrl} size={42} accent />
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700 }}>
                       {nickname || '사용자'}님

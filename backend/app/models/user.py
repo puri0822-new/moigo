@@ -9,6 +9,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     nickname: Mapped[str] = mapped_column(String(50), nullable=False)
+    # 프로필 사진 서버 경로 (/uploads/avatars/...). 없으면 화면에서 이니셜을 쓴다
+    avatar_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     login_type: Mapped[str] = mapped_column(String(20), nullable=False, default="LOCAL")
     social_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     marketing_agreed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

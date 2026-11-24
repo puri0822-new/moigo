@@ -4,11 +4,13 @@ import { useTheme } from '../context/ThemeContext';
 import { apiGet } from '../lib/api';
 import DemoBadge from '../components/DemoBadge';
 import StockLogo from '../components/StockLogo';
+import UserAvatar from '../components/UserAvatar';
 
 interface ApiRankUser {
   rank: number;
   user_id: number;
   nickname: string;
+  avatar_url: string | null;
   total_asset: number;
   profit_amount: number;
   profit_rate: number;
@@ -20,6 +22,7 @@ interface ApiRankUser {
 interface RankUser {
   id: number;
   nickname: string;
+  avatarUrl: string | null;
   totalAsset: number;
   profitAmount: number;
   profitRate: number;
@@ -28,12 +31,16 @@ interface RankUser {
   isDemo?: boolean;
 }
 
-const medalColors = ['#F5A623', '#A8A8A8', '#CD7F32'];
-const medalLabels = ['🥇', '🥈', '🥉'];
-
 function profitLabel(amount: number, rate: number) {
   return `${amount >= 0 ? '+' : '-'}${Math.abs(amount).toLocaleString()}원 (${Math.abs(rate).toFixed(2)}%)`;
 }
+
+// 1~3위 포인트. 1위만 glow를 조금 더 준다
+const TOP_RANK = [
+  { color: '#F5A623', soft: 'rgba(245, 166, 35, 0.12)', glow: '0 0 0 1px rgba(245,166,35,0.35), 0 4px 16px rgba(245,166,35,0.22)' },
+  { color: '#9CA3AF', soft: 'rgba(156, 163, 175, 0.12)', glow: '0 0 0 1px rgba(156,163,175,0.28)' },
+  { color: '#CD7F32', soft: 'rgba(205, 127, 50, 0.12)', glow: '0 0 0 1px rgba(205,127,50,0.28)' },
+] as const;
 
 export default function RankingPage() {
   const { theme } = useTheme();
@@ -49,6 +56,7 @@ export default function RankingPage() {
         setUsers(res.data.map(u => ({
           id: u.user_id,
           nickname: u.nickname,
+          avatarUrl: u.avatar_url,
           totalAsset: u.total_asset,
           profitAmount: u.profit_amount,
           profitRate: u.profit_rate,
@@ -64,12 +72,6 @@ export default function RankingPage() {
 
   const myRank = users.findIndex(u => u.isMe) + 1;
   const myUser = users.find(u => u.isMe);
-
-  const top3 = users.slice(0, 3);
-  const rest = users.slice(3);
-  // 시상대는 2위·1위·3위 순으로 놓는다. 사용자가 3명보다 적으면 있는 만큼만 보여준다.
-  const podium = [{ user: top3[1], rank: 2 }, { user: top3[0], rank: 1 }, { user: top3[2], rank: 3 }]
-    .filter((p): p is { user: RankUser; rank: number } => p.user !== undefined);
 
   if (status !== 'ready' || users.length === 0) {
     return (
@@ -98,87 +100,32 @@ export default function RankingPage() {
 
       {/* 내 순위 요약 */}
       {myUser && <div style={{
-        background: theme.ai, borderRadius: 14, padding: '16px 20px',
+        background: theme.aiSoft, border: `1px solid ${theme.ai}`,
+        borderRadius: 12, padding: '16px 20px',
         display: 'flex', alignItems: 'center', gap: 16,
-        position: 'relative', overflow: 'hidden',
+        borderLeft: `4px solid ${theme.ai}`,
       }}>
-        <div style={{ position: 'absolute', right: -20, top: -20, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
-        <div style={{ position: 'absolute', right: 40, bottom: -30, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
-        <div style={{
-          width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, fontWeight: 800, color: '#fff', flexShrink: 0,
-        }}>
-          {myUser.nickname[0]?.toUpperCase()}
-        </div>
+        <UserAvatar name={myUser.nickname} avatarUrl={myUser.avatarUrl} size={44} accent />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>내 순위</div>
+          <div style={{ fontSize: 12, color: theme.ai, fontWeight: 700 }}>내 순위</div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 }}>
-            <span style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{myRank}위</span>
-            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>{myUser.totalAsset.toLocaleString()}원</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: theme.ai }}>{myRank}위</span>
+            <span style={{ fontSize: 13, color: theme.textMuted }}>{myUser.totalAsset.toLocaleString()}원</span>
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>수익</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: myUser.profitAmount >= 0 ? theme.upSoft : theme.downSoft, marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: theme.textMuted }}>수익</div>
+          <div style={{
+            fontSize: 16, fontWeight: 800, marginTop: 2,
+            color: myUser.profitAmount >= 0 ? theme.up : theme.down,
+          }}>
             {profitLabel(myUser.profitAmount, myUser.profitRate)}
           </div>
         </div>
       </div>}
 
-      {/* TOP 3 */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-        {podium.map(({ user, rank: realRank }) => {
-          const isCenter = realRank === 1;
-          return (
-            <div key={user.id} style={{
-              flex: 1, background: theme.panel, border: `2px solid ${isCenter ? medalColors[0] : theme.border}`,
-              borderRadius: 14, padding: '18px 14px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-              minHeight: realRank === 1 ? 190 : realRank === 2 ? 160 : 150,
-              justifyContent: 'center',
-              boxShadow: isCenter ? `0 4px 20px ${medalColors[0]}33` : 'none',
-              position: 'relative',
-            }}>
-              <div style={{ fontSize: isCenter ? 28 : 22 }}>{medalLabels[realRank - 1]}</div>
-              <div style={{
-                width: isCenter ? 48 : 40, height: isCenter ? 48 : 40,
-                borderRadius: '50%', background: `${medalColors[realRank - 1]}22`,
-                border: `2px solid ${medalColors[realRank - 1]}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: isCenter ? 18 : 15, fontWeight: 800,
-                color: medalColors[realRank - 1],
-              }}>
-                {user.nickname[0]?.toUpperCase()}
-              </div>
-              <div style={{ fontSize: isCenter ? 14 : 13, fontWeight: 700, textAlign: 'center' }}>{user.nickname}{user.isDemo && <DemoBadge />}</div>
-              <div style={{ fontSize: isCenter ? 15 : 13, fontWeight: 800 }}>{(user.totalAsset / 10000).toFixed(0)}만원</div>
-              <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', color: user.profitAmount >= 0 ? theme.up : theme.down }}>
-                {profitLabel(user.profitAmount, user.profitRate)}
-              </div>
-              {/* Top3 투자 종목 */}
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', marginTop: 2 }}>
-                {user.top3.map(s => (
-                  <div key={s.code} onClick={() => navigate(`/stock/${s.code}`)} style={{
-                    display: 'flex', alignItems: 'center', gap: 3,
-                    padding: '2px 6px', borderRadius: 6,
-                    background: theme.panel2, border: `1px solid ${theme.border}`,
-                    fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                    color: s.profitRate >= 0 ? theme.up : theme.down,
-                  }}>
-                    <StockLogo name={s.name} code={s.code} size={12} />
-                    {s.name.length > 4 ? s.name.slice(0, 4) : s.name}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 4위 이하 리스트 */}
-      {rest.length > 0 && <div style={{ background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14, overflow: 'hidden' }}>
-        {/* 컬럼 헤더 */}
+      {/* 전체 순위 (1위부터 한 리스트) */}
+      <div style={{ background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 12, overflow: 'hidden' }}>
         <div style={{
           display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr',
           padding: '10px 20px', borderBottom: `1px solid ${theme.border}`,
@@ -188,35 +135,37 @@ export default function RankingPage() {
           <span>닉네임</span>
           <span style={{ textAlign: 'right' }}>총 자산</span>
           <span style={{ textAlign: 'right' }}>수익</span>
-          <span style={{ textAlign: 'right', paddingRight: 4 }}>TOP 3 종목</span>
+          <span style={{ textAlign: 'right', paddingRight: 4 }}>TOP 종목</span>
         </div>
 
-        {rest.map((user, i) => {
-          const rank = i + 4;
-          const isMe = user.isMe;
+        {users.map((user, i) => {
+          const rank = i + 1;
+          const isMe = !!user.isMe;
+          const top = rank <= 3 ? TOP_RANK[rank - 1] : null;
           return (
             <div key={user.id} style={{
               display: 'grid', gridTemplateColumns: '48px 1fr 120px 180px 1fr',
-              padding: '13px 20px', borderBottom: `1px solid ${theme.border}`,
+              padding: '13px 20px',
+              borderBottom: i < users.length - 1 ? `1px solid ${theme.border}` : 'none',
               alignItems: 'center', fontSize: 13,
-              background: isMe ? theme.aiSoft : 'transparent',
+              background: isMe ? theme.aiSoft : top ? top.soft : 'transparent',
+              boxShadow: top ? top.glow : undefined,
+              position: 'relative',
+              zIndex: top ? 1 : 0,
             }}>
-              <span style={{ fontWeight: 700, color: theme.textMuted }}>{rank}</span>
+              <span style={{
+                fontWeight: 800,
+                color: top ? top.color : theme.textMuted,
+                fontSize: top ? 15 : 13,
+              }}>{rank}</span>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  background: isMe ? theme.ai : theme.panel2,
-                  border: `1px solid ${isMe ? theme.ai : theme.border}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700,
-                  color: isMe ? '#fff' : theme.textMuted,
-                  flexShrink: 0,
-                }}>
-                  {user.nickname[0]?.toUpperCase()}
+                <div style={{ boxShadow: rank === 1 ? `0 0 10px ${TOP_RANK[0].color}55` : undefined, borderRadius: '50%' }}>
+                  <UserAvatar name={user.nickname} avatarUrl={user.avatarUrl} size={32} accent={isMe || !!top} />
                 </div>
-                <span style={{ fontWeight: isMe ? 700 : 500 }}>
-                  {user.nickname}{user.isDemo && <DemoBadge />}{isMe && <span style={{ fontSize: 11, color: theme.ai, marginLeft: 5, fontWeight: 700 }}>나</span>}
+                <span style={{ fontWeight: isMe || top ? 700 : 500 }}>
+                  {user.nickname}{user.isDemo && <DemoBadge />}
+                  {isMe && <span style={{ fontSize: 11, color: theme.ai, marginLeft: 5, fontWeight: 700 }}>나</span>}
                 </span>
               </div>
 
@@ -230,7 +179,7 @@ export default function RankingPage() {
 
               <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                 {user.top3.length === 0 && <span style={{ fontSize: 11, color: theme.textMuted }}>보유 종목 없음</span>}
-                {user.top3.map(s => (
+                {user.top3.slice(0, 2).map(s => (
                   <div key={s.code} onClick={() => navigate(`/stock/${s.code}`)} style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     padding: '3px 7px', borderRadius: 6,
@@ -246,7 +195,7 @@ export default function RankingPage() {
             </div>
           );
         })}
-      </div>}
+      </div>
     </div>
   );
 }

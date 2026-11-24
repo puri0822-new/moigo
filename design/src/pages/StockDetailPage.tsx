@@ -541,8 +541,8 @@ export default function StockDetailPage() {
             </div>
             <div style={{
               display: 'inline-flex', alignItems: 'center',
-              fontSize: 12, fontWeight: 600, color: theme.ai,
-              background: theme.aiSoft, border: `1px solid ${theme.ai}`,
+              fontSize: 12, fontWeight: 600, color: theme.textMuted,
+              background: theme.panel2, border: `1px solid ${theme.border}`,
               borderRadius: 6, padding: '2px 8px', alignSelf: 'flex-start',
             }}>
               {stock.sector}
