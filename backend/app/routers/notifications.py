@@ -42,11 +42,14 @@ async def _detect_price_alerts(db: Session, user: User) -> None:
         db.execute(
             pg_insert(Notification)
             .values(
-                user_id=user.id, stock_id=s.id,
+                user_id=user.id, stock_id=s.id, kind="PRICE",
                 direction="UP" if pc.change_rate > 0 else "DOWN",
                 level=level, change_rate=round(pc.change_rate, 2), price=pc.price, trade_date=pc.trade_date,
             )
-            .on_conflict_do_nothing(index_elements=["user_id", "stock_id", "trade_date", "direction", "level"])
+            .on_conflict_do_nothing(
+                index_elements=["user_id", "stock_id", "trade_date", "direction", "level"],
+                index_where=(Notification.kind == "PRICE"),
+            )
         )
     db.commit()
 
@@ -76,6 +79,7 @@ async def list_notifications(db: Session = Depends(get_db), current_user: User =
             "items": [
                 {
                     "id": n.id,
+                    "kind": getattr(n, "kind", None) or "PRICE",
                     "stock_code": s.code,
                     "stock_name": s.name,
                     "direction": n.direction,

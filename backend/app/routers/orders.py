@@ -1,147 +1,193 @@
+import asyncio
+import logging
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+
 from app.database import get_db
-from app.core.dependencies import get_current_user
 from app.core import toss_client
+from app.core.dependencies import get_current_user
+from app.core.market_hours import is_market_open, now_kst
+from app.core.order_matching import (
+    PENDING,
+    apply_fill,
+    cancel_pending,
+    is_orderbook_live,
+    plan_fill,
+    reserved_shares,
+)
 from app.models.user import User
 from app.models.account import Account
 from app.models.stock import Stock
 from app.models.order import Order
 from app.models.holding import Holding
-from app.schemas.order import OrderRequest, OrderResponse, PortfolioResponse, HoldingResponse
+from app.schemas.order import OrderRequest
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+logger = logging.getLogger("uvicorn.error")
+
+ORDERBOOK_TIMEOUT_SECONDS = 6
+
+
+def _order_dict(order: Order, stock: Stock | None) -> dict:
+    return {
+        "id": order.id,
+        "stock_name": stock.name if stock else "",
+        "stock_code": stock.code if stock else "",
+        "order_type": order.order_type,
+        "price_type": order.price_type,
+        "status": order.status,
+        "quantity": order.quantity,
+        "filled_quantity": order.filled_quantity,
+        "price": order.price,
+        "total_amount": order.total_amount,
+        "limit_price": order.limit_price,
+        "escrow_amount": order.escrow_amount,
+        "ordered_at": order.ordered_at,
+        "filled_at": order.filled_at,
+    }
+
+
+async def _live_orderbook(code: str) -> dict | None:
+    now = now_kst()
+    if not is_market_open(now):
+        return None
+    try:
+        book = await asyncio.wait_for(toss_client.get_orderbook(code), ORDERBOOK_TIMEOUT_SECONDS)
+    except (httpx.HTTPError, asyncio.TimeoutError) as e:
+        logger.warning("주문용 호가 조회 실패 %s: %r", code, e)
+        raise HTTPException(status_code=503, detail="호가를 확인할 수 없어 주문할 수 없습니다. 잠시 후 다시 시도해주세요")
+    return book if is_orderbook_live(book, now) else None
 
 
 @router.post("", status_code=201)
 async def create_order(
     body: OrderRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    stock = db.query(Stock).filter(Stock.id == body.stock_id).first()
+    stock = await run_in_threadpool(db.get, Stock, body.stock_id)
     if not stock:
         raise HTTPException(status_code=404, detail="종목을 찾을 수 없습니다")
 
-    account = db.query(Account).filter(Account.user_id == current_user.id).first()
+    is_limit = body.price_type == "LIMIT"
+    if is_limit and body.price is None:
+        raise HTTPException(status_code=400, detail="지정가 주문은 가격을 입력해야 합니다")
+    limit_price = body.price if is_limit else None
+
+    book = await _live_orderbook(stock.code)
+    if book is None:
+        raise HTTPException(
+            status_code=400,
+            detail="장 운영시간(평일 09:00~15:30)에만 주문할 수 있습니다",
+        )
+
+    # 예약 주문 없음 — 지금 호가로 전량 체결될 때만 받는다
+    planned = plan_fill(body.order_type, body.quantity, book, limit_price)
+    if planned is None or planned[0] < body.quantity:
+        side = "매수" if body.order_type == "BUY" else "매도"
+        hint = "가격을 높이거나 수량을 줄여주세요" if body.order_type == "BUY" else "가격을 낮추거나 수량을 줄여주세요"
+        raise HTTPException(
+            status_code=400,
+            detail=f"지금 호가로 전량 {side}할 수 없습니다. {hint}",
+        )
+
+    return await run_in_threadpool(_place_order, db, current_user.id, body, stock, limit_price, planned)
+
+
+def _place_order(
+    db: Session,
+    user_id: int,
+    body: OrderRequest,
+    stock: Stock,
+    limit_price: int | None,
+    planned: tuple[int, int],
+) -> dict:
+    account = db.query(Account).filter(Account.user_id == user_id).with_for_update().first()
     if not account:
         raise HTTPException(status_code=404, detail="계좌를 찾을 수 없습니다")
 
-    try:
-        prices = await toss_client.get_prices([stock.code])
-        price_data = prices.get(stock.code)
-        if not price_data:
-            raise HTTPException(status_code=502, detail="현재가를 조회할 수 없습니다")
-        market_price = int(float(price_data["lastPrice"]))
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=502, detail="현재가를 조회할 수 없습니다")
+    holding = db.query(Holding).filter(
+        Holding.user_id == user_id,
+        Holding.stock_id == body.stock_id,
+    ).with_for_update().first()
 
-    # 차트·화면에 보이는 현재가와 같은 가격으로만 체결한다. 다른 가격으로 싸게/비싸게 사는 것을 막는다
-    if body.price != market_price:
-        raise HTTPException(
-            status_code=400,
-            detail=f"현재가({market_price:,}원)와 같은 가격으로만 주문할 수 있습니다",
-        )
-
-    total_amount = market_price * body.quantity
+    fill_qty, fill_total = body.quantity, planned[1]
 
     if body.order_type == "BUY":
-        if account.balance < total_amount:
-            raise HTTPException(status_code=400, detail="잔고가 부족합니다")
-
-        account.balance -= total_amount
-
-        holding = db.query(Holding).filter(
-            Holding.user_id == current_user.id,
-            Holding.stock_id == body.stock_id
-        ).first()
-
-        if holding:
-            total_qty = holding.quantity + body.quantity
-            holding.avg_price = (holding.avg_price * holding.quantity + market_price * body.quantity) // total_qty
-            holding.quantity = total_qty
-        else:
-            holding = Holding(
-                user_id=current_user.id,
-                stock_id=body.stock_id,
-                quantity=body.quantity,
-                avg_price=market_price,
-            )
-            db.add(holding)
-
-    elif body.order_type == "SELL":
-        # 보유 수량 확인
-        holding = db.query(Holding).filter(
-            Holding.user_id == current_user.id,
-            Holding.stock_id == body.stock_id
-        ).first()
-
-        if not holding or holding.quantity < body.quantity:
-            raise HTTPException(status_code=400, detail="보유 수량이 부족합니다")
-
-        # 잔고 증가
-        account.balance += total_amount
-
-        # 보유 수량 차감
-        holding.quantity -= body.quantity
-        if holding.quantity == 0:
-            db.delete(holding)
-
+        if account.balance < fill_total:
+            raise HTTPException(status_code=400, detail="주문 가능 금액이 부족합니다")
     else:
-        raise HTTPException(status_code=400, detail="올바르지 않은 주문 유형입니다 (BUY / SELL)")
+        held = holding.quantity if holding else 0
+        if held - reserved_shares(db, user_id).get(body.stock_id, 0) < body.quantity:
+            raise HTTPException(status_code=400, detail="주문 가능 수량이 부족합니다")
 
+    reference_price = max(1, round(fill_total / body.quantity))
     order = Order(
-        user_id=current_user.id,
+        user_id=user_id,
         account_id=account.id,
         stock_id=body.stock_id,
         ai_analysis_id=body.ai_analysis_id,
         order_type=body.order_type,
+        price_type=body.price_type,
+        status=PENDING,
         quantity=body.quantity,
-        price=market_price,
-        total_amount=total_amount,
+        limit_price=limit_price,
+        price=reference_price,
+        total_amount=fill_total,
+        filled_quantity=0,
+        filled_amount=0,
+        escrow_amount=0,
     )
     db.add(order)
+    db.flush()
+
+    if not apply_fill(db, order, account, holding, fill_qty, fill_total):
+        raise HTTPException(status_code=400, detail="주문을 체결할 수 없습니다")
+
     db.commit()
     db.refresh(order)
 
-    return {
-        "success": True,
-        "data": {
-            "id": order.id,
-            "stock_name": stock.name,
-            "order_type": order.order_type,
-            "quantity": order.quantity,
-            "price": order.price,
-            "total_amount": order.total_amount,
-            "ordered_at": order.ordered_at,
-        },
-        "message": "주문이 체결되었습니다"
-    }
+    return {"success": True, "data": _order_dict(order, stock), "message": "주문이 체결되었습니다"}
 
 
 @router.get("")
 def get_orders(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    orders = db.query(Order).filter(
-        Order.user_id == current_user.id
-    ).order_by(Order.ordered_at.desc()).all()
-
+    orders = db.query(Order).filter(Order.user_id == current_user.id).order_by(Order.ordered_at.desc()).all()
     data = []
     for o in orders:
         stock = db.query(Stock).filter(Stock.id == o.stock_id).first()
-        data.append({
-            "id": o.id,
-            "stock_name": stock.name if stock else "",
-            "stock_code": stock.code if stock else "",
-            "order_type": o.order_type,
-            "quantity": o.quantity,
-            "price": o.price,
-            "total_amount": o.total_amount,
-            "ordered_at": o.ordered_at,
-        })
-
+        data.append(_order_dict(o, stock))
     return {"success": True, "data": data, "message": "요청 성공"}
+
+
+@router.delete("/{order_id}")
+def cancel_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    order = db.query(Order).filter(
+        Order.id == order_id,
+        Order.user_id == current_user.id,
+    ).with_for_update().first()
+    if not order:
+        raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
+    if order.status != PENDING:
+        raise HTTPException(status_code=400, detail="이미 체결되었거나 취소된 주문입니다")
+
+    account = db.query(Account).filter(Account.id == order.account_id).with_for_update().first()
+    if not account:
+        raise HTTPException(status_code=404, detail="계좌를 찾을 수 없습니다")
+
+    cancel_pending(db, order, account)
+    db.commit()
+    db.refresh(order)
+
+    stock = db.query(Stock).filter(Stock.id == order.stock_id).first()
+    return {"success": True, "data": _order_dict(order, stock), "message": "주문이 취소되었습니다"}

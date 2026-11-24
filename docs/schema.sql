@@ -109,14 +109,27 @@ CREATE TABLE orders (
     stock_id        BIGINT          NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
     ai_analysis_id  BIGINT          NULL REFERENCES ai_analyses(id) ON DELETE SET NULL,
     order_type      VARCHAR(10)     NOT NULL,
+    price_type      VARCHAR(10)     NOT NULL DEFAULT 'MARKET',  -- MARKET / LIMIT
+    status          VARCHAR(10)     NOT NULL DEFAULT 'FILLED',  -- PENDING / FILLED / CANCELLED / EXPIRED
     quantity        INT             NOT NULL CHECK (quantity > 0),
-    price           BIGINT          NOT NULL CHECK (price > 0),
+    limit_price     BIGINT          NULL,                       -- 지정가 주문의 지정가
+    price           BIGINT          NOT NULL CHECK (price > 0), -- 평균 체결가(미체결이면 지정가)
     total_amount    BIGINT          NOT NULL CHECK (total_amount > 0),
+    filled_quantity INT             NOT NULL DEFAULT 0,         -- 부분 체결된 수량
+    filled_amount   BIGINT          NOT NULL DEFAULT 0,         -- 부분 체결된 금액 합
+    escrow_amount   BIGINT          NOT NULL DEFAULT 0,         -- 매수 예약으로 잔고에서 빼 둔 금액
     ordered_at      TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    filled_at       TIMESTAMPTZ     NULL,
 
     CONSTRAINT chk_order_type CHECK (order_type IN ('BUY', 'SELL')),
-    CONSTRAINT chk_total_amount CHECK (total_amount = price * quantity)
+    CONSTRAINT chk_price_type CHECK (price_type IN ('MARKET', 'LIMIT')),
+    CONSTRAINT chk_order_status CHECK (status IN ('PENDING', 'FILLED', 'CANCELLED', 'EXPIRED')),
+    CONSTRAINT chk_limit_price CHECK (limit_price IS NULL OR limit_price > 0),
+    CONSTRAINT chk_filled_quantity CHECK (filled_quantity >= 0 AND filled_quantity <= quantity),
+    CONSTRAINT chk_filled_amount CHECK (filled_amount >= 0)
 );
+
+CREATE INDEX idx_orders_pending ON orders(stock_id) WHERE status = 'PENDING';
 
 -- 8. holdings (보유 종목)
 CREATE TABLE holdings (
@@ -189,17 +202,21 @@ CREATE TABLE notifications (
     id           BIGSERIAL     PRIMARY KEY,
     user_id      BIGINT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     stock_id     BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
-    direction    VARCHAR(4)    NOT NULL CHECK (direction IN ('UP', 'DOWN')),
-    level        INT           NOT NULL,                 -- 넘은 단계(5, 10, 15...). 같은 날 같은 단계는 한 번만 알린다
-    change_rate  NUMERIC(6,2)  NOT NULL,                 -- 알림을 만든 순간의 전일 대비 등락률(%)
+    kind         VARCHAR(20)   NOT NULL DEFAULT 'PRICE',  -- PRICE(급등락) / ORDER(체결)
+    direction    VARCHAR(4)    NOT NULL CHECK (direction IN ('UP', 'DOWN', 'BUY', 'SELL')),
+    level        INT           NOT NULL,                 -- PRICE: 단계(5,10…). ORDER: 체결 수량
+    change_rate  NUMERIC(6,2)  NOT NULL,                 -- 급등락 %. 주문 알림은 0
     price        BIGINT        NOT NULL,
     trade_date   DATE          NOT NULL,
     read_at      TIMESTAMPTZ   NULL,
     deleted_at   TIMESTAMPTZ   NULL,                     -- 사용자가 지운 알림. 행을 남겨야 같은 날 같은 단계 알림이 다시 생기지 않는다
-    created_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    UNIQUE (user_id, stock_id, trade_date, direction, level)
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 급등락 알림만 유니크. 주문 체결 알림은 여러 번 가능
+CREATE UNIQUE INDEX notifications_price_unique
+    ON notifications (user_id, stock_id, trade_date, direction, level)
+    WHERE kind = 'PRICE';
 
 CREATE INDEX idx_notifications_user_id ON notifications(user_id, created_at DESC);
 

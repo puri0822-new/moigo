@@ -7,8 +7,8 @@ import AiRecCard from '../components/AiRecCard';
 import AiIcon from '../components/AiIcon';
 import { useAiRecommendations } from '../lib/aiRecommendations';
 import { findAiProfile, useAiModels } from '../lib/aiModels';
-import { addWatchlist, apiGet, createOrder, fetchSimilarStocks, fetchStockAiReason, fetchStockByCode, fetchStockCandles, fetchStockNews, fetchStockOrderbook, fetchWatchlist, removeWatchlist, setWatchAlert } from '../lib/api';
-import type { ApiCandle, ApiNewsItem, ApiOrderbook, ApiStock, ApiStockAiReason } from '../lib/api';
+import { addWatchlist, apiGet, createOrder, fetchOrders, fetchSimilarStocks, fetchStockAiReason, fetchStockByCode, fetchStockCandles, fetchStockNews, fetchStockOrderbook, fetchWatchlist, removeWatchlist, setWatchAlert } from '../lib/api';
+import type { ApiCandle, ApiNewsItem, ApiOrderbook, ApiStock, ApiStockAiReason, OrderResult } from '../lib/api';
 import { timeAgo } from '../lib/time';
 import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
 import CandleChart from '../components/CandleChart';
@@ -56,6 +56,7 @@ interface HoldingItem {
   stock_name: string;
   stock_code: string;
   quantity: number;
+  orderable_quantity?: number;
   avg_price: number;
   eval_amount: number;
   profit_loss: number;
@@ -64,6 +65,7 @@ interface HoldingItem {
 
 interface PortfolioData {
   balance: number;
+  orderable_balance?: number;
   total_eval_amount: number;
   total_profit_loss: number;
   total_profit_loss_rate: number;
@@ -87,7 +89,7 @@ export default function StockDetailPage() {
   const [mainTab, setMainTab] = useState<'chart' | 'info' | 'news' | 'community'>('chart');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [rightTab, setRightTab] = useState<'insight' | 'portfolio'>('insight');
-  const [orderHistory, setOrderHistory] = useState<{ side: 'buy' | 'sell'; type: 'limit' | 'market'; price: number; qty: number; total: number; time: string }[]>([]);
+  const [orders, setOrders] = useState<OrderResult[]>([]);
   const [floatPos, setFloatPos] = useState({ x: 0, y: 0 });
   const [floatMinimized, setFloatMinimized] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
@@ -353,8 +355,20 @@ export default function StockDetailPage() {
 
   const effectivePrice = orderType === 'market' ? priceNum : inputPrice;
   const total = effectivePrice * qty;
-  // 차트/화면 현재가와 같은 가격으로만 주문할 수 있다 (시장가는 항상 현재가)
-  const priceMatchesChart = priceNum > 0 && (orderType === 'market' || inputPrice === priceNum);
+  // 예약 없음 — 지정가는 지금 바로 체결 가능한 가격만 (매수: 현재가 이상, 매도: 현재가 이하)
+  const limitNotFillable = orderType === 'limit' && priceNum > 0 && inputPrice > 0 && (
+    side === 'buy' ? inputPrice < priceNum : inputPrice > priceNum
+  );
+  const canSubmitOrder = priceNum > 0 && qty > 0 && (orderType === 'market' || inputPrice > 0) && !limitNotFillable;
+
+  const loadOrders = useCallback(() => {
+    if (!isAuthenticated) { setOrders([]); return; }
+    fetchOrders()
+      .then(res => setOrders(res.data))
+      .catch(() => {});
+  }, [isAuthenticated]);
+
+  usePolling(loadOrders, PORTFOLIO_POLL_MS, isAuthenticated);
 
 
   const showToast = (msg: string, ok: boolean) => {
@@ -390,8 +404,15 @@ export default function StockDetailPage() {
       showToast('종목 정보를 불러오는 중입니다', false);
       return;
     }
-    if (!priceMatchesChart) {
-      showToast(`현재가(${priceNum.toLocaleString()}원)와 같은 가격으로만 주문할 수 있습니다`, false);
+    if (!canSubmitOrder) {
+      showToast(
+        limitNotFillable
+          ? (side === 'buy'
+            ? `현재가(${priceNum.toLocaleString()}원) 이상으로만 매수할 수 있습니다`
+            : `현재가(${priceNum.toLocaleString()}원) 이하로만 매도할 수 있습니다`)
+          : orderType === 'limit' ? '지정가를 입력해주세요' : '현재가를 불러오는 중입니다',
+        false,
+      );
       return;
     }
     const s = orderSide ?? side;
@@ -400,16 +421,14 @@ export default function StockDetailPage() {
       const res = await createOrder({
         stock_id: stockId,
         order_type: s === 'buy' ? 'BUY' : 'SELL',
+        price_type: orderType === 'limit' ? 'LIMIT' : 'MARKET',
         quantity: qty,
-        // 서버도 현재가와 같은지 다시 확인한다
-        price: priceNum,
+        price: orderType === 'limit' ? inputPrice : undefined,
       });
-      const filled = res.data;
-      const now = new Date();
-      const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-      setOrderHistory(prev => [{ side: s, type: orderType, price: filled.price, qty: filled.quantity, total: filled.total_amount, time }, ...prev]);
-      showToast(`${s === 'buy' ? '매수' : '매도'} 체결: ${stock.name} ${filled.quantity}주 · ${filled.total_amount.toLocaleString()}원`, true);
+      const order = res.data;
+      showToast(res.message || (order.status === 'FILLED' ? '체결되었습니다' : '주문이 접수되었습니다'), true);
       loadPortfolio();
+      loadOrders();
     } catch (e: any) {
       showToast(e.message || '주문에 실패했습니다', false);
     } finally {
@@ -648,38 +667,38 @@ export default function StockDetailPage() {
 
           {/* 주문 내역 */}
           <div style={{ flex: 1, background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${theme.border}` }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>주문 내역</span>
-              {orderHistory.length > 0 && (
-                <span
-                  onClick={() => setOrderHistory([])}
-                  style={{ fontSize: 11, color: theme.textMuted, cursor: 'pointer' }}
-                >전체 삭제</span>
-              )}
             </div>
-            {orderHistory.length === 0 ? (
+            {orders.filter(o => o.stock_code === code).length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center', fontSize: 12, color: theme.textMuted }}>
                 주문 내역이 없습니다
               </div>
             ) : (
               <div>
-                {/* 헤더 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 64px', gap: 8, padding: '7px 16px', borderBottom: `1px solid ${theme.border}`, fontSize: 11, fontWeight: 600, color: theme.textMuted }}>
-                  <span>구분</span><span>가격</span><span style={{ textAlign: 'center' }}>수량</span><span style={{ textAlign: 'right' }}>금액</span><span style={{ textAlign: 'right' }}>시간</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 72px', gap: 8, padding: '7px 16px', borderBottom: `1px solid ${theme.border}`, fontSize: 11, fontWeight: 600, color: theme.textMuted }}>
+                  <span>구분</span><span>가격</span><span style={{ textAlign: 'center' }}>수량</span><span style={{ textAlign: 'right' }}>상태</span><span style={{ textAlign: 'right' }}>시간</span>
                 </div>
-                {orderHistory.map((o, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 64px', gap: 8, padding: '9px 16px', borderBottom: i < orderHistory.length - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12, alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, color: o.side === 'buy' ? theme.up : theme.down }}>
-                      {o.side === 'buy' ? '매수' : '매도'}
-                    </span>
-                    <span style={{ color: theme.text }}>
-                      {o.type === 'market' ? '시장가' : `${o.price.toLocaleString()}원`}
-                    </span>
-                    <span style={{ textAlign: 'center', color: theme.text }}>{o.qty.toLocaleString()}주</span>
-                    <span style={{ textAlign: 'right', fontWeight: 600 }}>{o.total.toLocaleString()}원</span>
-                    <span style={{ textAlign: 'right', color: theme.textMuted, fontSize: 11 }}>{o.time}</span>
-                  </div>
-                ))}
+                {orders.filter(o => o.stock_code === code).map((o, i, list) => {
+                  const statusLabel = o.status === 'FILLED' ? '체결' : o.status === 'CANCELLED' ? '취소' : o.status === 'EXPIRED' ? '만료' : o.status;
+                  const timeSrc = o.filled_at || o.ordered_at;
+                  const t = new Date(timeSrc);
+                  const time = `${t.getHours().toString().padStart(2, '0')}:${t.getMinutes().toString().padStart(2, '0')}`;
+                  const displayPrice = o.price_type === 'MARKET'
+                    ? '시장가'
+                    : `${(o.limit_price ?? o.price).toLocaleString()}원`;
+                  return (
+                    <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 72px', gap: 8, padding: '9px 16px', borderBottom: i < list.length - 1 ? `1px solid ${theme.border}` : 'none', fontSize: 12, alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, color: o.order_type === 'BUY' ? theme.up : theme.down }}>
+                        {o.order_type === 'BUY' ? '매수' : '매도'}
+                      </span>
+                      <span style={{ color: theme.text }}>{displayPrice}</span>
+                      <span style={{ textAlign: 'center', color: theme.text }}>{o.quantity.toLocaleString()}주</span>
+                      <span style={{ textAlign: 'right', fontWeight: 600, color: theme.textMuted }}>{statusLabel}</span>
+                      <span style={{ textAlign: 'right', color: theme.textMuted, fontSize: 11 }}>{time}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1078,8 +1097,12 @@ export default function StockDetailPage() {
                   style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: orderType === 'limit' ? 'pointer' : 'default', flexShrink: 0, opacity: orderType === 'market' ? 0.4 : 1 }}>+</div>
               </div>
               {orderType === 'limit' && inputPrice > 0 && inputPrice !== priceNum && (
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', padding: '4px 0' }}>
-                  현재가({priceNum.toLocaleString()}원)와 같은 가격으로만 주문할 수 있습니다
+                <div style={{ fontSize: 11, color: limitNotFillable ? '#ef4444' : theme.textMuted, padding: '4px 0' }}>
+                  {limitNotFillable
+                    ? (side === 'buy'
+                      ? `현재가(${priceNum.toLocaleString()}원) 이상으로만 매수할 수 있습니다`
+                      : `현재가(${priceNum.toLocaleString()}원) 이하로만 매도할 수 있습니다`)
+                    : `현재가 ${priceNum.toLocaleString()}원 · 지금 호가로 바로 체결됩니다`}
                 </div>
               )}
             </div>
@@ -1104,11 +1127,12 @@ export default function StockDetailPage() {
                   <div key={label as string}
                     onClick={() => {
                       if (side === 'sell') {
-                        const holdingQty = portfolio?.holdings.find(h => h.stock_code === code)?.quantity ?? 0;
+                        const h = portfolio?.holdings.find(x => x.stock_code === code);
+                        const holdingQty = h?.orderable_quantity ?? h?.quantity ?? 0;
                         setQty(Math.max(1, Math.floor(holdingQty * (ratio as number))));
                       } else {
-                        const bal = portfolio?.balance ?? 0;
-                        const maxQty = Math.floor(bal / effectivePrice);
+                        const bal = portfolio?.orderable_balance ?? portfolio?.balance ?? 0;
+                        const maxQty = effectivePrice > 0 ? Math.floor(bal / effectivePrice) : 0;
                         setQty(Math.max(1, Math.floor(maxQty * (ratio as number))));
                       }
                     }}
@@ -1124,18 +1148,18 @@ export default function StockDetailPage() {
               <span style={{ fontSize: 14, fontWeight: 700 }}>{total.toLocaleString()}원</span>
             </div>
 
-            {/* 주문 확정 버튼 — 차트 현재가와 같을 때만 */}
+            {/* 주문 확정 버튼 */}
             <div
               onClick={() => {
-                if (ordering || !priceMatchesChart) return;
-                setConfirmOrder({ side, price: priceNum, qty, total: priceNum * qty });
+                if (ordering || !canSubmitOrder) return;
+                setConfirmOrder({ side, price: effectivePrice, qty, total });
               }}
               style={{
                 textAlign: 'center', padding: '11px 0', borderRadius: 8,
                 background: side === 'buy' ? theme.up : theme.down,
                 color: theme.bg, fontWeight: 700, fontSize: 14,
-                cursor: ordering || !priceMatchesChart ? 'not-allowed' : 'pointer',
-                opacity: ordering || !priceMatchesChart ? 0.45 : 1,
+                cursor: ordering || !canSubmitOrder ? 'not-allowed' : 'pointer',
+                opacity: ordering || !canSubmitOrder ? 0.45 : 1,
               }}
             >
               {side === 'buy' ? '매수하기' : '매도하기'}

@@ -55,22 +55,39 @@ export function apiDelete<T>(path: string) {
 export interface OrderRequest {
   stock_id: number;
   order_type: 'BUY' | 'SELL';
+  price_type?: 'MARKET' | 'LIMIT';
   quantity: number;
-  price: number;
+  // 지정가일 때 한도 가격. 시장가면 생략
+  price?: number;
 }
 
 export interface OrderResult {
   id: number;
   stock_name: string;
+  stock_code: string;
   order_type: string;
+  price_type: 'MARKET' | 'LIMIT';
+  status: 'PENDING' | 'FILLED' | 'CANCELLED' | 'EXPIRED';
   quantity: number;
+  filled_quantity: number;
   price: number;
   total_amount: number;
+  limit_price: number | null;
+  escrow_amount?: number;
   ordered_at: string;
+  filled_at: string | null;
 }
 
 export function createOrder(body: OrderRequest) {
   return apiPost<OrderResult>('/orders', body);
+}
+
+export function fetchOrders() {
+  return apiGet<OrderResult[]>('/orders');
+}
+
+export function cancelOrder(orderId: number) {
+  return apiDelete<OrderResult>(`/orders/${orderId}`);
 }
 
 // --- 계좌 ---
@@ -337,10 +354,12 @@ export function removeWatchlist(stockId: number) {
 
 export interface ApiNotification {
   id: number;
+  /** PRICE: 급등락, ORDER: 예약/지정가 체결 */
+  kind: 'PRICE' | 'ORDER';
   stock_code: string;
   stock_name: string;
-  direction: 'UP' | 'DOWN';
-  /** 넘은 단계(5, 10, 15...) */
+  direction: 'UP' | 'DOWN' | 'BUY' | 'SELL';
+  /** PRICE: 단계(5,10…). ORDER: 체결 수량 */
   level: number;
   change_rate: number;
   price: number;

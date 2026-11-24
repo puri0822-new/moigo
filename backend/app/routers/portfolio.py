@@ -11,6 +11,7 @@ from app.database import get_db
 from app.core.dependencies import get_current_user
 from app.core import candle_store, toss_client
 from app.core.database import SessionLocal as AsyncSessionLocal
+from app.core.order_matching import reserved_cash, reserved_shares
 from app.models.user import User
 from app.models.account import Account
 from app.models.stock import Stock
@@ -28,6 +29,9 @@ async def get_portfolio(
 ):
     account = db.query(Account).filter(Account.user_id == current_user.id).first()
     holdings = db.query(Holding).filter(Holding.user_id == current_user.id).all()
+    pending_shares = reserved_shares(db, current_user.id)
+    # 매수 예약금은 이미 balance에서 빠져 있다. 화면에 "예약 중"으로만 보여 준다.
+    pending_cash = reserved_cash(db, current_user.id) if account else 0
 
     codes = []
     stock_map: dict[int, Stock] = {}
@@ -62,6 +66,7 @@ async def get_portfolio(
             "stock_name": stock.name if stock else "",
             "stock_code": stock.code if stock else "",
             "quantity": h.quantity,
+            "orderable_quantity": max(0, h.quantity - pending_shares.get(h.stock_id, 0)),
             "avg_price": h.avg_price,
             "current_price": current_price,
             "eval_amount": eval_amount,
@@ -79,6 +84,9 @@ async def get_portfolio(
         "success": True,
         "data": {
             "balance": balance,
+            # 예약금은 이미 차감됨 → 주문가능 = 잔고. reserved_cash는 예약 중 금액 표시용
+            "orderable_balance": balance,
+            "reserved_cash": pending_cash,
             "total_eval_amount": total_eval_amount,
             "total_profit_loss": total_profit_loss,
             "total_profit_loss_rate": round(total_profit_loss_rate, 2),
@@ -109,8 +117,8 @@ async def get_asset_history(
         return {"success": True, "data": {"initial_balance": 0, "points": []}, "message": "요청 성공"}
 
     holdings = db.query(Holding).filter(Holding.user_id == current_user.id).all()
-    # backend_D는 주문이 들어오면 바로 체결되므로 전부 체결된 주문으로 본다
-    orders = db.query(Order).filter(Order.user_id == current_user.id).all()
+    # 체결된 수량만큼만 되돌린다 (미체결·취소는 잔고에 아직 반영되지 않음)
+    orders = db.query(Order).filter(Order.user_id == current_user.id, Order.filled_quantity > 0).all()
     stock_ids = {h.stock_id for h in holdings} | {o.stock_id for o in orders}
     stocks = [(s.id, s.code) for s in db.query(Stock).filter(Stock.id.in_(stock_ids)).all()] if stock_ids else []
 
@@ -129,7 +137,11 @@ async def get_asset_history(
     start = max(today - timedelta(days=days - 1), _kst_date(account.created_at))
     need = (today - start).days + 10
 
-    fills = sorted(((_kst_date(o.ordered_at), o) for o in orders), key=lambda f: f[0], reverse=True)
+    fills = sorted(
+        ((_kst_date(o.filled_at or o.ordered_at), o) for o in orders),
+        key=lambda f: f[0],
+        reverse=True,
+    )
     quantities = {h.stock_id: h.quantity for h in holdings}
 
     closes: dict[int, tuple[list[date], list[int]]] = {}
@@ -160,8 +172,8 @@ async def get_asset_history(
         while next_fill < len(fills) and fills[next_fill][0] > day:
             order = fills[next_fill][1]
             sign = 1 if order.order_type == "BUY" else -1
-            cash += sign * order.total_amount
-            quantities[order.stock_id] = quantities.get(order.stock_id, 0) - sign * order.quantity
+            cash += sign * order.filled_amount
+            quantities[order.stock_id] = quantities.get(order.stock_id, 0) - sign * order.filled_quantity
             next_fill += 1
         stock_value = sum(qty * price_on(stock_id, day) for stock_id, qty in quantities.items() if qty > 0)
         points.append({"date": day.isoformat(), "total_asset": cash + stock_value, "cash": cash, "stock_value": stock_value})
@@ -182,16 +194,18 @@ def _realized_pnl(orders: list[Order]) -> dict[int, tuple[int, int, float]]:
     position: dict[int, tuple[int, int]] = {}  # stock_id → (수량, 평균 매수가)
     result: dict[int, tuple[int, int, float]] = {}
     for o in sorted(orders, key=lambda o: (o.ordered_at, o.id)):
+        fill_qty = o.filled_quantity or 0
+        if fill_qty <= 0:
+            continue
         qty, avg = position.get(o.stock_id, (0, 0))
         if o.order_type == "BUY":
-            total = qty + o.quantity
-            avg = (avg * qty + o.price * o.quantity) // total
+            total = qty + fill_qty
+            avg = (avg * qty + o.price * fill_qty) // total
             position[o.stock_id] = (total, avg)
         elif o.order_type == "SELL":
-            # 기록상 산 적이 없는 매도(초기화 전 데이터 등)는 계산하지 않는다
             if qty > 0 and avg > 0:
-                result[o.id] = (avg, (o.price - avg) * o.quantity, (o.price - avg) / avg * 100)
-            left = qty - o.quantity
+                result[o.id] = (avg, (o.price - avg) * fill_qty, (o.price - avg) / avg * 100)
+            left = qty - fill_qty
             position[o.stock_id] = (left, avg) if left > 0 else (0, 0)
     return result
 
@@ -201,8 +215,10 @@ def get_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # 체결된 수량이 있는 주문만 거래 내역에 보여준다 (순수 미체결은 주문 목록에서 본다)
     orders = db.query(Order).filter(
-        Order.user_id == current_user.id
+        Order.user_id == current_user.id,
+        Order.filled_quantity > 0,
     ).order_by(Order.ordered_at.desc()).all()
     stocks = {s.id: s for s in db.query(Stock).filter(Stock.id.in_({o.stock_id for o in orders})).all()} if orders else {}
     realized = _realized_pnl(orders)
@@ -216,11 +232,11 @@ def get_history(
             "stock_name": stock.name if stock else "",
             "stock_code": stock.code if stock else "",
             "order_type": o.order_type,
-            "quantity": o.quantity,
+            "status": o.status,
+            "quantity": o.filled_quantity,
             "price": o.price,
-            "total_amount": o.total_amount,
+            "total_amount": o.filled_amount,
             "ordered_at": o.ordered_at,
-            # 매도에만 있다 (매수·계산 불가면 None)
             "avg_buy_price": pnl[0] if pnl else None,
             "realized_profit": pnl[1] if pnl else None,
             "realized_profit_rate": round(pnl[2], 2) if pnl else None,

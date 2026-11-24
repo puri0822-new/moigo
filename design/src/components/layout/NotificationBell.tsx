@@ -107,8 +107,16 @@ export default function NotificationBell() {
             ) : (
               <div style={{ maxHeight: 420, overflowY: 'auto' }}>
                 {items.map(n => {
-                  const isUp = n.direction === 'UP';
-                  const color = isUp ? theme.up : theme.down;
+                  const isOrder = n.kind === 'ORDER' || n.direction === 'BUY' || n.direction === 'SELL';
+                  const isBuy = n.direction === 'BUY' || n.direction === 'UP';
+                  const color = isBuy ? theme.up : theme.down;
+                  const title = isOrder
+                    ? <>{n.stock_name} <span style={{ color }}>{n.direction === 'BUY' ? '매수' : '매도'} 체결</span></>
+                    : <>{n.stock_name} <span style={{ color }}>{n.level}% {n.direction === 'UP' ? '급상승' : '급하락'}</span></>;
+                  const subtitle = isOrder
+                    ? <>{n.level.toLocaleString()}주 · {n.price.toLocaleString()}원</>
+                    : <>{n.price.toLocaleString()}원 · 전일 대비{' '}
+                        <span style={{ color, fontWeight: 600 }}>{n.direction === 'UP' ? '+' : ''}{n.change_rate.toFixed(2)}%</span></>;
                   return (
                     <div
                       key={n.id}
@@ -121,13 +129,8 @@ export default function NotificationBell() {
                     >
                       <StockLogo name={n.stock_name} code={n.stock_code} size={32} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>
-                          {n.stock_name} <span style={{ color }}>{n.level}% {isUp ? '급상승' : '급하락'}</span>
-                        </div>
-                        <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 2 }}>
-                          {n.price.toLocaleString()}원 · 전일 대비{' '}
-                          <span style={{ color, fontWeight: 600 }}>{isUp ? '+' : ''}{n.change_rate.toFixed(2)}%</span>
-                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{title}</div>
+                        <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 2 }}>{subtitle}</div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                         <div

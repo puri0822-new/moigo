@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core import ai_scheduler, candle_store
 from app.core.config import settings
+from app.core.order_matching import order_matching_loop
 from app.core.uploads import UPLOAD_DIR, UPLOAD_URL_PREFIX
 from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai, users, watchlist, notifications
 
@@ -17,7 +18,7 @@ _background_tasks: set[asyncio.Task] = set()
 
 @app.on_event("startup")
 async def start_background_tasks():
-    loops = [candle_store.refresh_loop()]
+    loops = [candle_store.refresh_loop(), order_matching_loop()]
     if settings.AI_SCHEDULER_ENABLED:
         loops.append(ai_scheduler.loop())
     for coro in loops:

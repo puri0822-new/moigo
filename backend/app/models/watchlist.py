@@ -20,18 +20,15 @@ class Watchlist(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
-    __table_args__ = (
-        UniqueConstraint(
-            "user_id", "stock_id", "trade_date", "direction", "level",
-            name="notifications_user_id_stock_id_trade_date_direction_level_key",
-        ),
-    )
+    # 급등락(PRICE) 유니크는 DB 부분 인덱스로 둔다. 주문 체결(ORDER)은 여러 번 가능.
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     stock_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False)
-    direction: Mapped[str] = mapped_column(String(4), nullable=False)  # UP / DOWN
-    # 넘은 단계(5, 10, 15...). 같은 날 같은 단계는 한 번만 알린다
+    # PRICE: UP/DOWN, ORDER: BUY/SELL
+    kind: Mapped[str] = mapped_column(String(20), nullable=False, server_default="PRICE")
+    direction: Mapped[str] = mapped_column(String(4), nullable=False)
+    # PRICE: 넘은 단계(5, 10…). ORDER: 이번에 체결된 수량
     level: Mapped[int] = mapped_column(Integer, nullable=False)
     change_rate: Mapped[Decimal] = mapped_column(Numeric(6, 2), nullable=False)
     price: Mapped[int] = mapped_column(BigInteger, nullable=False)
