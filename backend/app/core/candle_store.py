@@ -1,7 +1,9 @@
 import asyncio
 import logging
 import time
-from datetime import date
+from datetime import date, datetime
+from datetime import time as dt_time
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import func, select
@@ -10,10 +12,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import toss_client
+from app.core.database import SessionLocal
 from app.models import Stock
 from app.models.stock_daily_candle import StockDailyCandle
 
 logger = logging.getLogger(__name__)
+_KST = ZoneInfo("Asia/Seoul")
 
 # 일봉은 DB(stock_daily_candles)에 쌓아두고 읽는다. 과거 봉은 한 번 받으면 다시 받지 않고,
 # 오늘 봉이 바뀌는 만큼만 이 주기마다 최근 몇 개 봉을 토스에서 받아 덮어쓴다.
@@ -44,7 +48,8 @@ async def _upsert(db: AsyncSession, stock_id: int, rows: list[dict]) -> None:
     stmt = pg_insert(StockDailyCandle).values([{**r, "stock_id": stock_id} for r in by_date.values()])
     stmt = stmt.on_conflict_do_update(
         index_elements=["stock_id", "trade_date"],
-        set_={k: getattr(stmt.excluded, k) for k in ("open_price", "high_price", "low_price", "close_price", "volume")},
+        # onupdate는 ON CONFLICT 갱신에 적용되지 않으므로 updated_at을 직접 넣는다
+        set_={**{k: getattr(stmt.excluded, k) for k in ("open_price", "high_price", "low_price", "close_price", "volume")}, "updated_at": func.now()},
     )
     try:
         await db.execute(stmt)
@@ -128,3 +133,38 @@ async def get_daily_bars(db: AsyncSession, stock: Stock, total: int) -> list[dic
         }
         for r in reversed(rows)
     ]
+
+
+# 대시보드 거래량 순위는 DB의 최근 일봉 거래량을 쓰는데, 일봉은 누가 그 종목 차트를 열어야만 갱신됐다.
+# 그래서 거래 시간(넥스트레이드 포함 08:00~20:00) 동안 5분마다 모든 종목의 최근 일봉을 받아 둔다.
+REFRESH_ALL_INTERVAL_SECONDS = 300
+_REFRESH_START, _REFRESH_END = dt_time(7, 55), dt_time(20, 10)
+
+
+async def refresh_recent_all() -> int:
+    """모든 종목의 최근 일봉(오늘 포함)을 토스에서 받아 덮어쓴다. 갱신한 종목 수를 돌려준다."""
+    done = 0
+    async with SessionLocal() as db:
+        stocks = (await db.execute(select(Stock).order_by(Stock.id))).scalars().all()
+        for stock in stocks:
+            async with _locks.setdefault(stock.id, asyncio.Lock()):
+                try:
+                    await _load(db, stock, first_count=RECENT_FIRST_PAGE, want=RECENT_FIRST_PAGE)
+                except httpx.HTTPError as e:
+                    logger.warning("최근 일봉 갱신 실패 %s: %r", stock.code, e)
+                    continue
+                _last_refresh[stock.id] = time.monotonic()
+                done += 1
+    return done
+
+
+async def refresh_loop() -> None:
+    await asyncio.sleep(30)
+    while True:
+        now = datetime.now(_KST)
+        if now.weekday() < 5 and _REFRESH_START <= now.time() <= _REFRESH_END:
+            try:
+                logger.info("최근 일봉 갱신: %d종목", await refresh_recent_all())
+            except Exception:
+                logger.exception("최근 일봉 갱신 중 오류")
+        await asyncio.sleep(REFRESH_ALL_INTERVAL_SECONDS)

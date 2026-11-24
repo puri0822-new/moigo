@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core import llm, stock_reason, toss_client
+from app.core import llm, market_index, stock_reason, toss_client
 from app.database import get_db
 from app.models.ai_recommendation import AiModel, AiRecommendation, AiRecommendationEvidence, AiRecommendationResult
 from app.models.stock import Stock
@@ -55,13 +55,26 @@ async def list_recommendations(db: Session = Depends(get_db)):
         prices = await toss_client.get_prices(pending_codes) if pending_codes else {}
     except httpx.HTTPError:
         prices = {}
+    index_codes = sorted({market_index.index_code(stock.market) for _, stock, result in rows if result is None})
+    indexes = {code: await market_index.current(code) for code in index_codes}
 
     def live(rec: AiRecommendation, stock: Stock, result) -> dict:
         p = prices.get(stock.code) if result is None else None
         if not p:
             return {}
         price = int(float(p["lastPrice"]))
-        return {"live_price": price, "live_return_rate": round((price - rec.price_at_recommendation) / rec.price_at_recommendation, 4)}
+        return_rate = (price - rec.price_at_recommendation) / rec.price_at_recommendation
+        data = {"live_price": price, "live_return_rate": round(return_rate, 4)}
+        base, now = rec.benchmark_at_recommendation, indexes.get(market_index.index_code(stock.market))
+        if base and now:
+            data["live_excess_return_rate"] = round(return_rate - (now - float(base)) / float(base), 4)
+        return data
+
+    def result_item(result: AiRecommendationResult) -> AiResultItem:
+        item = AiResultItem.model_validate(result)
+        if item.benchmark_return_rate is None:
+            return item
+        return item.model_copy(update={"excess_return_rate": round(item.return_rate - item.benchmark_return_rate, 4)})
 
     data = [
         AiRecommendationItem(
@@ -71,7 +84,7 @@ async def list_recommendations(db: Session = Depends(get_db)):
             price_at_recommendation=rec.price_at_recommendation,
             recommended_at=rec.recommended_at, evaluate_at=rec.evaluate_at,
             evidence=evidence[rec.id],
-            result=AiResultItem.model_validate(result) if result else None,
+            result=result_item(result) if result else None,
             **live(rec, stock, result),
         )
         for rec, stock, result in rows

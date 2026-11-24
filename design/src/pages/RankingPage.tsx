@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { apiGet } from '../lib/api';
+import DemoBadge from '../components/DemoBadge';
 import StockLogo from '../components/StockLogo';
 
 interface ApiRankUser {
@@ -13,6 +14,7 @@ interface ApiRankUser {
   profit_rate: number;
   top_holdings: { name: string; code: string; profit_rate: number }[];
   is_me: boolean;
+  is_demo: boolean;
 }
 
 interface RankUser {
@@ -23,6 +25,7 @@ interface RankUser {
   profitRate: number;
   top3: { name: string; code: string; profitRate: number }[];
   isMe?: boolean;
+  isDemo?: boolean;
 }
 
 const medalColors = ['#F5A623', '#A8A8A8', '#CD7F32'];
@@ -51,6 +54,7 @@ export default function RankingPage() {
           profitRate: u.profit_rate,
           top3: u.top_holdings.map(h => ({ name: h.name, code: h.code, profitRate: h.profit_rate })),
           isMe: u.is_me,
+          isDemo: u.is_demo,
         })));
         setStatus('ready');
       })
@@ -116,7 +120,7 @@ export default function RankingPage() {
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>수익</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: myUser.profitAmount >= 0 ? '#fca5a5' : '#93c5fd', marginTop: 2 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: myUser.profitAmount >= 0 ? theme.upSoft : theme.downSoft, marginTop: 2 }}>
             {profitLabel(myUser.profitAmount, myUser.profitRate)}
           </div>
         </div>
@@ -147,7 +151,7 @@ export default function RankingPage() {
               }}>
                 {user.nickname[0]?.toUpperCase()}
               </div>
-              <div style={{ fontSize: isCenter ? 14 : 13, fontWeight: 700, textAlign: 'center' }}>{user.nickname}</div>
+              <div style={{ fontSize: isCenter ? 14 : 13, fontWeight: 700, textAlign: 'center' }}>{user.nickname}{user.isDemo && <DemoBadge />}</div>
               <div style={{ fontSize: isCenter ? 15 : 13, fontWeight: 800 }}>{(user.totalAsset / 10000).toFixed(0)}만원</div>
               <div style={{ fontSize: 12, fontWeight: 700, textAlign: 'center', color: user.profitAmount >= 0 ? theme.up : theme.down }}>
                 {profitLabel(user.profitAmount, user.profitRate)}
@@ -212,7 +216,7 @@ export default function RankingPage() {
                   {user.nickname[0]?.toUpperCase()}
                 </div>
                 <span style={{ fontWeight: isMe ? 700 : 500 }}>
-                  {user.nickname}{isMe && <span style={{ fontSize: 11, color: theme.ai, marginLeft: 5, fontWeight: 700 }}>나</span>}
+                  {user.nickname}{user.isDemo && <DemoBadge />}{isMe && <span style={{ fontSize: 11, color: theme.ai, marginLeft: 5, fontWeight: 700 }}>나</span>}
                 </span>
               </div>
 

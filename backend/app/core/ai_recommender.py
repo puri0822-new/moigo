@@ -3,7 +3,8 @@
 - 생성: 종목별 최신 뉴스를 모아 모델에게 보내고, 1주(WEEKLY) 3개·1달(MONTHLY) 2개 추천을 받는다.
   근거 뉴스는 보낸 목록의 번호로만 고르게 해서 지어낸 기사가 들어가지 않게 한다.
 - 검증: evaluate_at이 지난 추천을 그날(주말·휴일이면 직전 거래일) 종가로 채점한다.
-  매수는 오르면, 매도는 내리면 적중. 틀린 추천은 같은 모델에게 그 사이 뉴스를 주고 실패 이유를 쓰게 한다.
+  시장 전체 등락에 휩쓸리지 않도록 같은 기간 그 종목 시장 지수(코스피·코스닥) 수익률을 뺀 초과수익으로 가린다.
+  매수는 초과수익이 +면, 매도는 -면 적중. 틀린 추천은 같은 모델에게 그 사이 뉴스를 주고 실패 이유를 쓰게 한다.
 """
 
 import asyncio
@@ -17,7 +18,7 @@ import httpx
 from sqlalchemy import exists, func
 from sqlalchemy.orm import Session
 
-from app.core import llm, naver_client, toss_client
+from app.core import llm, market_index, naver_client, toss_client
 from app.models.ai_recommendation import (
     AiModel,
     AiRecommendation,
@@ -42,7 +43,7 @@ GENERATE_SYSTEM = """당신은 한국 주식 애널리스트다. 주어진 종�
 규칙:
 - weekly(1주 뒤 결과 검증)는 정확히 {weekly}개, monthly(1달 뒤 결과 검증)는 정확히 {monthly}개를 채운다. 개수가 모자라면 안 된다.
 - 같은 목록 안에서는 서로 다른 종목을 고른다. 목록 앞쪽 종목에 치우치지 말고 전체를 보고 고른다.
-- opinion은 BUY(오를 것) 또는 SELL(내릴 것). 뉴스 흐름상 방향이 뚜렷한 종목을 고른다.
+- opinion은 BUY(같은 기간 시장 지수보다 더 오를 것) 또는 SELL(시장 지수보다 못할 것). 결과는 시장 지수 대비 초과수익으로 채점하므로, 시장 전체 방향이 아니라 종목 고유의 뉴스 흐름이 뚜렷한 종목을 고른다.
 - reason은 한국어 1~2문장, 존댓말 없이 "~임/~됨"체로 쓴다.
 - summary는 reason의 핵심만 25자 안팎의 한 구절로 쓴다. 종목명은 빼고, 문장 대신 명사형으로 끝낸다 (예: "메모리 80% 장기계약, 이익 가시성↑").
 - confidence는 0~100 정수.
@@ -51,7 +52,7 @@ GENERATE_SYSTEM = """당신은 한국 주식 애널리스트다. 주어진 종�
 반드시 아래 모양의 JSON 객체만 출력한다. 다른 문장, 마크다운 금지. (예시의 값은 자리 표시일 뿐이다)
 {example}"""
 
-FAILURE_SYSTEM = """당신은 한국 주식 애널리스트다. 당신이 했던 추천이 틀렸다. 추천 이후 뉴스와 가격 변화를 보고 왜 틀렸는지 한국어 1~2문장, "~임/~됨"체로 설명한다.
+FAILURE_SYSTEM = """당신은 한국 주식 애널리스트다. 당신이 했던 추천이 틀렸다. 추천은 같은 기간 시장 지수 대비 초과수익으로 채점된다. 추천 이후 뉴스와 종목·지수 가격 변화를 보고 왜 틀렸는지 한국어 1~2문장, "~임/~됨"체로 설명한다.
 뉴스에 근거가 없으면 추측이라고 밝힌다. 반드시 {"failure_reason": "..."} JSON 객체만 출력한다."""
 
 
@@ -199,6 +200,8 @@ async def generate(db: Session, model_code: str) -> list[AiRecommendation]:
         raise llm.LlmError(f"{model_code}: 쓸 수 있는 추천이 없습니다")
 
     prices = await toss_client.get_prices(sorted({p["code"] for _, p in chosen}))
+    index_codes = {market_index.index_code(by_code[p["code"]].market) for _, p in chosen}
+    benchmarks = {code: await market_index.current(code) for code in index_codes}
     now = now_kst()
     saved: list[AiRecommendation] = []
     for period, p in chosen:
@@ -210,6 +213,7 @@ async def generate(db: Session, model_code: str) -> list[AiRecommendation]:
             ai_model=model_code, period_type=period, stock_id=by_code[p["code"]].id,
             opinion=p["opinion"], reason=p["reason"], summary=p["summary"], confidence=p["confidence"],
             price_at_recommendation=int(float(price["lastPrice"])),
+            benchmark_at_recommendation=benchmarks[market_index.index_code(by_code[p["code"]].market)],
             recommended_at=now, evaluate_at=evaluate_at_for(period, now),
         )
         db.add(rec)
@@ -235,7 +239,30 @@ async def _close_on_or_before(code: str, target: date) -> int | None:
     return int(float(closes[-1]["closePrice"])) if closes else None
 
 
-async def _failure_reason(model_code: str, rec: AiRecommendation, stock: Stock, price_at_eval: int, return_rate: float) -> str | None:
+async def benchmark_base(rec: AiRecommendation, stock: Stock) -> float | None:
+    """추천 시점 시장 지수. 추천할 때 저장하지 못했으면 추천일 지수 종가."""
+    if rec.benchmark_at_recommendation:
+        return float(rec.benchmark_at_recommendation)
+    return await market_index.close_on_or_before(market_index.index_code(stock.market), _kst_date(rec.recommended_at))
+
+
+async def _benchmark_return(rec: AiRecommendation, stock: Stock, target: date) -> float | None:
+    """추천 시점부터 target 날짜 종가까지 시장 지수 수익률. 지수를 못 받으면 None."""
+    base = await benchmark_base(rec, stock)
+    end = await market_index.close_on_or_before(market_index.index_code(stock.market), target)
+    if not base or not end:
+        return None
+    return (end - base) / base
+
+
+def is_hit_for(opinion: str, return_rate: float, benchmark_return_rate: float) -> bool:
+    excess = return_rate - benchmark_return_rate
+    return excess > 0 if opinion == "BUY" else excess < 0
+
+
+async def _failure_reason(
+    model_code: str, rec: AiRecommendation, stock: Stock, price_at_eval: int, return_rate: float, benchmark_return_rate: float,
+) -> str | None:
     if not llm.is_available(model_code):
         return None
     try:
@@ -243,11 +270,13 @@ async def _failure_reason(model_code: str, rec: AiRecommendation, stock: Stock, 
     except httpx.HTTPError:
         news = []
     news_lines = "\n".join(f"- {n['title']} ({n['published_at']:%m-%d})" for n in news) or "(뉴스 없음)"
+    index_name = "코스닥" if market_index.index_code(stock.market) == "KOSDAQ" else "코스피"
     user = (
         f"종목: {stock.name}\n"
         f"추천: {'매수' if rec.opinion == 'BUY' else '매도'} ({rec.recommended_at.astimezone(KST):%Y-%m-%d})\n"
         f"추천 이유: {rec.reason}\n"
         f"가격: {rec.price_at_recommendation:,}원 → {price_at_eval:,}원 ({return_rate * 100:+.2f}%)\n"
+        f"같은 기간 {index_name}: {benchmark_return_rate * 100:+.2f}%, 시장 대비 {(return_rate - benchmark_return_rate) * 100:+.2f}%p\n"
         f"추천 이후 뉴스:\n{news_lines}"
     )
     try:
@@ -280,18 +309,66 @@ async def evaluate_pending(db: Session) -> int:
         price = await _close_on_or_before(stock.code, target)
         if not price:
             continue
+        # 지수를 못 받으면 절대 수익률로 채점하지 않고 다음 주기에 다시 한다
+        benchmark_rate = await _benchmark_return(rec, stock, target)
+        if benchmark_rate is None:
+            logger.warning("시장 지수를 받지 못해 채점을 미룸 rec=%s", rec.id)
+            continue
         return_rate = (price - rec.price_at_recommendation) / rec.price_at_recommendation
-        is_hit = return_rate > 0 if rec.opinion == "BUY" else return_rate < 0
-        failure = None if is_hit else await _failure_reason(rec.ai_model, rec, stock, price, return_rate)
+        is_hit = is_hit_for(rec.opinion, return_rate, benchmark_rate)
+        failure = None if is_hit else await _failure_reason(rec.ai_model, rec, stock, price, return_rate, benchmark_rate)
         db.add(AiRecommendationResult(
             recommendation_id=rec.id, price_at_evaluation=price,
-            return_rate=round(return_rate, 4), is_hit=is_hit, failure_reason=failure,
+            return_rate=round(return_rate, 4), benchmark_return_rate=round(benchmark_rate, 4),
+            is_hit=is_hit, failure_reason=failure,
         ))
         db.commit()
         done += 1
     if done:
         logger.info("AI 추천 %d개 채점", done)
     return done
+
+
+async def rescore_with_benchmark(db: Session) -> tuple[int, int]:
+    """시장 대비 채점 이전에 만든 추천을 새 기준으로 맞춘다. (지수를 채운 추천 수, 다시 채점한 결과 수)를 돌려준다.
+    추천 시점 지수가 없는 추천은 추천일 지수 종가로 채우고, 지수 수익률이 없는 결과는 다시 채점한다.
+    새 기준으로 적중이 되면 실패 이유를 지우고, 새로 실패가 되면 실패 이유를 쓴다."""
+    filled = 0
+    for rec, stock in (
+        db.query(AiRecommendation, Stock)
+        .join(Stock, Stock.id == AiRecommendation.stock_id)
+        .filter(AiRecommendation.benchmark_at_recommendation.is_(None))
+        .all()
+    ):
+        base = await benchmark_base(rec, stock)
+        if base:
+            rec.benchmark_at_recommendation = round(base, 2)
+            filled += 1
+    db.commit()
+
+    rescored = 0
+    for result, rec, stock in (
+        db.query(AiRecommendationResult, AiRecommendation, Stock)
+        .join(AiRecommendation, AiRecommendation.id == AiRecommendationResult.recommendation_id)
+        .join(Stock, Stock.id == AiRecommendation.stock_id)
+        .filter(AiRecommendationResult.benchmark_return_rate.is_(None))
+        .all()
+    ):
+        benchmark_rate = await _benchmark_return(rec, stock, _kst_date(rec.evaluate_at))
+        if benchmark_rate is None:
+            logger.warning("시장 지수를 받지 못해 다시 채점하지 못함 rec=%s", rec.id)
+            continue
+        return_rate = float(result.return_rate)
+        is_hit = is_hit_for(rec.opinion, return_rate, benchmark_rate)
+        result.benchmark_return_rate = round(benchmark_rate, 4)
+        if is_hit:
+            result.failure_reason = None
+        elif result.is_hit or not result.failure_reason:
+            result.failure_reason = await _failure_reason(rec.ai_model, rec, stock, result.price_at_evaluation, return_rate, benchmark_rate)
+        result.is_hit = is_hit
+        db.commit()
+        rescored += 1
+    return filled, rescored
 
 
 SUMMARY_SYSTEM = """주식 추천 이유를 대시보드 한 줄 요약으로 줄인다. 핵심만 25자 안팎의 한 구절로 쓰고, 종목명은 빼고, 문장 대신 명사형으로 끝낸다 (예: "메모리 80% 장기계약, 이익 가시성↑").

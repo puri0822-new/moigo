@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.core import ai_scheduler
+from app.core import ai_scheduler, candle_store
 from app.core.config import settings
 from app.core.uploads import UPLOAD_DIR, UPLOAD_URL_PREFIX
 from app.routers import auth, orders, portfolio, account, stocks, market, ranking, community, ai, users, watchlist, notifications
@@ -16,15 +16,18 @@ _background_tasks: set[asyncio.Task] = set()
 
 
 @app.on_event("startup")
-async def start_ai_scheduler():
+async def start_background_tasks():
+    loops = [candle_store.refresh_loop()]
     if settings.AI_SCHEDULER_ENABLED:
-        task = asyncio.create_task(ai_scheduler.loop())
+        loops.append(ai_scheduler.loop())
+    for coro in loops:
+        task = asyncio.create_task(coro)
         _background_tasks.add(task)
         task.add_done_callback(_background_tasks.discard)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

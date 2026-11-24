@@ -7,6 +7,7 @@ import {
   assetUrl, createComment, createPost, deleteComment, deletePost, fetchComments, fetchPosts, fetchStocks, togglePostLike, updatePost, uploadPostImage,
   type ApiComment, type ApiPost, type ApiStock, type PostSort,
 } from '../lib/api';
+import DemoBadge from './DemoBadge';
 import { timeAgo } from '../lib/time';
 
 const PAGE_SIZE = 20;
@@ -483,7 +484,7 @@ export default function PostFeed({ stockId, stockName }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {avatar(post.author, 32)}
             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>{post.author}</span>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{post.author}{post.author_is_demo && <DemoBadge />}</span>
               <span style={{ fontSize: 11, color: theme.textMuted }}>{timeAgo(post.created_at)}</span>
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -580,7 +581,7 @@ export default function PostFeed({ stockId, stockName }: Props) {
                   {avatar(c.author, 24)}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700 }}>{c.author}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>{c.author}{c.author_is_demo && <DemoBadge />}</span>
                       <span style={{ fontSize: 11, color: theme.textMuted }}>{timeAgo(c.created_at)}</span>
                       {c.is_mine && (
                         <button onClick={() => handleDeleteComment(post, c)} style={{ ...linkButton, marginLeft: 'auto', fontSize: 11, color: theme.textMuted }}>삭제</button>

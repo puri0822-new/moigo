@@ -62,7 +62,8 @@ export default function AiRecCard() {
           <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{rec.stockName}</span>
           <span style={{
             fontSize: 11, fontWeight: 700, borderRadius: 5, padding: '2px 7px',
-            color: isBuy ? '#fca5a5' : '#93c5fd', border: `1px solid ${isBuy ? '#fca5a5' : '#93c5fd'}`,
+            color: isBuy ? theme.upSoft : theme.downSoft,
+            border: `1px solid ${isBuy ? theme.upSoft : theme.downSoft}`,
           }}>
             {isBuy ? '매수' : '매도'}
           </span>

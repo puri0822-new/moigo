@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import StockLogo from './StockLogo';
+import DemoBadge from './DemoBadge';
 import {
   fetchPopularPosts, fetchTrendingStocks, fetchWeeklyRanking,
   type ApiPost, type ApiTrendingStock, type ApiWeeklyRanker,
@@ -28,8 +29,11 @@ export default function FeedSidebar() {
   const trending = useLoaded<ApiTrendingStock>(() => fetchTrendingStocks(5));
   const weekly = useLoaded<ApiWeeklyRanker>(() => fetchWeeklyRanking(5));
 
-  const box = (title: string, caption: string, body: React.ReactNode) => (
-    <div style={{ background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+  const box = (title: string, caption: string, body: React.ReactNode, opts?: { pad?: number; gap?: number }) => (
+    <div style={{
+      background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 12,
+      padding: opts?.pad ?? 14, display: 'flex', flexDirection: 'column', gap: opts?.gap ?? 10,
+    }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 800 }}>{title}</span>
         <span style={{ fontSize: 10, color: theme.textMuted }}>{caption}</span>
@@ -49,19 +53,24 @@ export default function FeedSidebar() {
   );
 
   return (
-    <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* 인기 글: 본문이 길어서 여유 패딩 */}
       {box('인기 글', '최근 7일', list(popular, '아직 글이 없습니다', (post, i) => (
         <div key={post.id} style={{ display: 'flex', gap: 8 }}>
           {rankNumber(i + 1)}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.content}</div>
-            <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
-              {post.author} · 좋아요 {post.like_count} · 댓글 {post.comment_count}
+            <div style={{
+              fontSize: 12, fontWeight: 600, lineHeight: 1.45,
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>{post.content}</div>
+            <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 3 }}>
+              {post.author}{post.author_is_demo && <DemoBadge />} · 좋아요 {post.like_count} · 댓글 {post.comment_count}
             </div>
           </div>
         </div>
-      )))}
+      )), { pad: 16, gap: 12 })}
 
+      {/* 언급 종목: 한 줄 리스트라 촘촘하게 */}
       {box('많이 언급된 종목', '최근 7일', list(trending, '종목을 붙인 글이 아직 없습니다', (stock, i) => (
         <div key={stock.id} onClick={() => navigate(`/stock/${stock.code}`)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
           {rankNumber(i + 1)}
@@ -69,30 +78,31 @@ export default function FeedSidebar() {
           <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{stock.name}</span>
           <span style={{ fontSize: 11, color: theme.textMuted, flexShrink: 0 }}>글 {stock.post_count}</span>
         </div>
-      )))}
+      )), { pad: 14, gap: 8 })}
 
+      {/* 수익 랭킹: 금액·비율이 보이도록 여유 */}
       {box('주간 수익 랭킹', '최근 7일 수익금', list(weekly, '아직 사용자가 없습니다', user => {
         const color = user.profit_amount > 0 ? theme.up : user.profit_amount < 0 ? theme.down : theme.textMuted;
         return (
           <div key={user.user_id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {rankNumber(user.rank)}
             <div style={{
-              width: 22, height: 22, borderRadius: '50%', flexShrink: 0, fontSize: 10, fontWeight: 800,
+              width: 24, height: 24, borderRadius: '50%', flexShrink: 0, fontSize: 10, fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: user.is_me ? theme.ai : theme.panel2, color: user.is_me ? theme.aiText : theme.textMuted,
               border: `1px solid ${user.is_me ? theme.ai : theme.border}`,
             }}>
               {user.nickname.slice(0, 1).toUpperCase()}
             </div>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: user.is_me ? 800 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nickname}</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: user.is_me ? 800 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nickname}{user.is_demo && <DemoBadge />}</span>
             <div style={{ textAlign: 'right', flexShrink: 0, color }}>
               <div style={{ fontSize: 12, fontWeight: 700 }}>{user.profit_amount >= 0 ? '+' : '-'}{Math.abs(user.profit_amount).toLocaleString()}원</div>
               <div style={{ fontSize: 10 }}>({Math.abs(user.profit_rate).toFixed(2)}%)</div>
             </div>
           </div>
         );
-      }))}
-      <div onClick={() => navigate('/ranking')} style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, color: theme.textMuted, cursor: 'pointer' }}>
+      }), { pad: 16, gap: 10 })}
+      <div onClick={() => navigate('/ranking')} style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, color: theme.textMuted, cursor: 'pointer', padding: '2px 0' }}>
         전체 랭킹 보기
       </div>
     </div>

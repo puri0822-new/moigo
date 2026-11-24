@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { API_BASE_URL } from '../lib/api';
 
 export default function SignupPage() {
   const { theme, mode, toggle } = useTheme();
@@ -51,14 +52,14 @@ export default function SignupPage() {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/v1/auth/signup', {
+      const res = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, nickname, marketing_agreed: marketingAgreed }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.detail || '회원가입에 실패했습니다'); return;
+        setError(data.message || data.detail || '회원가입에 실패했습니다'); return;
       }
       navigate('/login');
     } catch {

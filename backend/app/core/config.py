@@ -32,5 +32,8 @@ class Settings(BaseSettings):
     AI_SCHEDULER_ENABLED: bool = True
     AI_RECOMMEND_HOUR: int = 16
 
+    # 브라우저에서 API를 부를 수 있는 화면 주소 (쉼표로 여러 개). 배포에서는 화면과 API가 같은 주소라 필요 없다
+    CORS_ORIGINS: str = "http://localhost:5173"
+
 
 settings = Settings()

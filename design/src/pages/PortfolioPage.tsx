@@ -50,6 +50,9 @@ export default function PortfolioPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [watchlist, setWatchlist] = useState<ApiWatchlist | null>(null);
+  // 거래 내역 필터: null 이면 전체
+  const [historyYear, setHistoryYear] = useState<number | null>(null);
+  const [historyMonth, setHistoryMonth] = useState<number | null>(null);
 
   usePolling(() => {
     Promise.all([
@@ -61,6 +64,15 @@ export default function PortfolioPage() {
     }).catch(() => {}).finally(() => setLoading(false));
     fetchWatchlist().then(res => setWatchlist(res.data)).catch(() => {});
   }, PORTFOLIO_POLL_MS);
+
+  const tradedYear = (t: HistoryItem) => new Date(t.ordered_at).getFullYear();
+  const tradedMonth = (t: HistoryItem) => new Date(t.ordered_at).getMonth() + 1;
+  const historyYears = [...new Set(history.map(tradedYear))].sort((a, b) => b - a);
+  const monthsWithTrades = new Set(history.filter(t => tradedYear(t) === historyYear).map(tradedMonth));
+  const filteredHistory = history.filter(t =>
+    (historyYear === null || tradedYear(t) === historyYear) &&
+    (historyMonth === null || tradedMonth(t) === historyMonth),
+  );
 
   const toggleWatchAlert = (stockId: number, enabled: boolean) => {
     setWatchlist(prev => prev && { ...prev, items: prev.items.map(w => w.stock_id === stockId ? { ...w, alert_enabled: enabled } : w) });
@@ -256,7 +268,7 @@ export default function PortfolioPage() {
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>거래 내역</div>
           {(() => {
-            const sells = history.filter(t => t.realized_profit !== null);
+            const sells = filteredHistory.filter(t => t.realized_profit !== null);
             if (sells.length === 0) return null;
             const total = sells.reduce((sum, t) => sum + t.realized_profit!, 0);
             return (
@@ -269,6 +281,34 @@ export default function PortfolioPage() {
             );
           })()}
         </div>
+        {historyYears.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {[null, ...historyYears].map(y => (
+                <FilterChip
+                  key={y ?? 'all'}
+                  label={y === null ? '전체' : `${y}년`}
+                  active={historyYear === y}
+                  onClick={() => { setHistoryYear(y); setHistoryMonth(null); }}
+                />
+              ))}
+            </div>
+            {historyYear !== null && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {[null, ...Array.from({ length: 12 }, (_, i) => i + 1)].map(m => (
+                  <FilterChip
+                    key={m ?? 'all'}
+                    label={m === null ? '전체' : `${m}월`}
+                    active={historyMonth === m}
+                    disabled={m !== null && !monthsWithTrades.has(m)}
+                    onClick={() => setHistoryMonth(m)}
+                    small
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div style={{
           background: theme.panel, border: `1px solid ${theme.border}`,
           borderRadius: 12, overflow: 'hidden',
@@ -286,12 +326,12 @@ export default function PortfolioPage() {
             <span style={{ textAlign: 'right' }}>거래금액</span>
             <span style={{ textAlign: 'right' }}>실현 손익</span>
           </div>
-          {history.length === 0 && (
+          {filteredHistory.length === 0 && (
             <div style={{ padding: '20px 16px', fontSize: 13, color: theme.textMuted, textAlign: 'center' }}>
-              거래 내역이 없습니다
+              {history.length === 0 ? '거래 내역이 없습니다' : '이 기간에는 거래 내역이 없습니다'}
             </div>
           )}
-          {history.map(t => {
+          {filteredHistory.map(t => {
             const date = new Date(t.ordered_at).toLocaleDateString('ko-KR', {
               year: '2-digit', month: '2-digit', day: '2-digit',
             });
@@ -329,5 +369,33 @@ export default function PortfolioPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+interface FilterChipProps {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  small?: boolean;
+  onClick: () => void;
+}
+
+function FilterChip({ label, active, disabled, small, onClick }: FilterChipProps) {
+  const { theme } = useTheme();
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: small ? '5px 11px' : '7px 14px', borderRadius: 999, fontFamily: 'inherit',
+        fontSize: small ? 12 : 13, fontWeight: active ? 700 : 600,
+        border: `1px solid ${active ? theme.ai : theme.border}`,
+        background: active ? theme.ai : theme.panel,
+        color: active ? '#fff' : theme.textMuted,
+        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.35 : 1,
+      }}
+    >
+      {label}
+    </button>
   );
 }

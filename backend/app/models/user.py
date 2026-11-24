@@ -14,5 +14,7 @@ class User(Base):
     marketing_agreed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # 회원 설정의 급등락 알림 전체 스위치. 끄면 새 알림을 만들지 않는다
     price_alert_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # 전시용 체험 계정. 랭킹·피드에서 닉네임 옆에 "체험"을 붙인다
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

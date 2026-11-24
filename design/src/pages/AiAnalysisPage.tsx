@@ -7,7 +7,7 @@ import AiStatsCard from '../components/AiStatsCard';
 import AiHitRateTrendChart from '../components/AiHitRateTrendChart';
 import AiConsensusPanel from '../components/AiConsensusPanel';
 import AiRecommendationModal, { HitBadge, formatDate, formatReturn, resultLabel } from '../components/AiRecommendationModal';
-import { directionalReturn, hitRateOf, useAiRecommendations } from '../lib/aiRecommendations';
+import { directionalExcess, hitRateOf, useAiRecommendations } from '../lib/aiRecommendations';
 import type { AiRecommendation, PeriodType } from '../lib/aiRecommendations';
 import { useAiModels } from '../lib/aiModels';
 import type { AiModel } from '../lib/aiModels';
@@ -215,10 +215,10 @@ export default function AiAnalysisPage() {
                         {r.live && (
                           <span style={{
                             float: 'right', fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap',
-                            color: directionalReturn(r) > 0 ? '#16a34a' : '#ef4444',
-                            background: directionalReturn(r) > 0 ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)',
+                            color: directionalExcess(r) > 0 ? '#16a34a' : '#ef4444',
+                            background: directionalExcess(r) > 0 ? 'rgba(22,163,74,0.1)' : 'rgba(239,68,68,0.1)',
                           }}>
-                            {directionalReturn(r) > 0 ? '맞히는 중' : '빗나가는 중'}
+                            {directionalExcess(r) > 0 ? '맞히는 중' : '빗나가는 중'}
                           </span>
                         )}
                       </div>

@@ -4,6 +4,7 @@
     venv/bin/python -m app.jobs.ai_jobs generate --model CLOVA --force   # 오늘 만들었어도 다시 생성
     venv/bin/python -m app.jobs.ai_jobs evaluate              # 검증일이 지난 추천 채점
     venv/bin/python -m app.jobs.ai_jobs summarize             # 한 줄 요약(summary)이 없는 추천 채우기
+    venv/bin/python -m app.jobs.ai_jobs rescore               # 시장 대비 채점 이전 추천에 지수를 채우고 다시 채점
 
 장중에 만들면 추천가가 그 순간 현재가가 된다. 자동 실행(평일 장 마감 뒤)과 기준이 달라지니 테스트용으로만 쓴다.
 """
@@ -18,7 +19,7 @@ from app.database import SessionLocal
 
 async def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["generate", "evaluate", "summarize"])
+    parser.add_argument("command", choices=["generate", "evaluate", "summarize", "rescore"])
     parser.add_argument("--model", help="ai_models.code (예: CLOVA). 없으면 사용 가능한 모델 모두")
     parser.add_argument("--force", action="store_true", help="오늘 이미 만들었어도 다시 만든다")
     args = parser.parse_args()
@@ -30,6 +31,10 @@ async def main() -> None:
             return
         if args.command == "summarize":
             print(f"요약 채움: {await ai_recommender.fill_missing_summaries(db)}개")
+            return
+        if args.command == "rescore":
+            filled, rescored = await ai_recommender.rescore_with_benchmark(db)
+            print(f"지수 채움: {filled}개, 다시 채점: {rescored}개")
             return
 
         codes = [args.model] if args.model else ai_recommender.active_model_codes(db)

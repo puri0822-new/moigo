@@ -68,8 +68,10 @@ export interface Theme {
   border: string;
   text: string;
   textMuted: string;
-  up: string;
-  down: string;
+  up: string;       // 상승 · 매수 (한국식 빨강)
+  down: string;     // 하락 · 매도 (한국식 파랑)
+  upSoft: string;   // 어두운 배경 위 상승색
+  downSoft: string; // 어두운 배경 위 하락색
   ai: string;
   aiSoft: string;
   aiText: string;

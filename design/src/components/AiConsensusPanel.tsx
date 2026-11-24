@@ -1,23 +1,25 @@
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 import AiIcon from './AiIcon';
 import StockLogo from './StockLogo';
 import { consensusPicks, topPickPerModel } from '../lib/aiRecommendations';
 import type { AiRecommendation } from '../lib/aiRecommendations';
 import { findAiProfile, useAiModels } from '../lib/aiModels';
 
-const VERDICT = {
-  BUY: { label: '매수', color: '#fca5a5' },
-  SELL: { label: '매도', color: '#93c5fd' },
-  SPLIT: { label: '의견 갈림', color: 'rgba(255,255,255,0.75)' },
-} as const;
-
 // AI 분석 배너 오른쪽: 여러 AI가 함께 고른 종목. 없는 날은 AI별로 확신도가 가장 높은 추천
 export default function AiConsensusPanel({ current }: { current: AiRecommendation[] }) {
+  const { theme } = useTheme();
   const navigate = useNavigate();
   const models = useAiModels();
   const picks = consensusPicks(current);
   const tops = picks.length ? [] : topPickPerModel(current);
   if (!picks.length && !tops.length) return null;
+
+  const VERDICT = {
+    BUY: { label: '매수', color: theme.upSoft },
+    SELL: { label: '매도', color: theme.downSoft },
+    SPLIT: { label: '의견 갈림', color: 'rgba(255,255,255,0.75)' },
+  } as const;
 
   const rowStyle = {
     display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, cursor: 'pointer',

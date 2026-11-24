@@ -377,9 +377,9 @@ export default function LandingPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: '0.06em' }}>모이고 사용 시</div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#fca5a5', background: 'rgba(252,165,165,0.2)', border: '1px solid rgba(252,165,165,0.4)', borderRadius: 4, padding: '1px 5px' }}>✦ moigo</div>
+              <div style={{ fontSize: 9, fontWeight: 700, color: theme.upSoft, background: 'rgba(252,165,165,0.2)', border: '1px solid rgba(252,165,165,0.4)', borderRadius: 4, padding: '1px 5px' }}>✦ moigo</div>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: '#fca5a5', marginBottom: 14 }}>+24.3%</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: theme.upSoft, marginBottom: 14 }}>+24.3%</div>
             <svg width="146" height="80" viewBox="0 0 146 80" fill="none" style={{ display: 'block' }}>
               <line x1="0" y1="60" x2="146" y2="60" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
               <line x1="0" y1="40" x2="146" y2="40" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
@@ -387,13 +387,13 @@ export default function LandingPage() {
               <polyline
                 points="0,70 24,58 49,46 73,34 98,22 122,12 146,4"
                 fill="none"
-                stroke="#fca5a5"
+                stroke={theme.upSoft}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              <circle cx="146" cy="4" r="4.5" fill="#fca5a5" />
-              <circle cx="146" cy="4" r="9" fill="#fca5a5" opacity="0.2" />
+              <circle cx="146" cy="4" r="4.5" fill={theme.upSoft} />
+              <circle cx="146" cy="4" r="9" fill={theme.upSoft} opacity="0.2" />
             </svg>
           </div>
         </div>

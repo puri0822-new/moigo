@@ -20,6 +20,7 @@ CREATE TABLE users (
     social_id           VARCHAR(255)    NULL,
     marketing_agreed    BOOLEAN         NOT NULL DEFAULT FALSE,
     price_alert_enabled BOOLEAN         NOT NULL DEFAULT TRUE,   -- 회원 설정의 급등락 알림 전체 스위치
+    is_demo             BOOLEAN         NOT NULL DEFAULT FALSE,  -- 전시용 체험 계정 (화면에 "체험" 표시)
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMPTZ     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -227,11 +228,12 @@ CREATE TABLE ai_recommendations (
     ai_model                 VARCHAR(30)   NOT NULL REFERENCES ai_models(code),  -- 추천한 AI
     period_type              VARCHAR(10)   NOT NULL,                     -- WEEKLY: 1주 뒤 검증, MONTHLY: 1달 뒤 검증
     stock_id                 BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
-    opinion                  VARCHAR(10)   NOT NULL,                     -- BUY: 오르면 적중, SELL: 떨어지면 적중
+    opinion                  VARCHAR(10)   NOT NULL,                     -- BUY: 시장 지수보다 더 오르면 적중, SELL: 시장 지수보다 못하면 적중
     reason                   TEXT          NOT NULL,                     -- AI가 밝힌 추천 근거
     summary                  VARCHAR(100)  NULL,                          -- 대시보드용 25자 안팎 한 줄 요약
     confidence               SMALLINT      NULL CHECK (confidence BETWEEN 0 AND 100),
     price_at_recommendation  BIGINT        NOT NULL CHECK (price_at_recommendation > 0),
+    benchmark_at_recommendation NUMERIC(10, 2) NULL,                     -- 추천할 때 그 종목 시장(코스피·코스닥) 지수
     recommended_at           TIMESTAMPTZ   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     evaluate_at              TIMESTAMPTZ   NOT NULL,                     -- 이 시각이 지나면 결과를 검증한다
 
@@ -244,6 +246,7 @@ CREATE TABLE ai_recommendation_results (
     recommendation_id    BIGINT         NOT NULL UNIQUE REFERENCES ai_recommendations(id) ON DELETE CASCADE,
     price_at_evaluation  BIGINT         NOT NULL CHECK (price_at_evaluation > 0),
     return_rate          NUMERIC(8, 4)  NOT NULL,                        -- (검증가 - 추천가) / 추천가, 0.0123 = +1.23%
+    benchmark_return_rate NUMERIC(8, 4) NULL,                            -- 같은 기간 시장 지수 수익률. 적중은 초과수익으로 가린다
     is_hit               BOOLEAN        NOT NULL,
     failure_reason       TEXT           NULL,                            -- 틀렸을 때 AI가 뉴스를 근거로 설명한 이유
     evaluated_at         TIMESTAMPTZ    NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string ?? 'http://localhost:8000/v1';
+// 개발: http://localhost:8000/v1 (.env.local), 배포: /v1 (.env.production, 화면과 같은 주소의 nginx가 백엔드로 넘긴다)
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string ?? 'http://localhost:8000/v1';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -165,6 +166,7 @@ export async function fetchStockOrderbook(stockId: number): Promise<ApiOrderbook
 export interface ApiPost {
   id: number;
   author: string; // 작성자 닉네임
+  author_is_demo: boolean; // 전시용 체험 계정이 쓴 글
   is_mine: boolean;
   content: string;
   image_url: string | null; // 붙인 사진의 서버 경로(/uploads/...). assetUrl로 감싸서 쓴다
@@ -178,6 +180,7 @@ export interface ApiPost {
 export interface ApiComment {
   id: number;
   author: string;
+  author_is_demo: boolean;
   is_mine: boolean;
   content: string;
   created_at: string;
@@ -199,7 +202,8 @@ export function fetchPosts({ stockId, limit, beforeId, sort, offset }: { stockId
 
 /** 서버가 준 파일 경로(/uploads/...)를 브라우저에서 열 수 있는 주소로 바꾼다 */
 export function assetUrl(path: string) {
-  return new URL(path, API_BASE_URL).href;
+  // API 주소가 /v1처럼 상대 경로여도 되도록 지금 페이지 주소를 기준으로 푼다
+  return new URL(path, new URL(API_BASE_URL, window.location.origin)).href;
 }
 
 /** 글에 붙일 사진을 올리고 서버 경로를 받는다. 받은 경로를 createPost의 image_url로 보낸다 */
@@ -269,6 +273,7 @@ export interface ApiWeeklyRanker {
   rank: number;
   user_id: number;
   nickname: string;
+  is_demo: boolean; // 전시용 체험 계정
   profit_amount: number; // 최근 7일 동안 번 금액
   profit_rate: number; // 7일 전 총 자산 대비 %
   is_me: boolean;

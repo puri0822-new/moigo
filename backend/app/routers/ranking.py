@@ -60,6 +60,7 @@ async def get_ranking(
         rows.append({
             "user_id": user.id,
             "nickname": user.nickname,
+            "is_demo": user.is_demo,
             "total_asset": total_asset,
             "profit_amount": profit_amount,
             "profit_rate": round(profit_amount / account.initial_balance * 100, 2) if account.initial_balance > 0 else 0.0,
@@ -144,6 +145,7 @@ async def get_weekly_ranking(
         rows.append({
             "user_id": user.id,
             "nickname": user.nickname,
+            "is_demo": user.is_demo,
             "profit_amount": profit,
             "profit_rate": round(profit / asset_then * 100, 2) if asset_then > 0 else 0.0,
             "is_me": user.id == current_user.id,

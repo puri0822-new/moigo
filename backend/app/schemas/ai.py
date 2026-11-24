@@ -27,6 +27,9 @@ class AiResultItem(BaseModel):
     price_at_evaluation: int
     # (검증가 - 추천가) / 추천가. 0.0123 = +1.23%
     return_rate: float
+    # 같은 기간 시장 지수 수익률과, 그만큼 뺀 초과수익. 적중은 초과수익으로 가린다 (시장 대비 채점 이전 결과는 None)
+    benchmark_return_rate: float | None = None
+    excess_return_rate: float | None = None
     is_hit: bool
     failure_reason: str | None
     evaluated_at: datetime
@@ -54,6 +57,8 @@ class AiRecommendationItem(BaseModel):
     # 검증 전 추천의 중간 집계: 지금 현재가와 추천가 대비 수익률(0.0123 = +1.23%). 검증 끝났거나 시세를 못 받으면 None
     live_price: int | None = None
     live_return_rate: float | None = None
+    # 지금까지 시장 지수 대비 초과수익. 지수를 못 받으면 None
+    live_excess_return_rate: float | None = None
 
 
 class StockAiReasonItem(BaseModel):

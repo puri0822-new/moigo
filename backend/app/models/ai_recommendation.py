@@ -30,13 +30,15 @@ class AiRecommendation(Base):
     # WEEKLY는 1주 뒤, MONTHLY는 1달 뒤에 검증한다
     period_type: Mapped[str] = mapped_column(String(10), nullable=False)
     stock_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("stocks.id", ondelete="CASCADE"), nullable=False)
-    # BUY는 오르면 적중, SELL은 떨어지면 적중
+    # BUY는 시장 지수보다 더 오르면 적중, SELL은 시장 지수보다 못하면 적중
     opinion: Mapped[str] = mapped_column(String(10), nullable=False)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     # 대시보드 종목명 옆에 보여줄 25자 안팎 한 줄 요약
     summary: Mapped[str | None] = mapped_column(String(100), nullable=True)
     confidence: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     price_at_recommendation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # 추천할 때 그 종목 시장(코스피·코스닥) 지수. 없으면 추천일 지수 종가로 채점한다
+    benchmark_at_recommendation: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     recommended_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     evaluate_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -51,6 +53,8 @@ class AiRecommendationResult(Base):
     price_at_evaluation: Mapped[int] = mapped_column(BigInteger, nullable=False)
     # (검증가 - 추천가) / 추천가. 0.0123 = +1.23%
     return_rate: Mapped[float] = mapped_column(Numeric(8, 4), nullable=False)
+    # 같은 기간 시장 지수 수익률. 적중은 return_rate - benchmark_return_rate(초과수익)로 가린다
+    benchmark_return_rate: Mapped[float | None] = mapped_column(Numeric(8, 4), nullable=True)
     is_hit: Mapped[bool] = mapped_column(Boolean, nullable=False)
     # 틀렸을 때 AI가 뉴스를 근거로 설명한 이유
     failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

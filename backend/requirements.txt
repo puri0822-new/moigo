@@ -1,6 +1,8 @@
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 sqlalchemy>=2.0
+# SQLAlchemy 비동기(asyncpg) 사용에 필요. 빠져 있어 새 환경에서 서버가 안 켜졌음
+greenlet
 asyncpg
 psycopg2-binary==2.9.9
 pydantic[email]

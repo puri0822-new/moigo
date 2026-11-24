@@ -142,29 +142,55 @@ export default function SettingsPage() {
 
   const badgeStyle = {
     padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 600,
-    background: theme.panel2, border: `1px solid ${theme.border}`, color: theme.textMuted,
+    background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff',
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 20, fontWeight: 800 }}>회원 설정</div>
+    <div style={{
+      padding: 24, maxWidth: 720, width: '100%', margin: '0 auto', boxSizing: 'border-box',
+      display: 'flex', flexDirection: 'column', gap: 16,
+    }}>
+      <button
+        onClick={() => navigate('/dashboard')}
+        style={{
+          alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 4,
+          padding: '6px 12px 6px 8px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit',
+          background: theme.panel, border: `1px solid ${theme.border}`, color: theme.textMuted,
+          fontSize: 13, fontWeight: 600,
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        홈으로
+      </button>
 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ fontSize: 22, fontWeight: 800 }}>회원 설정</div>
+        <div style={{ fontSize: 13, color: theme.textMuted }}>프로필과 비밀번호, 알림을 관리합니다</div>
+      </div>
+
+      {/* 대시보드 소개 배너와 같은 그라데이션 */}
       <div style={{
-        background: theme.panel, border: `1px solid ${theme.border}`, borderRadius: 14,
-        padding: 20, display: 'flex', alignItems: 'center', gap: 16,
+        background: 'linear-gradient(135deg, #4F6EF7 0%, #7B5EA7 60%, #3B4FC8 100%)', borderRadius: 16,
+        padding: '28px 28px', display: 'flex', alignItems: 'center', gap: 18,
+        position: 'relative', overflow: 'hidden',
       }}>
+        <div style={{ position: 'absolute', right: -40, top: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ position: 'absolute', right: 90, bottom: -70, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
         <div style={{
-          width: 64, height: 64, borderRadius: '50%', background: theme.ai, flexShrink: 0,
+          width: 72, height: 72, borderRadius: '50%', flexShrink: 0, position: 'relative',
+          background: 'rgba(255,255,255,0.18)', border: '3px solid rgba(255,255,255,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 26, color: theme.aiText, fontWeight: 700,
+          fontSize: 28, color: '#fff', fontWeight: 800,
         }}>
           {profile.nickname[0]?.toUpperCase() ?? '?'}
         </div>
-        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4, position: 'relative' }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile.nickname}
           </div>
-          <div style={{ fontSize: 13, color: theme.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {profile.email}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
@@ -176,7 +202,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <Section title="프로필">
+      <Section title="프로필" icon="user" description="다른 사용자에게 보이는 이름과 수신 동의">
         <Field label="이메일">
           <div style={{ ...inputStyle, color: theme.textMuted, background: 'transparent' }}>{profile.email}</div>
           <div style={{ fontSize: 11, color: theme.textMuted }}>이메일은 변경할 수 없습니다</div>
@@ -209,7 +235,7 @@ export default function SettingsPage() {
 
       {/* 구글로만 가입한 계정은 비밀번호가 없다 */}
       {profile.has_password && (
-        <Section title="비밀번호 변경">
+        <Section title="비밀번호 변경" icon="lock" description="이메일 로그인에 쓰는 비밀번호">
           <Field label="현재 비밀번호">
             <input type="password" value={currentPw} onChange={e => { setCurrentPw(e.target.value); setPwNotice(null); }} style={inputStyle} />
           </Field>
@@ -236,7 +262,7 @@ export default function SettingsPage() {
         </Section>
       )}
 
-      <Section title="알림 설정">
+      <Section title="알림 설정" icon="bell" description="관심 종목 가격 변동 알림">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>관심 종목 급등락 알림</div>
@@ -266,7 +292,7 @@ export default function SettingsPage() {
         {notice(alertNotice)}
       </Section>
 
-      <Section title="회원 탈퇴" danger>
+      <Section title="회원 탈퇴" icon="alert" description="계정과 모든 데이터 삭제" danger>
         <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.6 }}>
           탈퇴하면 모의투자 계좌, 보유 종목, 거래 내역, 피드에 쓴 글과 댓글이 모두 삭제되며 되돌릴 수 없습니다.
         </div>
@@ -295,15 +321,50 @@ export default function SettingsPage() {
   );
 }
 
-function Section({ title, danger, children }: { title: string; danger?: boolean; children: ReactNode }) {
+const ICON_PATHS = {
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0',
+  lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
+  bell: 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15L6 16Zm4 4h4',
+  alert: 'M12 4 2.5 20h19L12 4Zm0 6v4m0 3v.01',
+};
+
+interface SectionProps {
+  title: string;
+  icon: keyof typeof ICON_PATHS;
+  description: string;
+  danger?: boolean;
+  children: ReactNode;
+}
+
+function Section({ title, icon, description, danger, children }: SectionProps) {
   const { theme } = useTheme();
+  const accent = danger ? '#ef4444' : theme.ai;
   return (
     <div style={{
-      background: theme.panel, border: `1px solid ${danger ? 'rgba(239, 68, 68, 0.45)' : theme.border}`, borderRadius: 14,
-      padding: 20, display: 'flex', flexDirection: 'column', gap: 14,
+      background: theme.panel, border: `1px solid ${danger ? 'rgba(239, 68, 68, 0.45)' : theme.border}`, borderRadius: 16,
+      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)', overflow: 'hidden',
     }}>
-      <div style={{ fontSize: 15, fontWeight: 700, color: danger ? '#ef4444' : theme.text }}>{title}</div>
-      {children}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px',
+        borderBottom: `1px solid ${danger ? 'rgba(239, 68, 68, 0.25)' : theme.border}`,
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          background: danger ? 'rgba(239, 68, 68, 0.12)' : theme.aiSoft,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={ICON_PATHS[icon]} />
+          </svg>
+        </div>
+        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: danger ? '#ef4444' : theme.text }}>{title}</div>
+          <div style={{ fontSize: 12, color: theme.textMuted }}>{description}</div>
+        </div>
+      </div>
+      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {children}
+      </div>
     </div>
   );
 }

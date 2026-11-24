@@ -1,4 +1,4 @@
-// AI 종목 추천 (GET /ai/recommendations). 서버가 평일 장 마감 뒤 하루 한 번 만들고, 1주·1달 뒤 종가로 채점한다.
+// AI 종목 추천 (GET /ai/recommendations). 서버가 평일 장 마감 뒤 하루 한 번 만들고, 1주·1달 뒤 종가로 시장 지수 대비 채점한다.
 import { useEffect, useState } from 'react';
 import { apiGet } from './api';
 import type { AiModel } from './aiModels';
@@ -21,6 +21,8 @@ export interface AiRecommendationResult {
   priceAtEvaluation: number;
   // (검증가 - 추천가) / 추천가. 0.0123 = +1.23%
   returnRate: number;
+  // 같은 기간 시장 지수 대비 초과수익. 적중은 이것으로 가린다 (시장 대비 채점 이전 결과는 없다)
+  excessReturnRate?: number;
   isHit: boolean;
   // 틀렸을 때 AI가 뉴스를 근거로 설명한 이유
   failureReason?: string;
@@ -47,8 +49,8 @@ export interface AiRecommendation {
   // 이 날짜에 그때 가격과 비교해 적중 여부를 검증한다 (주간은 1주 뒤, 월간은 1달 뒤)
   evaluateAt: string;
   result?: AiRecommendationResult;
-  // 검증 전 추천의 중간 집계: 지금 현재가와 추천가 대비 수익률 (0.0123 = +1.23%)
-  live?: { price: number; returnRate: number };
+  // 검증 전 추천의 중간 집계: 지금 현재가와 추천가 대비 수익률 (0.0123 = +1.23%), 시장 지수 대비 초과수익
+  live?: { price: number; returnRate: number; excessReturnRate?: number };
 }
 
 interface ApiAiRecommendation {
@@ -69,12 +71,14 @@ interface ApiAiRecommendation {
   result: {
     price_at_evaluation: number;
     return_rate: number;
+    excess_return_rate: number | null;
     is_hit: boolean;
     failure_reason: string | null;
     evaluated_at: string;
   } | null;
   live_price: number | null;
   live_return_rate: number | null;
+  live_excess_return_rate: number | null;
 }
 
 function fromApi(r: ApiAiRecommendation): AiRecommendation {
@@ -103,12 +107,13 @@ function fromApi(r: ApiAiRecommendation): AiRecommendation {
     result: r.result ? {
       priceAtEvaluation: r.result.price_at_evaluation,
       returnRate: r.result.return_rate,
+      excessReturnRate: r.result.excess_return_rate ?? undefined,
       isHit: r.result.is_hit,
       failureReason: r.result.failure_reason ?? undefined,
       evaluatedAt: r.result.evaluated_at,
     } : undefined,
     live: r.live_price != null && r.live_return_rate != null
-      ? { price: r.live_price, returnRate: r.live_return_rate }
+      ? { price: r.live_price, returnRate: r.live_return_rate, excessReturnRate: r.live_excess_return_rate ?? undefined }
       : undefined,
   };
 }
@@ -174,9 +179,18 @@ export function directionalReturn(r: AiRecommendation): number {
   return r.opinion === 'BUY' ? rate : -rate;
 }
 
+/** 추천 방향 기준 시장 대비 초과수익. 적중 판정과 같은 기준이다 (지수가 없으면 수익률로 대신한다) */
+export function directionalExcess(r: AiRecommendation): number {
+  const rate = r.result
+    ? r.result.excessReturnRate ?? r.result.returnRate
+    : r.live?.excessReturnRate ?? r.live?.returnRate;
+  if (rate == null) return 0;
+  return r.opinion === 'BUY' ? rate : -rate;
+}
+
 export interface AiLiveStats {
   total: number;
-  // 지금 가격으로 보면 맞히고 있는 추천 수
+  // 지금 가격으로 보면 시장 대비 맞히고 있는 추천 수
   winning: number;
   avgReturn: number;
   best: AiRecommendation | null;
@@ -185,7 +199,7 @@ export interface AiLiveStats {
 /** 아직 결과가 나오지 않은 추천을 지금 가격으로 중간 집계한다 (정식 적중률이 아니다) */
 export function liveStatsOf(current: AiRecommendation[], model: AiModel): AiLiveStats {
   const recs = current.filter(r => r.aiModel === model && r.live);
-  const winning = recs.filter(r => directionalReturn(r) > 0).length;
+  const winning = recs.filter(r => directionalExcess(r) > 0).length;
   const best = recs.reduce<AiRecommendation | null>(
     (acc, r) => (!acc || directionalReturn(r) > directionalReturn(acc) ? r : acc), null,
   );

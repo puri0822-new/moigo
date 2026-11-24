@@ -8,6 +8,9 @@ import { apiGet } from '../lib/api';
 import type { ApiStock } from '../lib/api';
 import StockLogo from '../components/StockLogo';
 import BannerStrikeChart from '../components/BannerStrikeChart';
+import { usePolling } from '../lib/usePolling';
+
+const STOCKS_POLL_MS = 30_000;
 
 interface DisplayStock {
   name: string;
@@ -21,7 +24,9 @@ interface DisplayStock {
 }
 
 export default function DashboardPage() {
-  const { theme } = useTheme();
+  const { theme, mode } = useTheme();
+  // 거래량 차트 전용: 행 구분선은 기본 테두리보다 연하게
+  const listDivider = mode === 'light' ? 'oklch(0.945 0.003 260)' : 'oklch(0.26 0.006 260)';
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'거래량' | '급상승' | '급하락'>('거래량');
   const [stockRecIndices, setStockRecIndices] = useState<Record<string, number>>({});
@@ -34,7 +39,8 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  // 30초마다 다시 불러온다 (서버 현재가 캐시 60초, 거래량은 서버가 5분마다 갱신). 다른 탭을 보고 있으면 멈춘다
+  usePolling(() => {
     apiGet<ApiStock[]>('/stocks')
       .then(res => {
         setLiveStocks(res.data.map((s, i) => ({
@@ -49,7 +55,7 @@ export default function DashboardPage() {
         })));
       })
       .catch(() => {});
-  }, []);
+  }, STOCKS_POLL_MS);
 
   const stocks = liveStocks;
   const models = useAiModels();
@@ -153,14 +159,14 @@ export default function DashboardPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginBottom: 3 }}>{idx.name}</div>
                     <div style={{ fontSize: 17, fontWeight: 800, color: '#fff' }}>{idx.value}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: isUp ? '#fca5a5' : '#93c5fd', marginTop: 2 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: isUp ? theme.upSoft : theme.downSoft, marginTop: 2 }}>
                       {isUp ? '▲' : '▼'} {Math.abs(idx.changePct).toFixed(2)}%
                     </div>
                   </div>
                   {spark.length > 1 && (
                     <svg width={W} height={H} style={{ flexShrink: 0 }}>
                       <line x1={0} y1={baseY} x2={W} y2={baseY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} strokeDasharray="3 3" />
-                      <polyline points={pts} fill="none" stroke={isUp ? '#fca5a5' : '#93c5fd'} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                      <polyline points={pts} fill="none" stroke={isUp ? theme.upSoft : theme.downSoft} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
                     </svg>
                   )}
                 </div>
@@ -191,7 +197,7 @@ export default function DashboardPage() {
 
         <div style={{
           display: 'flex', flexDirection: 'column', gap: 1,
-          background: theme.border, border: `1px solid ${theme.border}`,
+          background: listDivider, border: `1px solid ${listDivider}`,
           borderRadius: 12, overflow: 'hidden',
         }}>
           {[...stocks]
