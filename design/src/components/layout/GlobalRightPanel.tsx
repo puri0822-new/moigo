@@ -29,12 +29,20 @@ interface PortfolioData {
   holdings: HoldingItem[];
 }
 
+const PANEL_WIDTH = 300;
+const PANEL_TAB_WIDTH = 28;
+const PANEL_COLLAPSE_KEY = 'panel.right.collapsed';
+
 export default function GlobalRightPanel() {
   const { theme } = useTheme();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [watchlist, setWatchlist] = useState<ApiWatchItem[]>([]);
+  // 패널 전체를 접은 상태. 이 브라우저에만 기억한다
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(PANEL_COLLAPSE_KEY) === '1'; } catch { return false; }
+  });
 
   useEffect(() => {
     if (!isAuthenticated) { setPortfolio(null); setWatchlist([]); }
@@ -45,16 +53,58 @@ export default function GlobalRightPanel() {
     fetchWatchlist().then(res => setWatchlist(res.data.items)).catch(() => {});
   }, PORTFOLIO_POLL_MS, isAuthenticated);
 
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem(PANEL_COLLAPSE_KEY, next ? '1' : '0'); } catch { /* 저장 못 해도 화면은 동작 */ }
+  };
 
   return (
     <div style={{
-      width: 300, flexShrink: 0,
-      borderLeft: `1px solid ${theme.border}`,
-      background: theme.panel,
-      padding: 20,
-      display: 'flex', flexDirection: 'column', gap: 14,
-      overflowY: 'auto',
+      width: collapsed ? PANEL_TAB_WIDTH : PANEL_WIDTH,
+      transition: 'width 0.25s ease',
+      flexShrink: 0, position: 'relative',
+      // 경계선 버튼이 본문 쪽으로 반쯤 나오게 바깥은 잘라내지 않는다
+      overflow: 'visible',
+      // 접히면 회색 띠 대신 둥근 손잡이만 보이게 배경·선을 끈다
+      borderLeft: collapsed ? 'none' : `1px solid ${theme.border}`,
+      background: collapsed ? 'transparent' : theme.panel,
     }}>
+      {/* 접기/펼치기. 패널과 본문 사이 경계선에 두고, 접히면 오른쪽 탭이 된다 */}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-label={collapsed ? '내 모의매매 패널 펼치기' : '내 모의매매 패널 접기'}
+        title={collapsed ? '패널 펼치기' : '패널 접기'}
+        style={{
+          position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+          left: collapsed ? 0 : -12, zIndex: 3,
+          width: collapsed ? PANEL_TAB_WIDTH : 24, height: 48, padding: 0, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          // 접힌 탭은 왼쪽만 둥글게 해서 본문 쪽에서 튀어나온 손잡이처럼 보이게 한다
+          borderRadius: collapsed ? '8px 0 0 8px' : 8,
+          border: `1px solid ${collapsed ? theme.ai : theme.border}`,
+          background: collapsed ? theme.ai : theme.panel,
+          color: collapsed ? theme.aiText : theme.textMuted,
+          boxShadow: collapsed ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.08)',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          {collapsed
+            ? <path d="M15 18l-6-6 6-6" />
+            : <path d="M9 18l6-6-6-6" />}
+        </svg>
+      </button>
+
+      <div style={{
+        width: PANEL_WIDTH, height: '100%', boxSizing: 'border-box',
+        padding: 20,
+        display: 'flex', flexDirection: 'column', gap: 14,
+        overflowY: 'auto', overflowX: 'hidden',
+        opacity: collapsed ? 0 : 1,
+        pointerEvents: collapsed ? 'none' : 'auto',
+        transition: 'opacity 0.2s ease',
+      }}>
       {/* AI 추천 카드 (아직 결과가 나오지 않은 실제 추천) */}
       <AiRecCard />
 
@@ -149,6 +199,7 @@ export default function GlobalRightPanel() {
           })}
         </CollapsibleSection>
       )}
+      </div>
     </div>
   );
 }

@@ -353,6 +353,8 @@ export default function StockDetailPage() {
 
   const effectivePrice = orderType === 'market' ? priceNum : inputPrice;
   const total = effectivePrice * qty;
+  // 차트/화면 현재가와 같은 가격으로만 주문할 수 있다 (시장가는 항상 현재가)
+  const priceMatchesChart = priceNum > 0 && (orderType === 'market' || inputPrice === priceNum);
 
 
   const showToast = (msg: string, ok: boolean) => {
@@ -388,6 +390,10 @@ export default function StockDetailPage() {
       showToast('종목 정보를 불러오는 중입니다', false);
       return;
     }
+    if (!priceMatchesChart) {
+      showToast(`현재가(${priceNum.toLocaleString()}원)와 같은 가격으로만 주문할 수 있습니다`, false);
+      return;
+    }
     const s = orderSide ?? side;
     setOrdering(true);
     try {
@@ -395,7 +401,8 @@ export default function StockDetailPage() {
         stock_id: stockId,
         order_type: s === 'buy' ? 'BUY' : 'SELL',
         quantity: qty,
-        price: effectivePrice,
+        // 서버도 현재가와 같은지 다시 확인한다
+        price: priceNum,
       });
       const filled = res.data;
       const now = new Date();
@@ -1070,9 +1077,9 @@ export default function StockDetailPage() {
                 <div onClick={() => orderType === 'limit' && setInputPrice(p => p + 100)}
                   style={{ width: 24, height: 24, borderRadius: 6, border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: orderType === 'limit' ? 'pointer' : 'default', flexShrink: 0, opacity: orderType === 'market' ? 0.4 : 1 }}>+</div>
               </div>
-              {orderType === 'limit' && inputPrice > 0 && inputPrice < priceNum * 0.9 && (
+              {orderType === 'limit' && inputPrice > 0 && inputPrice !== priceNum && (
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#ef4444', padding: '4px 0' }}>
-                  ⚠ 현재가({priceNum.toLocaleString()}원)보다 가격이 낮습니다
+                  현재가({priceNum.toLocaleString()}원)와 같은 가격으로만 주문할 수 있습니다
                 </div>
               )}
             </div>
@@ -1117,15 +1124,18 @@ export default function StockDetailPage() {
               <span style={{ fontSize: 14, fontWeight: 700 }}>{total.toLocaleString()}원</span>
             </div>
 
-            {/* 주문 확정 버튼 */}
+            {/* 주문 확정 버튼 — 차트 현재가와 같을 때만 */}
             <div
-              onClick={() => !ordering && setConfirmOrder({ side, price: priceNum, qty, total: priceNum * qty })}
+              onClick={() => {
+                if (ordering || !priceMatchesChart) return;
+                setConfirmOrder({ side, price: priceNum, qty, total: priceNum * qty });
+              }}
               style={{
                 textAlign: 'center', padding: '11px 0', borderRadius: 8,
                 background: side === 'buy' ? theme.up : theme.down,
                 color: theme.bg, fontWeight: 700, fontSize: 14,
-                cursor: ordering ? 'not-allowed' : 'pointer',
-                opacity: ordering ? 0.6 : 1,
+                cursor: ordering || !priceMatchesChart ? 'not-allowed' : 'pointer',
+                opacity: ordering || !priceMatchesChart ? 0.45 : 1,
               }}
             >
               {side === 'buy' ? '매수하기' : '매도하기'}

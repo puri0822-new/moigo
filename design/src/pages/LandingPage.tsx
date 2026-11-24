@@ -313,88 +313,110 @@ export default function LandingPage() {
           <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.75)', lineHeight: 1.7, marginBottom: 36 }}>
             실제 시장 데이터 기반으로 AI와 함께<br />리스크 없이 투자 전략을 연습해보세요.
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div
-              onClick={() => setShowLogin(true)}
-              style={{
-                padding: '14px 32px', borderRadius: 12,
-                background: '#fff', color: '#4F6EF7',
-                fontSize: 15, fontWeight: 800, cursor: 'pointer',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-              }}
-            >
-              지금 시작하기 →
-            </div>
-            <div
-              onClick={() => setShowLogin(true)}
-              style={{
-                padding: '14px 28px', borderRadius: 12,
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              로그인
-            </div>
+          <div
+            onClick={() => setShowLogin(true)}
+            style={{
+              display: 'inline-block', padding: '14px 32px', borderRadius: 12,
+              background: '#fff', color: '#4F6EF7',
+              fontSize: 15, fontWeight: 800, cursor: 'pointer',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            }}
+          >
+            지금 시작하기 →
           </div>
         </div>
 
-        {/* 우측 비교 차트 카드 */}
-        <div style={{ position: 'relative', zIndex: 1, flexShrink: 0, display: 'flex', gap: 10 }}>
-          {/* 일반 매매 */}
-          <div style={{
-            background: 'rgba(255,255,255,0.08)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 14, padding: '20px 22px',
-            width: 190,
-          }}>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: '0.06em', marginBottom: 10 }}>일반 매매</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>+8.2%</div>
-            <svg width="146" height="80" viewBox="0 0 146 80" fill="none" style={{ display: 'block' }}>
-              <line x1="0" y1="60" x2="146" y2="60" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-              <line x1="0" y1="40" x2="146" y2="40" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-              <line x1="0" y1="20" x2="146" y2="20" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-              <polyline
-                points="0,70 24,64 49,58 73,54 98,50 122,46 146,42"
-                fill="none"
-                stroke="rgba(255,255,255,0.4)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="146" cy="42" r="3.5" fill="rgba(255,255,255,0.4)" />
-            </svg>
+        {/* 우측: 모이고 사용 전·후 투자 비교 (예시) */}
+        <div style={{
+          position: 'relative', zIndex: 1, flexShrink: 0, width: 'min(460px, 48%)',
+          borderRadius: 18, padding: 18,
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 20px 50px rgba(15, 23, 42, 0.22)',
+          display: 'flex', flexDirection: 'column', gap: 14,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>투자, 전과 후</div>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.7)',
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)',
+              borderRadius: 999, padding: '3px 9px',
+            }}>
+              예시 시나리오
+            </div>
           </div>
 
-          {/* 모이고 사용 시 */}
-          <div style={{
-            background: 'rgba(252,165,165,0.12)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(252,165,165,0.3)',
-            borderRadius: 14, padding: '20px 22px',
-            width: 190,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: 700, letterSpacing: '0.06em' }}>모이고 사용 시</div>
-              <div style={{ fontSize: 9, fontWeight: 700, color: theme.upSoft, background: 'rgba(252,165,165,0.2)', border: '1px solid rgba(252,165,165,0.4)', borderRadius: 4, padding: '1px 5px' }}>✦ moigo</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {/* 사용 전 */}
+            <div style={{
+              borderRadius: 14, padding: '16px 14px',
+              background: 'rgba(15,23,42,0.18)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              display: 'flex', flexDirection: 'column', gap: 12,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.04em' }}>
+                BEFORE · 사용 전
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'rgba(255,255,255,0.72)' }}>+8.2%</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>감으로 매매 · 근거 약함</div>
+              </div>
+              <svg width="100%" height="72" viewBox="0 0 160 72" preserveAspectRatio="none" style={{ display: 'block' }}>
+                <polyline
+                  points="0,58 26,54 52,50 78,47 104,44 130,41 160,38"
+                  fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round"
+                />
+              </svg>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {['뉴스만 보고 매수', '왜 샀는지 기억 안 남', '결과 추적 안 함'].map(t => (
+                  <div key={t} style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', display: 'flex', gap: 6 }}>
+                    <span style={{ opacity: 0.7 }}>·</span>{t}
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: theme.upSoft, marginBottom: 14 }}>+24.3%</div>
-            <svg width="146" height="80" viewBox="0 0 146 80" fill="none" style={{ display: 'block' }}>
-              <line x1="0" y1="60" x2="146" y2="60" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
-              <line x1="0" y1="40" x2="146" y2="40" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
-              <line x1="0" y1="20" x2="146" y2="20" stroke="rgba(252,165,165,0.15)" strokeWidth="1" />
-              <polyline
-                points="0,70 24,58 49,46 73,34 98,22 122,12 146,4"
-                fill="none"
-                stroke={theme.upSoft}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="146" cy="4" r="4.5" fill={theme.upSoft} />
-              <circle cx="146" cy="4" r="9" fill={theme.upSoft} opacity="0.2" />
-            </svg>
+
+            {/* 사용 후 */}
+            <div style={{
+              borderRadius: 14, padding: '16px 14px',
+              background: 'rgba(255,255,255,0.14)',
+              border: '1px solid rgba(255,255,255,0.35)',
+              display: 'flex', flexDirection: 'column', gap: 12,
+              boxShadow: '0 0 0 1px rgba(255,255,255,0.06)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>
+                  AFTER · 사용 후
+                </div>
+                <div style={{
+                  fontSize: 9, fontWeight: 800, color: '#4F6EF7', background: '#fff',
+                  borderRadius: 4, padding: '2px 6px',
+                }}>
+                  moigo
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>+24.3%</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>AI 근거로 판단 · 검증</div>
+              </div>
+              <svg width="100%" height="72" viewBox="0 0 160 72" preserveAspectRatio="none" style={{ display: 'block' }}>
+                <polyline
+                  points="0,58 26,50 52,40 78,30 104,20 130,12 160,6"
+                  fill="none" stroke="#fff" strokeWidth="2.8"
+                  strokeLinecap="round" strokeLinejoin="round"
+                />
+                <circle cx="160" cy="6" r="4" fill="#fff" />
+              </svg>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {['AI 추천 + 뉴스 근거', '왜 샀는지 남아 있음', '적중률로 결과 확인'].map(t => (
+                  <div key={t} style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', display: 'flex', gap: 6, fontWeight: 600 }}>
+                    <span>✓</span>{t}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>

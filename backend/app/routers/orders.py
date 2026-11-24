@@ -38,6 +38,13 @@ async def create_order(
     except Exception:
         raise HTTPException(status_code=502, detail="현재가를 조회할 수 없습니다")
 
+    # 차트·화면에 보이는 현재가와 같은 가격으로만 체결한다. 다른 가격으로 싸게/비싸게 사는 것을 막는다
+    if body.price != market_price:
+        raise HTTPException(
+            status_code=400,
+            detail=f"현재가({market_price:,}원)와 같은 가격으로만 주문할 수 있습니다",
+        )
+
     total_amount = market_price * body.quantity
 
     if body.order_type == "BUY":

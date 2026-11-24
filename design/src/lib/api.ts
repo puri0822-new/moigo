@@ -86,6 +86,23 @@ export function getAccount() {
   return apiGet<AccountInfo>('/account');
 }
 
+export interface ApiAssetPoint {
+  date: string; // YYYY-MM-DD
+  total_asset: number; // 현금 + 보유 주식 평가액
+  cash: number;
+  stock_value: number;
+}
+
+export interface ApiAssetHistory {
+  initial_balance: number; // 처음 받은 원금
+  points: ApiAssetPoint[]; // 날짜 오름차순, 하루에 한 점
+}
+
+/** 최근 days일의 일별 총자산 추이 */
+export function getAssetHistory(days: number) {
+  return apiGet<ApiAssetHistory>(`/portfolio/asset-history?days=${days}`);
+}
+
 // --- 종목 (실시간 가격 포함) ---
 export interface ApiStock {
   id: number;

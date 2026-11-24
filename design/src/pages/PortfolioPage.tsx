@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import StockLogo from '../components/StockLogo';
-import { apiGet, fetchWatchlist, removeWatchlist, setWatchAlert } from '../lib/api';
-import type { ApiWatchlist } from '../lib/api';
+import AssetTrendChart from '../components/AssetTrendChart';
+import HoldingsDonut from '../components/HoldingsDonut';
+import { apiGet, fetchWatchlist, getAssetHistory, removeWatchlist, setWatchAlert } from '../lib/api';
+import type { ApiAssetHistory, ApiWatchlist } from '../lib/api';
 import { usePolling, PORTFOLIO_POLL_MS } from '../lib/usePolling';
+
+const TREND_PERIODS = [['1개월', 30], ['3개월', 90], ['1년', 365]] as const;
 
 interface HoldingItem {
   stock_id: number;
@@ -53,6 +57,9 @@ export default function PortfolioPage() {
   // 거래 내역 필터: null 이면 전체
   const [historyYear, setHistoryYear] = useState<number | null>(null);
   const [historyMonth, setHistoryMonth] = useState<number | null>(null);
+  const [trendDays, setTrendDays] = useState<number>(90);
+  const [assetHistory, setAssetHistory] = useState<ApiAssetHistory | null>(null);
+  const [assetHistoryStatus, setAssetHistoryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   usePolling(() => {
     Promise.all([
@@ -64,6 +71,19 @@ export default function PortfolioPage() {
     }).catch(() => {}).finally(() => setLoading(false));
     fetchWatchlist().then(res => setWatchlist(res.data)).catch(() => {});
   }, PORTFOLIO_POLL_MS);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAssetHistoryStatus('loading');
+    getAssetHistory(trendDays)
+      .then(res => {
+        if (cancelled) return;
+        setAssetHistory(res.data);
+        setAssetHistoryStatus('ready');
+      })
+      .catch(() => { if (!cancelled) setAssetHistoryStatus('error'); });
+    return () => { cancelled = true; };
+  }, [trendDays]);
 
   const tradedYear = (t: HistoryItem) => new Date(t.ordered_at).getFullYear();
   const tradedMonth = (t: HistoryItem) => new Date(t.ordered_at).getMonth() + 1;
@@ -128,6 +148,44 @@ export default function PortfolioPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* 자산 추이 · 보유 비중 */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div style={{
+          flex: '3 1 420px', minWidth: 0, background: theme.panel, border: `1px solid ${theme.border}`,
+          borderRadius: 12, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>자산 추이</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {TREND_PERIODS.map(([label, days]) => (
+                <div key={label} onClick={() => setTrendDays(days)} style={{
+                  fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
+                  background: trendDays === days ? theme.ai : 'transparent',
+                  color: trendDays === days ? theme.aiText : theme.textMuted,
+                }}>{label}</div>
+              ))}
+            </div>
+          </div>
+          {assetHistory ? (
+            <AssetTrendChart points={assetHistory.points} initialBalance={assetHistory.initial_balance} />
+          ) : (
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: theme.textMuted }}>
+              {assetHistoryStatus === 'error' ? '자산 추이를 불러오지 못했습니다' : '자산 추이를 불러오는 중...'}
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          flex: '2 1 340px', minWidth: 0, background: theme.panel, border: `1px solid ${theme.border}`,
+          borderRadius: 12, padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12,
+        }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>보유 비중</div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <HoldingsDonut holdings={portfolio?.holdings ?? []} />
+          </div>
+        </div>
       </div>
 
       {/* 보유 종목 */}
