@@ -335,17 +335,6 @@ export default function LandingPage() {
             >
               지금 시작하기 →
             </Pressable>
-            <Pressable
-              onClick={() => setShowLogin(true)}
-              style={{
-                padding: isMobile ? '12px 24px' : '16px 32px', borderRadius: RADIUS.lg,
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                color: '#fff', fontSize: FS.title, fontWeight: FW.medium, cursor: 'pointer',
-              }}
-            >
-              로그인
-            </Pressable>
           </div>
         </div>
 
